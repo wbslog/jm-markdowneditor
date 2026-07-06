@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>jm-mdv(Markdown Viewer)</title>
+<link rel="stylesheet" href="preview.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e2e;
+  }
+
+  /* ---------- 상단 툴바 ---------- */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, #2b2b40, #232336);
+    border-bottom: 1px solid #3b3b55;
+    flex-shrink: 0;
+  }
+  #toolbar button {
+    font-family: inherit;
+    font-size: 13px;
+    color: #e4e4f0;
+    background: #383854;
+    border: 1px solid #4a4a6a;
+    border-radius: 7px;
+    padding: 6px 14px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s;
+  }
+  #toolbar button:hover { background: #46466a; }
+  #toolbar button:active { background: #52527a; }
+  #toolbar button.primary {
+    background: #6366f1;
+    border-color: #7376ff;
+    font-weight: 600;
+  }
+  #toolbar button.primary:hover { background: #7477f5; }
+  #file-path {
+    flex: 1;
+    min-width: 0;
+    margin-left: 8px;
+    font-size: 13px;
+    color: #a5a5c5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl; /* 긴 경로일 때 뒷부분(파일명)이 보이도록 */
+    text-align: left;
+  }
+  #file-path .dirty { color: #fbbf24; font-weight: 700; }
+  #file-path.clickable { cursor: pointer; }
+  #file-path.clickable:hover .name { color: #a5b4fc; text-decoration: underline; }
+
+  /* ---------- 파일 탭 바 ---------- */
+  #tabbar {
+    display: flex;
+    align-items: stretch;
+    background: #232336;
+    border-bottom: 1px solid #3b3b55;
+    flex-shrink: 0;
+  }
+  #tabbar > button {
+    background: none;
+    border: none;
+    color: #8a8ab0;
+    cursor: pointer;
+    padding: 0 9px;
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+  #tabbar > button:hover { color: #fff; background: #31314e; }
+  #tabs {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 9px 6px 14px;
+    font-size: 12.5px;
+    color: #a5a5c5;
+    cursor: pointer;
+    border-right: 1px solid #2d2d44;
+    white-space: nowrap;
+    user-select: none;
+    flex-shrink: 0;
+    max-width: 230px;
+  }
+  .tab:hover { background: #2b2b44; }
+  .tab.active { background: #1e1e2e; color: #fff; box-shadow: inset 0 2px 0 #6366f1; }
+  .tab-name { overflow: hidden; text-overflow: ellipsis; }
+  .tab-name .dirty { color: #fbbf24; }
+  .tab-close {
+    font-size: 10px;
+    color: #6b6b8f;
+    border-radius: 3px;
+    padding: 1px 4px;
+  }
+  .tab-close:hover { background: #44446a; color: #fff; }
+
+  /* ---------- 본문: 좌우 분할 ---------- */
+  #main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ---------- 좌측 폴더 탐색 패널 ---------- */
+  #sidebar {
+    width: 0;
+    flex-shrink: 0;
+    overflow: hidden;
+    transition: width 0.18s ease;
+    background: #232336;
+    border-right: 1px solid #3b3b55;
+    display: flex;
+    flex-direction: column;
+  }
+  #sidebar.open { width: 280px; }
+  #sb-divider {
+    width: 4px;
+    flex-shrink: 0;
+    background: #3b3b55;
+    cursor: col-resize;
+    display: none;
+  }
+  #sidebar.open + #sb-divider { display: block; }
+  #sb-divider:hover { background: #6366f1; }
+  #sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 8px;
+    border-bottom: 1px solid #3b3b55;
+    min-width: 280px;
+  }
+  #sidebar-header button {
+    background: none;
+    border: none;
+    color: #a5a5c5;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px 7px;
+    border-radius: 5px;
+  }
+  #sidebar-header button:hover { background: #383854; color: #fff; }
+  #sb-path {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    color: #a5a5c5;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    direction: rtl;
+    text-align: left;
+  }
+  #sb-drives {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 10px;
+    border-bottom: 1px solid #3b3b55;
+    min-width: 280px;
+  }
+  .sb-drive {
+    font-size: 12px;
+    color: #c5c5dd;
+    background: #31314e;
+    border: 1px solid #44446a;
+    border-radius: 5px;
+    padding: 2px 9px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .sb-drive:hover { background: #3d3d61; }
+  .sb-drive.active { background: #4048a0; border-color: #6366f1; color: #fff; }
+  #sb-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 5px 0;
+    min-width: 280px;
+  }
+  #sb-list::-webkit-scrollbar-track { background: #232336; }
+  #sb-list::-webkit-scrollbar-thumb { background: #3f3f5c; border-radius: 6px; }
+  .sb-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 14px;
+    font-size: 13px;
+    color: #c5c5dd;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .sb-item > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .sb-item:hover { background: #31314e; }
+  .sb-item.file.active { background: #4048a0; color: #fff; }
+  .sb-empty { padding: 12px 14px; font-size: 12px; color: #6b6b8f; }
+  #editor-pane, #preview-pane {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .pane-label {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    padding: 3px 14px;
+    text-transform: uppercase;
+  }
+  .btn-full {
+    font-family: inherit;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 2px 8px;
+    cursor: pointer;
+    background: transparent;
+  }
+  #editor-pane .btn-full { color: #8a8ab0; }
+  #editor-pane .btn-full:hover { background: #383854; color: #e4e4f0; }
+  #preview-pane .btn-full { color: #6b7280; }
+  #preview-pane .btn-full:hover { background: #dfe2e8; color: #1f2328; }
+
+  /* 전체보기 모드 (분할 드래그로 지정된 고정 너비(inline flex)를 !important로 무시) */
+  #main.full-editor #preview-pane, #main.full-editor #divider { display: none; }
+  #main.full-preview #editor-pane, #main.full-preview #divider { display: none; }
+  #main.full-editor #editor-pane { flex: 1 1 auto !important; }
+  #main.full-preview #preview-pane { flex: 1 1 auto !important; }
+
+  /* 맨 위로 가기 버튼 (연하게, 호버 시 진하게) */
+  #editor-pane, #preview-pane { position: relative; }
+  .scroll-top {
+    position: absolute;
+    right: 20px;
+    bottom: 16px;
+    z-index: 5;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(120, 120, 170, 0.35);
+    background: rgba(120, 120, 170, 0.16);
+    color: rgba(200, 200, 230, 0.6);
+    font-size: 15px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.15s;
+  }
+  .scroll-top:hover { opacity: 1; background: rgba(99, 102, 241, 0.5); color: #fff; }
+  #preview-pane .scroll-top {
+    border-color: rgba(60, 60, 90, 0.25);
+    background: rgba(120, 120, 150, 0.13);
+    color: rgba(60, 60, 90, 0.55);
+  }
+  #preview-pane .scroll-top:hover { background: rgba(99, 102, 241, 0.75); color: #fff; }
+
+  /* 탭 드래그 정렬 표시 */
+  .tab.drag-over { box-shadow: inset 3px 0 0 #6366f1; }
+  .tab.dragging { opacity: 0.4; }
+  #editor-pane .pane-label { color: #8a8ab0; background: #232336; }
+  #preview-pane .pane-label { color: #6b7280; background: #eef0f4; border-bottom: 1px solid #e0e2e8; }
+
+  #editor {
+    flex: 1;
+    width: 100%;
+    resize: none;
+    border: 0;
+    outline: none;
+    padding: 18px 20px 60vh;
+    background: #1e1e2e;
+    color: #dcdcee;
+    font-family: "Cascadia Code", Consolas, "D2Coding", monospace;
+    font-size: 14px;
+    line-height: 1.7;
+    tab-size: 4;
+    caret-color: #a5b4fc;
+  }
+  #editor::selection { background: #44446a; }
+
+  #divider {
+    width: 5px;
+    flex-shrink: 0;
+    background: #3b3b55;
+    cursor: col-resize;
+  }
+  #divider:hover { background: #6366f1; }
+
+  #preview-scroll {
+    flex: 1;
+    overflow-y: auto;
+    background: #ffffff;
+    padding: 24px 36px 60vh;
+  }
+
+  /* 스크롤바 */
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  #editor::-webkit-scrollbar-track { background: #1e1e2e; }
+  #editor::-webkit-scrollbar-thumb { background: #3f3f5c; border-radius: 6px; }
+  #preview-scroll::-webkit-scrollbar-track { background: #f4f5f7; }
+  #preview-scroll::-webkit-scrollbar-thumb { background: #c9ccd4; border-radius: 6px; }
+
+  /* ---------- 하단 상태바 ---------- */
+  #statusbar {
+    flex-shrink: 0;
+    display: flex;
+    gap: 18px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: #8a8ab0;
+    background: #232336;
+    border-top: 1px solid #3b3b55;
+  }
+  #statusbar .msg { color: #4ade80; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button id="btn-new" title="새 문서 (Ctrl+N)">📄 새 파일</button>
+  <button id="btn-dir" title="폴더 탐색 패널 열기/닫기">🗂️ 디렉토리</button>
+  <button id="btn-open" title="파일 열기 (Ctrl+O)">📂 열기</button>
+  <button id="btn-save" class="primary" title="저장 (Ctrl+S)">💾 저장</button>
+  <button id="btn-saveas" title="다른 이름으로 저장 (Ctrl+Shift+S)">📝 다른 이름</button>
+  <button id="btn-saveall" title="열린 파일 모두 저장">🗃️ 모두 저장</button>
+  <button id="btn-closeall" title="열린 탭 모두 닫기 (변경사항은 파일마다 확인)">🚪 모두 닫기</button>
+  <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
+  <div id="file-path"><span class="name">새 문서</span></div>
+</div>
+
+<div id="tabbar">
+  <button id="tab-left" title="이전 파일 보기">◀</button>
+  <div id="tabs"></div>
+  <button id="tab-right" title="다음 파일 보기">▶</button>
+</div>
+
+<div id="main">
+  <div id="sidebar">
+    <div id="sidebar-header">
+      <button id="sb-up" title="상위 폴더로">⬆️</button>
+      <div id="sb-path"></div>
+      <button id="sb-close" title="디렉토리 닫기">✕</button>
+    </div>
+    <div id="sb-drives"></div>
+    <div id="sb-list"></div>
+  </div>
+  <div id="sb-divider"></div>
+  <div id="editor-pane">
+    <div class="pane-label">Markdown <button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></div>
+    <textarea id="editor" spellcheck="false" placeholder="여기에 마크다운을 입력하세요..."></textarea>
+    <button id="editor-top" class="scroll-top" title="맨 위로">▲</button>
+  </div>
+  <div id="divider"></div>
+  <div id="preview-pane">
+    <div class="pane-label">Preview <button class="btn-full" id="btn-full-preview" title="미리보기 전체보기 전환">⛶ 전체보기</button></div>
+    <div id="preview-scroll">
+      <article id="preview" class="markdown-body"></article>
+    </div>
+    <button id="preview-top" class="scroll-top" title="맨 위로">▲</button>
+  </div>
+</div>
+
+<div id="statusbar">
+  <span id="stat-pos">1:1</span>
+  <span id="stat-len">0자</span>
+  <span id="stat-msg" class="msg"></span>
+</div>
+
+<script>
+const editor = document.getElementById('editor');
+const preview = document.getElementById('preview');
+const previewScroll = document.getElementById('preview-scroll');
+const filePathEl = document.getElementById('file-path');
+const statPos = document.getElementById('stat-pos');
+const statLen = document.getElementById('stat-len');
+const statMsg = document.getElementById('stat-msg');
+
+/* 다중 파일 탭 상태 */
+let tabs = [];        // [{path, name, content, dirty}] (path=null → 새 문서)
+let activeTab = null;
+let currentPath = null;  // activeTab.path 미러 (편의용)
+let renderTimer = null;
+let msgTimer = null;
+
+function baseName(p) { return p.split(/[\\/]/).pop(); }
+
+const SAMPLE = `# Markdown View에 오신 것을 환영합니다! 🎉
+
+좌측에서 **마크다운**을 수정하면 우측에 *실시간*으로 반영됩니다.
+
+## 주요 기능
+
+- 📂 파일 열기 / 💾 저장 (\`Ctrl+O\` / \`Ctrl+S\`)
+- 🔄 좌우 **동기 스크롤**
+- 🌐 미리보기 그대로 **HTML 내보내기**
+
+## 문법 예시
+
+> 인용문은 이렇게 표현됩니다.
+
+| 기능 | 단축키 |
+|------|--------|
+| 저장 | Ctrl+S |
+| 열기 | Ctrl+O |
+
+\`\`\`python
+def hello(name: str) -> str:
+    return f"안녕하세요, {name}님!"
+\`\`\`
+
+- [x] 완료된 작업
+- [ ] 해야 할 작업
+
+~~취소선~~, ==하이라이트==, 그리고 [링크](https://example.com)도 지원합니다.
+`;
+
+/* ---------- 렌더링 (실시간) ----------
+   변환 요청이 밀려 쌓이지 않도록: 진행 중이면 최신 내용 하나만 대기시키고,
+   같은 내용은 다시 변환하지 않음 */
+let rendering = false;
+let renderQueued = false;
+let lastRendered = null;
+
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(renderNow, 100);
+}
+
+async function renderNow() {
+  const text = editor.value;
+  if (text === lastRendered) return;   // 내용 그대로면 스킵
+  if (rendering) { renderQueued = true; return; }
+  rendering = true;
+  try {
+    const r = await window.pywebview.api.render(text);
+    lastRendered = text;
+    preview.innerHTML = r.html;
+  } catch (e) { /* API 준비 전 호출은 무시 */ }
+  rendering = false;
+  if (renderQueued) {
+    renderQueued = false;
+    renderNow();                        // 대기 중이던 최신 내용 반영
+  }
+}
+
+/* ---------- 상태 표시 ---------- */
+function updatePath() {
+  const name = currentPath || '새 문서';
+  const dirty = activeTab ? activeTab.dirty : false;
+  filePathEl.innerHTML = (dirty ? '<span class="dirty">● </span>' : '')
+    + '<span class="name"></span>';
+  filePathEl.querySelector('.name').textContent = name;
+  filePathEl.classList.toggle('clickable', !!currentPath);
+  filePathEl.title = currentPath ? name + '\n클릭하면 탐색기에서 이 파일 위치를 엽니다' : name;
+}
+
+filePathEl.addEventListener('click', () => {
+  if (currentPath) window.pywebview.api.show_in_explorer();
+});
+
+function updateStats() {
+  const pos = editor.selectionStart;
+  const before = editor.value.slice(0, pos);
+  const line = (before.match(/\n/g) || []).length + 1;
+  const col = pos - before.lastIndexOf('\n');
+  statPos.textContent = line + ':' + col;
+  statLen.textContent = editor.value.length.toLocaleString() + '자';
+}
+
+function flash(msg) {
+  statMsg.textContent = msg;
+  clearTimeout(msgTimer);
+  msgTimer = setTimeout(() => statMsg.textContent = '', 3000);
+}
+
+function setDirty(d) {
+  if (activeTab && activeTab.dirty !== d) {
+    activeTab.dirty = d;
+    updatePath();
+    renderTabs();
+  }
+}
+
+/* ---------- 동기 스크롤 ---------- */
+let scrollSource = null;
+let scrollResetTimer = null;
+
+function syncScroll(src, dst) {
+  if (scrollSource && scrollSource !== src) return;
+  scrollSource = src;
+  const srcMax = src.scrollHeight - src.clientHeight;
+  const dstMax = dst.scrollHeight - dst.clientHeight;
+  if (srcMax > 0) dst.scrollTop = (src.scrollTop / srcMax) * dstMax;
+  clearTimeout(scrollResetTimer);
+  scrollResetTimer = setTimeout(() => scrollSource = null, 120);
+}
+
+editor.addEventListener('scroll', () => syncScroll(editor, previewScroll));
+previewScroll.addEventListener('scroll', () => syncScroll(previewScroll, editor));
+
+/* ---------- 에디터 입력 ---------- */
+editor.addEventListener('input', () => {
+  setDirty(true);
+  scheduleRender();
+  updateStats();
+});
+/* 키보드에서 손을 뗄 때마다 즉시 렌더링 */
+editor.addEventListener('keyup', () => {
+  updateStats();
+  clearTimeout(renderTimer);
+  renderNow();
+});
+editor.addEventListener('click', updateStats);
+
+/* Tab 키 → 공백 4칸 삽입 */
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, epos = editor.selectionEnd;
+    editor.setRangeText('    ', s, epos, 'end');
+    setDirty(true);
+    scheduleRender();
+  }
+});
+
+/* ---------- 파일/탭 동작 ---------- */
+const tabsEl = document.getElementById('tabs');
+
+function syncEditorToTab() {
+  if (activeTab) activeTab.content = editor.value;
+}
+
+/* 열린 탭 목록을 저장 → 다음 실행 때 그대로 복원 */
+function saveSession() {
+  try {
+    const files = tabs.filter(t => t.path).map(t => t.path);
+    const active = (activeTab && activeTab.path) ? files.indexOf(activeTab.path) : -1;
+    window.pywebview.api.save_session(files, active);
+  } catch (e) { /* API 준비 전이면 무시 */ }
+}
+
+function showActiveTab() {
+  currentPath = activeTab ? activeTab.path : null;
+  editor.value = activeTab ? activeTab.content : '';
+  updatePath();
+  updateStats();
+  renderTabs();
+  renderNow();
+  markActiveFile();
+  saveSession();
+}
+
+let dragTab = null; // 드래그 중인 탭
+
+function renderTabs() {
+  tabsEl.innerHTML = '';
+  for (const t of tabs) {
+    const el = document.createElement('div');
+    el.className = 'tab' + (t === activeTab ? ' active' : '');
+    /* 드래그로 탭 순서 변경 */
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      dragTab = t;
+      el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    el.addEventListener('dragend', () => { dragTab = null; renderTabs(); });
+    el.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      if (dragTab && dragTab !== t) el.classList.add('drag-over');
+    });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if (!dragTab || dragTab === t) return;
+      const from = tabs.indexOf(dragTab);
+      const to = tabs.indexOf(t);
+      tabs.splice(from, 1);
+      tabs.splice(to, 0, dragTab);
+      dragTab = null;
+      renderTabs();
+      saveSession();
+    });
+    const nm = document.createElement('span');
+    nm.className = 'tab-name';
+    nm.innerHTML = (t.dirty ? '<span class="dirty">● </span>' : '');
+    nm.append(document.createTextNode(t.name));
+    nm.title = t.path || '새 문서';
+    const x = document.createElement('span');
+    x.className = 'tab-close';
+    x.textContent = '✕';
+    x.title = '탭 닫기';
+    x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t); });
+    el.append(nm, x);
+    el.addEventListener('click', () => activateTab(t));
+    tabsEl.appendChild(el);
+  }
+  const act = tabsEl.querySelector('.tab.active');
+  if (act) act.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+}
+
+/* 탭 클릭(전환) 시: 디스크의 최신 내용과 버퍼가 다르면 재로딩 여부 확인 */
+async function activateTab(t) {
+  syncEditorToTab();
+  activeTab = t;
+  if (t.path) {
+    const r = await window.pywebview.api.open_path(t.path);
+    if (r && r.content !== t.content) {
+      if (confirm('내용이 수정되어 다시 로딩 하시겠습니까?')) {
+        t.content = r.content;
+        t.dirty = false;
+      } else {
+        t.dirty = true; // 버퍼 유지 → 디스크와 다른 상태
+      }
+    } else if (r) {
+      t.dirty = false;
+    }
+  } else {
+    await window.pywebview.api.new_file();
+  }
+  showActiveTab();
+}
+
+/* 파일을 탭으로 열기 (열기 대화상자/디렉토리 패널 공용) */
+async function openFileIntoTabs(r) {
+  const existing = tabs.find(t => t.path === r.path);
+  if (existing) { await activateTab(existing); return; }
+  syncEditorToTab();
+  const t = { path: r.path, name: baseName(r.path), content: r.content, dirty: false };
+  tabs.push(t);
+  activeTab = t;
+  showActiveTab();
+  editor.scrollTop = 0;
+  flash('열기 완료');
+}
+
+async function closeTab(t) {
+  if (t === activeTab) syncEditorToTab();
+  if (t.dirty && !confirm('저장하지 않은 변경사항이 있습니다. 탭을 닫을까요?')) return;
+  const idx = tabs.indexOf(t);
+  tabs.splice(idx, 1);
+  if (t === activeTab) {
+    if (!tabs.length) { await doNew(); return; }
+    await activateTab(tabs[Math.max(0, idx - 1)]);
+  } else {
+    renderTabs();
+    saveSession();
+  }
+}
+
+async function doNew() {
+  syncEditorToTab();
+  await window.pywebview.api.new_file();
+  const t = { path: null, name: '새 문서', content: '', dirty: false };
+  tabs.push(t);
+  activeTab = t;
+  showActiveTab();
+}
+
+async function doOpen() {
+  const r = await window.pywebview.api.open_file();
+  if (!r) return;
+  await openFileIntoTabs(r);
+}
+
+async function doSave() {
+  if (!activeTab) return;
+  syncEditorToTab();
+  const r = await window.pywebview.api.save_file(editor.value);
+  if (!r) return;
+  activeTab.path = r.path;
+  activeTab.name = baseName(r.path);
+  activeTab.dirty = false;
+  currentPath = r.path;
+  updatePath();
+  renderTabs();
+  markActiveFile();
+  saveSession();
+  flash('저장됨: ' + r.path);
+}
+
+/* 다른 이름으로 저장 */
+async function doSaveAs() {
+  if (!activeTab) return;
+  syncEditorToTab();
+  const d = await window.pywebview.api.save_as_dialog(activeTab.name === '새 문서' ? 'untitled.md' : activeTab.name);
+  if (!d) return;
+  await window.pywebview.api.save_to(d.path, activeTab.content);
+  activeTab.path = d.path;
+  activeTab.name = baseName(d.path);
+  activeTab.dirty = false;
+  currentPath = d.path;
+  await window.pywebview.api.set_current(d.path);
+  updatePath();
+  renderTabs();
+  markActiveFile();
+  saveSession();
+  flash('저장됨: ' + d.path);
+}
+
+/* 모두 저장: 열려있는 모든 탭을 현재 버퍼 기준으로 일괄 저장 */
+async function doSaveAll() {
+  syncEditorToTab();
+  let saved = 0;
+  for (const t of tabs) {
+    if (t.path) {
+      if (!t.dirty) continue; // 변경 없는 파일은 그대로
+      await window.pywebview.api.save_to(t.path, t.content);
+      t.dirty = false;
+      saved++;
+    } else {
+      const d = await window.pywebview.api.save_as_dialog('untitled.md');
+      if (!d) continue; // 취소하면 해당 탭은 건너뜀
+      await window.pywebview.api.save_to(d.path, t.content);
+      t.path = d.path;
+      t.name = baseName(d.path);
+      t.dirty = false;
+      saved++;
+    }
+  }
+  if (activeTab && activeTab.path) {
+    currentPath = activeTab.path;
+    await window.pywebview.api.set_current(activeTab.path);
+  }
+  updatePath();
+  renderTabs();
+  markActiveFile();
+  flash('모두 저장 완료 (' + saved + '개)');
+}
+
+/* 모두 닫기: 변경사항 있는 파일마다 저장 여부를 확인하며 전체 닫기 */
+async function doCloseAll() {
+  syncEditorToTab();
+  for (const t of [...tabs]) {
+    if (t.dirty) {
+      if (confirm('"' + t.name + '" 파일에 변경사항이 있습니다. 저장하고 닫을까요?\n(취소하면 저장하지 않고 닫습니다)')) {
+        if (t.path) {
+          await window.pywebview.api.save_to(t.path, t.content);
+        } else {
+          const d = await window.pywebview.api.save_as_dialog('untitled.md');
+          if (d) await window.pywebview.api.save_to(d.path, t.content);
+        }
+      }
+    }
+    tabs.splice(tabs.indexOf(t), 1);
+  }
+  activeTab = null;
+  await doNew(); // 빈 새 문서 탭 하나로 시작
+}
+
+document.getElementById('btn-saveas').addEventListener('click', doSaveAs);
+document.getElementById('btn-saveall').addEventListener('click', doSaveAll);
+document.getElementById('btn-closeall').addEventListener('click', doCloseAll);
+
+/* 탭 바 좌우 이동 - 한 파일(탭)씩 스크롤 */
+function scrollTabs(dir) {
+  const children = [...tabsEl.children];
+  if (!children.length) return;
+  const sl = tabsEl.scrollLeft;
+  if (dir > 0) {
+    const next = children.find(c => c.offsetLeft > sl + 1);
+    if (next) tabsEl.scrollTo({ left: next.offsetLeft });
+  } else {
+    const prev = [...children].reverse().find(c => c.offsetLeft < sl - 1);
+    if (prev) tabsEl.scrollTo({ left: prev.offsetLeft });
+  }
+}
+document.getElementById('tab-left').addEventListener('click', () => scrollTabs(-1));
+document.getElementById('tab-right').addEventListener('click', () => scrollTabs(1));
+
+/* ---------- 맨 위로 가기 ---------- */
+document.getElementById('editor-top').addEventListener('click', () =>
+  editor.scrollTo({ top: 0, behavior: 'smooth' }));
+document.getElementById('preview-top').addEventListener('click', () =>
+  previewScroll.scrollTo({ top: 0, behavior: 'smooth' }));
+
+async function doExport() {
+  const r = await window.pywebview.api.export_html(editor.value);
+  if (!r) return;
+  flash('HTML 저장됨: ' + r.path);
+}
+
+document.getElementById('btn-new').addEventListener('click', doNew);
+document.getElementById('btn-open').addEventListener('click', doOpen);
+document.getElementById('btn-save').addEventListener('click', doSave);
+document.getElementById('btn-export').addEventListener('click', doExport);
+
+/* ---------- 폴더 탐색 패널 ---------- */
+const sidebar = document.getElementById('sidebar');
+const sbList = document.getElementById('sb-list');
+const sbPath = document.getElementById('sb-path');
+const sbUp = document.getElementById('sb-up');
+let sidebarDir = null;    // 마지막으로 탐색한 위치 (닫았다 열어도 유지)
+let sidebarParent = null;
+
+const sbDrives = document.getElementById('sb-drives');
+
+async function loadDir(path) {
+  const r = await window.pywebview.api.list_dir(path || null);
+  if (!r) return;
+  sidebarDir = r.path;
+  sidebarParent = r.parent;
+  sbPath.textContent = r.name;
+  sbPath.title = r.path === '::drives' ? '내 PC' : r.path;
+  sbUp.style.visibility = r.parent ? 'visible' : 'hidden';
+
+  // 드라이브(디스크) 바 - 항상 표시 (현재 위치가 속한 드라이브 = 가장 긴 경로 매칭)
+  sbDrives.innerHTML = '';
+  const drv = r.drives || [];
+  let activeDrive = null;
+  if (r.path !== '::drives') {
+    const up = r.path.toUpperCase();
+    for (const d of drv) {
+      const base = d.path.toUpperCase().replace(/[\\/]+$/, '');
+      if (up === base || up.startsWith(base + '\\') || up.startsWith(base + '/') || d.path === '/') {
+        if (!activeDrive || d.path.length > activeDrive.path.length) activeDrive = d;
+      }
+    }
+  }
+  for (const d of drv) {
+    const chip = document.createElement('div');
+    chip.className = 'sb-drive' + (d === activeDrive ? ' active' : '');
+    chip.textContent = d.label;
+    chip.title = d.path + ' 로 이동';
+    chip.addEventListener('click', () => loadDir(d.path));
+    sbDrives.appendChild(chip);
+  }
+
+  sbList.innerHTML = '';
+
+  // ".." = 상위(이전) 폴더로 이동 (더블클릭)
+  if (r.parent) {
+    const up = makeItem('📁', '..');
+    up.title = '더블클릭: 상위 폴더로 이동';
+    up.addEventListener('dblclick', () => loadDir(r.parent));
+    sbList.appendChild(up);
+  }
+  for (const d of r.dirs) {
+    const el = makeItem('📁', d.name);
+    el.title = '더블클릭: 폴더 열기';
+    el.addEventListener('dblclick', () => loadDir(d.path));
+    sbList.appendChild(el);
+  }
+  for (const f of r.files) {
+    const el = makeItem('📄', f.name);
+    el.classList.add('file');
+    el.dataset.path = f.path;
+    el.addEventListener('dblclick', async () => {
+      const opened = await window.pywebview.api.open_path(f.path);
+      if (opened) await openFileIntoTabs(opened);
+    });
+    sbList.appendChild(el);
+  }
+  if (!r.dirs.length && !r.files.length) {
+    const empty = document.createElement('div');
+    empty.className = 'sb-empty';
+    empty.textContent = '표시할 폴더/마크다운 파일이 없습니다';
+    sbList.appendChild(empty);
+  }
+  markActiveFile();
+}
+
+function makeItem(icon, name) {
+  const el = document.createElement('div');
+  el.className = 'sb-item';
+  const i = document.createElement('span');
+  i.textContent = icon;
+  const n = document.createElement('span');
+  n.textContent = name;
+  n.title = name;
+  el.append(i, n);
+  return el;
+}
+
+function markActiveFile() {
+  sbList.querySelectorAll('.sb-item.file').forEach(el =>
+    el.classList.toggle('active', el.dataset.path === currentPath));
+}
+
+let sbWidth = 280; // 사용자가 조절한 패널 너비 기억
+
+function setSidebarOpen(open) {
+  if (open) {
+    sidebar.classList.add('open');
+    sidebar.style.width = sbWidth + 'px';
+    // 열린 파일이 있으면 그 파일 위치를 기본으로, 없으면 마지막 탐색 위치(또는 홈)
+    if (currentPath) loadDir(null);
+    else loadDir(sidebarDir);
+  } else {
+    sidebar.classList.remove('open');
+    sidebar.style.width = '';
+  }
+}
+
+document.getElementById('btn-dir').addEventListener('click', () =>
+  setSidebarOpen(!sidebar.classList.contains('open')));
+document.getElementById('sb-close').addEventListener('click', () => setSidebarOpen(false));
+sbUp.addEventListener('click', () => { if (sidebarParent) loadDir(sidebarParent); });
+
+/* 디렉토리 패널 너비 조절 */
+document.getElementById('sb-divider').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  sidebar.style.transition = 'none';
+  const move = (ev) => {
+    const rect = mainEl.getBoundingClientRect();
+    sbWidth = Math.max(170, Math.min(560, ev.clientX - rect.left));
+    sidebar.style.width = sbWidth + 'px';
+  };
+  const up = () => {
+    sidebar.style.transition = '';
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+});
+
+/* 단축키 */
+document.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey) return;
+  const k = e.key.toLowerCase();
+  if (k === 's' && e.shiftKey) { e.preventDefault(); doSaveAs(); }
+  else if (k === 's') { e.preventDefault(); doSave(); }
+  else if (k === 'o') { e.preventDefault(); doOpen(); }
+  else if (k === 'n') { e.preventDefault(); doNew(); }
+});
+
+/* ---------- 전체보기 토글 ---------- */
+const mainEl = document.getElementById('main');
+const btnFullEditor = document.getElementById('btn-full-editor');
+const btnFullPreview = document.getElementById('btn-full-preview');
+
+function updateFullButtons() {
+  btnFullEditor.textContent = mainEl.classList.contains('full-editor') ? '◫ 분할보기' : '⛶ 전체보기';
+  btnFullPreview.textContent = mainEl.classList.contains('full-preview') ? '◫ 분할보기' : '⛶ 전체보기';
+}
+btnFullEditor.addEventListener('click', () => {
+  mainEl.classList.remove('full-preview');
+  mainEl.classList.toggle('full-editor');
+  updateFullButtons();
+});
+btnFullPreview.addEventListener('click', () => {
+  mainEl.classList.remove('full-editor');
+  mainEl.classList.toggle('full-preview');
+  updateFullButtons();
+});
+
+/* ---------- 분할 크기 조절 ---------- */
+const divider = document.getElementById('divider');
+const editorPane = document.getElementById('editor-pane');
+/* 더블클릭 → 좌우 정중앙(50:50)으로 리셋 */
+divider.addEventListener('dblclick', () => { editorPane.style.flex = ''; });
+
+divider.addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  const move = (ev) => {
+    const rect = mainEl.getBoundingClientRect();
+    // 사이드바가 열려 있으면 그 폭을 제외한 영역 기준으로 계산 (유격 버그 방지)
+    const sbW = sidebar.getBoundingClientRect().width;
+    const avail = rect.width - sbW - divider.offsetWidth;
+    let px = ev.clientX - rect.left - sbW;
+    px = Math.max(avail * 0.15, Math.min(avail * 0.85, px));
+    editorPane.style.flex = '0 0 ' + px + 'px';
+  };
+  const up = () => {
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+});
+
+/* ---------- 시작 ---------- */
+window.addEventListener('pywebviewready', async () => {
+  // 코드 하이라이트(pygments) CSS 주입
+  const css = await window.pywebview.api.get_pygments_css();
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+
+  // 이전 세션(열려 있던 파일들) 복원
+  try {
+    const sess = await window.pywebview.api.load_session();
+    if (sess && sess.files && sess.files.length) {
+      for (const p of sess.files) {
+        const r = await window.pywebview.api.open_path(p);
+        if (r) tabs.push({ path: r.path, name: baseName(r.path), content: r.content, dirty: false });
+      }
+      if (tabs.length) {
+        activeTab = tabs[sess.active] || tabs[0];
+        await window.pywebview.api.set_current(activeTab.path);
+      }
+    }
+  } catch (e) { /* 세션 복원 실패 시 새 문서로 시작 */ }
+
+  if (!tabs.length) {
+    const first = { path: null, name: '새 문서', content: SAMPLE, dirty: false };
+    tabs.push(first);
+    activeTab = first;
+  }
+  showActiveTab();
+});
+</script>
+</body>
+</html>

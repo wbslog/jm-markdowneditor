@@ -1,0 +1,5 @@
+pywebview>=6.0
+markdown>=3.6
+pymdown-extensions>=10.0
+pygments>=2.17
+pyinstaller>=6.0
