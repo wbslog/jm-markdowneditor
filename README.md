@@ -45,6 +45,50 @@ Windows용 실시간 마크다운 에디터/뷰어 (무설치 단일 exe).
 
 파일 인코딩: UTF-8 / UTF-8(BOM) / CP949(EUC-KR) 자동 인식, 저장은 UTF-8.
 
+---
+
+## 📥 다운로드 후 실행 (릴리스 사용자용)
+
+[GitHub Releases](../../releases)에서 자신의 OS에 맞는 파일을 받아 실행합니다.
+직접 빌드하지 않고 바로 쓰고 싶은 분은 이 방법을 사용하세요.
+
+### 🪟 Windows
+
+1. 릴리스에서 **`jm-mdv.exe`** (또는 `jm-mdv-win.zip`)를 받습니다. zip이면 압축을 풉니다.
+2. `jm-mdv.exe`를 더블클릭해 실행합니다.
+3. **"Windows의 PC 보호"(SmartScreen)** 경고가 뜨면 → **추가 정보** → **실행**을 누릅니다.
+   (서명이 없는 앱이라 나오는 정상 경고이며, 최초 1회만 확인하면 됩니다.)
+
+### 🍎 macOS
+
+> ⚠️ macOS 앱(`.app`)은 **폴더 번들**이라 압축 방식이 중요합니다. 반드시 아래처럼 풀어야
+> 내부 링크가 보존되어 정상 실행됩니다. (잘못 풀면 "이 Mac에서 실행할 수 없습니다" 오류)
+
+1. 릴리스에서 자신의 칩에 맞는 zip을 받습니다.
+   - Apple Silicon(M1/M2/M3): `jm-mdv-mac-arm64.zip`
+   - Intel: `jm-mdv-mac-x86_64.zip`
+   - (본인 칩 확인: 터미널에서 `uname -m` → `arm64` 또는 `x86_64`)
+2. **압축 풀기** — Finder에서 zip을 **더블클릭**하거나, 터미널에서:
+   ```bash
+   ditto -x -k jm-mdv-mac-arm64.zip ./
+   ```
+3. **격리 표식 제거 후 실행** (다운로드한 앱은 이 과정이 필요합니다):
+   ```bash
+   xattr -cr jm-mdv.app     # 앱이 있는 위치에서 실행
+   open jm-mdv.app
+   ```
+   또는 Finder에서 앱 **우클릭 → 열기 → (대화상자에서) 열기** (최초 1회).
+
+> **실행이 안 될 때 원인 빠르게 확인** — 터미널에서 직접 실행하면 실제 오류가 표시됩니다:
+> ```bash
+> ./jm-mdv.app/Contents/MacOS/jm-mdv
+> ```
+> - `bad CPU type` → 칩에 맞지 않는 파일(다른 아키텍처 zip을 받은 경우)
+> - `Library not loaded / image not found` → 압축을 잘못 풀어 번들이 깨짐 → 2번을 `ditto`로 다시
+> - `developer cannot be verified` → 3번의 `xattr -cr` 로 해결
+
+---
+
 ## 개발 중 실행 (exe 빌드 전 테스트)
 
 빌드 없이 소스에서 바로 실행해 동작을 확인하는 방법입니다. (Windows / macOS 공통)
@@ -199,18 +243,10 @@ deactivate
    cd 경로/markdown_view
    ```
 
-### 방법 A — 스크립트로 빌드 (권장)
-
-```bash
-chmod +x build_mac.sh   # 최초 1회 실행 권한 부여
-./build_mac.sh
-```
-
-스크립트가 의존성 설치와 빌드를 자동으로 수행합니다.
-
-### 방법 B — 명령어로 직접 빌드 (가상환경 사용, 권장)
+### 빌드 (가상환경 사용, 권장)
 
 macOS는 시스템 Python 보호 정책 때문에 **가상환경 사용을 강력히 권장**합니다.
+아래 흐름에서 3번은 **스크립트(3.1)** 또는 **수동 명령(3.2)** 중 하나만 선택해 실행하면 됩니다.
 
 ```bash
 # 1) 가상환경 생성 및 활성화 (프로젝트 폴더에서)
@@ -220,7 +256,13 @@ source .venv/bin/activate
 # 2) 의존성 설치 (이 가상환경에만 설치됨)
 pip install -r requirements.txt
 
-# 3) PyInstaller로 빌드
+# 3.1) 스크립트로 빌드 (의존성 설치 + 빌드를 한 번에 처리)
+chmod +x build_mac.sh   # 최초 1회 실행 권한 부여
+./build_mac.sh
+
+# 또는 아래와 같이 수동으로 빌드하세요.
+
+# 3.2) PyInstaller로 직접 빌드
 python -m PyInstaller --noconfirm --clean --onedir --windowed --name jm-mdv \
   --add-data "ui:ui" \
   --collect-submodules markdown \
@@ -234,9 +276,9 @@ python -m PyInstaller --noconfirm --clean --onedir --windowed --name jm-mdv \
 deactivate
 ```
 
-> 가상환경 없이 빌드하려면 1·4번을 빼고 2번을
+> 가상환경 없이 빌드하려면 1·4번을 빼고, 2번을
 > `python3 -m pip install --upgrade pywebview markdown pymdown-extensions pygments pyinstaller`로
-> 바꾼 뒤 3번을 `python3 -m PyInstaller ...`로 실행하면 됩니다.
+> 바꾼 뒤 3.2번을 `python3 -m PyInstaller ...`로 실행하면 됩니다.
 
 > **Windows와의 차이점**
 > - `--add-data "ui:ui"` : **macOS는 구분자가 콜론(`:`)** (Windows의 세미콜론과 다름)
@@ -248,14 +290,33 @@ deactivate
 - 결과: **`dist/jm-mdv.app`** — 응용 프로그램 폴더로 복사해서 사용합니다.
 - 코드는 크로스 플랫폼이라 Finder에서 보기, `/Volumes` 드라이브 목록, 🏠 홈 버튼이 자동 지원됩니다.
 
-### "확인되지 않은 개발자" 경고
+### GitHub 릴리스에 올리기 (중요)
+
+`.app`은 **폴더 번들**이라 그냥 올리면 안 되고, **심볼릭 링크·실행 권한을 보존하는 방식으로 압축**해야 합니다.
+Finder "압축"도 되지만, 확실하게 하려면 **`ditto`** 로 만드세요:
+
+```bash
+# 배포용 zip 생성 (심링크·권한·리소스 보존)
+ditto -c -k --sequesterRsrc --keepParent dist/jm-mdv.app jm-mdv-mac-arm64.zip
+#                                                          └ Intel 빌드면 -x86_64 로
+```
+
+그런 다음 GitHub 저장소 → **Releases → Draft a new release** → 태그 지정(예: `v1.0.0`)
+→ 위 zip을 **드래그해서 첨부** → **Publish**.
+
+> ⚠️ **아키텍처 주의**: PyInstaller는 **빌드한 맥의 칩으로만** 만듭니다.
+> Apple Silicon에서 빌드한 앱은 Intel 맥에서 실행되지 않습니다(그 반대는 Rosetta로 실행 가능).
+> 두 칩 모두 지원하려면 각 칩에서 빌드해 **arm64 / x86_64 두 개의 zip**을 올리거나,
+> Rosetta로 x86_64 하나만 빌드해 올리면 됩니다. (`arch -x86_64 python3 -m venv ...` 로 x86_64 환경 구성)
+
+### "확인되지 않은 개발자" / "손상됨" 경고
 
 서명/공증(notarize)이 없는 앱이라 Gatekeeper가 실행을 막을 수 있습니다. 무료 대응:
 
 - Finder에서 앱 **우클릭 → 열기** → 대화상자에서 다시 **"열기"** (최초 1회만)
 - 또는 터미널에서 격리 속성 제거:
   ```bash
-  xattr -cr dist/jm-mdv.app
+  xattr -cr jm-mdv.app
   ```
 
 ### 자주 겪는 문제
@@ -264,8 +325,10 @@ deactivate
 |------|------|
 | `python3: command not found` | `brew install python` 또는 python.org에서 설치 |
 | `command not found: pyinstaller` | `python3 -m PyInstaller ...` 형태로 모듈 실행 |
-| Apple Silicon/Intel 호환 | 빌드한 맥의 아키텍처에 맞춰 생성됨. 두 아키텍처 모두 지원하려면 각각 빌드 |
-| 앱이 "손상됨"이라며 안 열림 | `xattr -cr dist/jm-mdv.app` 실행 후 재시도 |
+| "이 Mac에서 실행할 수 없습니다" (다른 칩) | 대상 칩에 맞게 빌드. Apple Silicon→Intel은 실행 불가 → x86_64로 빌드 |
+| "이 Mac에서 실행할 수 없습니다" (**같은 칩인데도**) | zip이 번들을 깨뜨린 것 → `ditto`로 압축/해제. `./jm-mdv.app/Contents/MacOS/jm-mdv` 직접 실행해 원인 확인 |
+| 앱이 "손상됨"이라며 안 열림 | `xattr -cr jm-mdv.app` 실행 후 재시도 |
+| 아키텍처 확인 | `lipo -archs jm-mdv.app/Contents/MacOS/jm-mdv` (arm64 / x86_64 / 둘 다) |
 
 ## 파일 구조
 
