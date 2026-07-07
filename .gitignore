@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller 빌드 산출물
+build/
+dist/
+
+# 앱 세션/설정
+.jm-mdv-session.json
+
+# OS
+Thumbs.db
+.DS_Store

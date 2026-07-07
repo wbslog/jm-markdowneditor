@@ -16,7 +16,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy', 'pygame', 'PIL', 'matplotlib', 'pandas', 'scipy', 'tkinter'],
+    excludes=['numpy', 'pygame', 'PIL', 'matplotlib', 'pandas', 'scipy', 'tkinter', 'cryptography', 'unittest', 'pydoc', 'doctest', 'lib2to3', 'xmlrpc'],
     noarchive=False,
     optimize=0,
 )

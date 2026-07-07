@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 """Markdown View - 실시간 마크다운 에디터/뷰어 (Windows)"""
+import datetime
 import json
 import os
+import shutil
 import string
 import subprocess
 import sys
@@ -175,6 +177,95 @@ class Api:
             "dirs": dirs,
             "files": files,
         }
+
+    def file_times(self, path):
+        """파일의 최초 생성일/최근 수정일 (에디터 상단 표시용)"""
+        if not path or not os.path.isfile(path):
+            return None
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+
+        def fmt(t):
+            return datetime.datetime.fromtimestamp(t).strftime("%Y-%m-%d %H:%M:%S")
+
+        # Windows: st_ctime = 생성 시각 / macOS: st_birthtime 사용
+        created = getattr(st, "st_birthtime", None) or st.st_ctime
+        return {"created": fmt(created), "modified": fmt(st.st_mtime)}
+
+    # ---------- 폴더 탐색 패널: 파일 관리 ----------
+    INVALID_NAME_CHARS = '\\/:*?"<>|'
+
+    def create_file(self, dir_path):
+        """noname.md 로 새 파일 생성 (중복 시 noname_1.md, noname_2.md ...)"""
+        if not dir_path or not os.path.isdir(dir_path):
+            return {"error": "폴더를 찾을 수 없습니다"}
+        base, ext = "noname", ".md"
+        path = os.path.join(dir_path, base + ext)
+        n = 1
+        while os.path.exists(path):
+            path = os.path.join(dir_path, f"{base}_{n}{ext}")
+            n += 1
+        try:
+            with open(path, "x", encoding="utf-8") as f:
+                f.write("")
+        except OSError as e:
+            return {"error": str(e)}
+        return {"path": path, "name": os.path.basename(path)}
+
+    def rename_path(self, path, new_name):
+        """파일 이름 변경 (같은 폴더 안에서)"""
+        if not os.path.isfile(path):
+            return {"error": "파일을 찾을 수 없습니다"}
+        new_name = (new_name or "").strip()
+        if not new_name or any(c in new_name for c in self.INVALID_NAME_CHARS):
+            return {"error": "올바르지 않은 파일 이름입니다"}
+        new_path = os.path.join(os.path.dirname(path), new_name)
+        if os.path.normcase(new_path) == os.path.normcase(path):
+            return {"path": path, "name": os.path.basename(path)}
+        if os.path.exists(new_path):
+            return {"error": "같은 이름의 파일이 이미 있습니다"}
+        try:
+            os.rename(path, new_path)
+        except OSError as e:
+            return {"error": str(e)}
+        if self.current_path == path:
+            self.current_path = new_path
+            self._set_title()
+        return {"path": new_path, "name": new_name}
+
+    def delete_path(self, path):
+        """파일 삭제 (즉시 삭제, 휴지통 미사용)"""
+        if not os.path.isfile(path):
+            return {"error": "파일을 찾을 수 없습니다"}
+        try:
+            os.remove(path)
+        except OSError as e:
+            return {"error": str(e)}
+        return {"ok": True}
+
+    def move_path(self, src, dst_dir):
+        """파일을 다른 폴더로 이동 (드래그 앤 드롭용)"""
+        if not os.path.isfile(src):
+            return {"error": "파일을 찾을 수 없습니다"}
+        if not dst_dir or not os.path.isdir(dst_dir):
+            return {"error": "대상 폴더를 찾을 수 없습니다"}
+        src = os.path.normpath(src)
+        dst_dir = os.path.normpath(dst_dir)
+        if os.path.normcase(os.path.dirname(src)) == os.path.normcase(dst_dir):
+            return {"error": "이미 같은 폴더에 있습니다"}
+        dst = os.path.join(dst_dir, os.path.basename(src))
+        if os.path.exists(dst):
+            return {"error": "대상 폴더에 같은 이름의 파일이 이미 있습니다"}
+        try:
+            shutil.move(src, dst)
+        except OSError as e:
+            return {"error": str(e)}
+        if self.current_path == src:
+            self.current_path = dst
+            self._set_title()
+        return {"path": dst, "name": os.path.basename(dst)}
 
     def new_file(self):
         self.current_path = None
