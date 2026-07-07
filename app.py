@@ -16,6 +16,7 @@ import webview
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
+APP_VERSION = "1.0.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -84,7 +85,7 @@ class Api:
 
     def _set_title(self):
         name = os.path.basename(self.current_path) if self.current_path else "새 문서"
-        self._window.set_title(f"{name} - {APP_NAME}")
+        self._window.set_title(f"{name} - {APP_NAME} v{APP_VERSION}")
 
     def open_file(self):
         result = self._window.create_file_dialog(
@@ -414,7 +415,7 @@ def main():
     _setup_windowed_io()
     api = Api()
     window = webview.create_window(
-        APP_NAME,
+        f"{APP_NAME} v{APP_VERSION}",
         resource_path(os.path.join("ui", "index.html")),
         js_api=api,
         width=1440,

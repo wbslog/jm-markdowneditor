@@ -370,26 +370,29 @@
     z-index: 0;
   }
   #editor-highlights {
-    /* #editor와 동일한 텍스트 배치가 되도록 폰트/패딩/줄바꿈 규칙을 맞춤 */
+    /* #editor와 동일한 텍스트 배치가 되도록 폰트/패딩/줄바꿈 규칙을 맞춤
+       (textarea wrap="off" 이므로 줄바꿈 없이 pre + 내용 너비로 확장) */
     padding: 18px 20px 60vh;
     font-family: "Cascadia Code", Consolas, "D2Coding", monospace;
     font-size: 14px;
     line-height: 1.7;
     tab-size: 4;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
+    white-space: pre;
+    width: max-content;
+    min-width: 100%;
     color: transparent;
   }
   #editor-highlights mark { background: rgba(250, 204, 21, 0.3); color: transparent; border-radius: 2px; }
-  /* 현재 검색 위치: 진한 주황 + 빛나는 테두리(펄스)로 강하게 강조 */
+  /* 현재 검색 위치: 은은한 주황 + 연한 펄스 애니메이션 */
   #editor-highlights mark.current {
-    background: #f97316;
-    border-radius: 3px;
-    animation: hl-pulse 0.9s ease-in-out infinite;
+    background: rgba(249, 115, 22, 0.5);
+    border-radius: 2px;
+    animation: hl-pulse-soft 1.5s ease-in-out infinite;
   }
-  @keyframes hl-pulse {
-    0%, 100% { box-shadow: 0 0 0 2px #fb923c, 0 0 16px 4px rgba(249, 115, 22, 0.95); }
-    50%      { box-shadow: 0 0 0 4px #fdba74, 0 0 26px 9px rgba(249, 115, 22, 0.55); }
+  /* 연한 펄스: 옅은 글로우가 부드럽게 커졌다 작아짐 (에디터/프리뷰/설명서 검색 공통) */
+  @keyframes hl-pulse-soft {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.4); }
+    50%      { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16); }
   }
   /* 프리뷰 쪽 검색 하이라이트 (pymdownx.mark의 ==하이라이트==와 구분되는 클래스) */
   #preview mark.search-hl {
@@ -399,12 +402,12 @@
     border-radius: 2px;
     box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.45);
   }
-  /* 프리뷰의 현재 검색 위치도 동일하게 강조 */
+  /* 프리뷰의 현재 검색 위치도 동일하게 은은히 + 연한 펄스 */
   #preview mark.search-hl.current {
-    background: #f97316;
-    color: #fff;
-    border-radius: 3px;
-    animation: hl-pulse 0.9s ease-in-out infinite;
+    background: #fdba74;
+    color: inherit;
+    border-radius: 2px;
+    animation: hl-pulse-soft 1.5s ease-in-out infinite;
   }
 
   /* ---------- 검색 바 ---------- */
@@ -466,16 +469,25 @@
   #preview-scroll {
     flex: 1;
     overflow-y: auto;
+    overflow-x: auto;   /* 표/코드 등 넓은 내용은 가로 스크롤 */
     background: #ffffff;
     padding: 24px 36px 60vh;
   }
 
-  /* 스크롤바 */
-  ::-webkit-scrollbar { width: 11px; height: 11px; }
-  #editor::-webkit-scrollbar-track { background: #1e1e2e; }
-  #editor::-webkit-scrollbar-thumb { background: #3f3f5c; border-radius: 6px; }
-  #preview-scroll::-webkit-scrollbar-track { background: #f4f5f7; }
-  #preview-scroll::-webkit-scrollbar-thumb { background: #c9ccd4; border-radius: 6px; }
+  /* 스크롤바 (가로 스크롤바는 더 두껍고 진하게 = 잘 보이게) */
+  ::-webkit-scrollbar { width: 12px; height: 15px; }
+  ::-webkit-scrollbar-corner { background: transparent; }
+  #editor::-webkit-scrollbar-track { background: #191926; }
+  #editor::-webkit-scrollbar-thumb { background: #4a4a6e; border-radius: 7px; border: 2px solid #191926; }
+  #editor::-webkit-scrollbar-thumb:hover { background: #6366f1; }
+  /* 에디터 가로 스크롤바: 세로보다 더 눈에 띄는 색 */
+  #editor::-webkit-scrollbar-thumb:horizontal { background: #6b6ba0; }
+  #editor::-webkit-scrollbar-thumb:horizontal:hover { background: #8385f5; }
+  #preview-scroll::-webkit-scrollbar-track { background: #eceef2; }
+  #preview-scroll::-webkit-scrollbar-thumb { background: #b3b8c4; border-radius: 7px; border: 2px solid #eceef2; }
+  #preview-scroll::-webkit-scrollbar-thumb:hover { background: #8b90a0; }
+  #preview-scroll::-webkit-scrollbar-thumb:horizontal { background: #949aa8; }
+  #preview-scroll::-webkit-scrollbar-thumb:horizontal:hover { background: #6b7180; }
 
   /* ---------- 설명서 모달 ---------- */
   #help-overlay {
@@ -559,8 +571,41 @@
     text-align: center;
     white-space: nowrap;
   }
+  /* 버전 기록 접이식(details) 스타일 */
+  #help-body details {
+    border: 1px solid #e0e2e8;
+    border-radius: 8px;
+    margin: 12px 0;
+    background: #f8f9fb;
+    overflow: hidden;
+  }
+  #help-body details[open] { background: #ffffff; }
+  #help-body summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 11px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #1f2328;
+    background: #f1f3f6;
+    user-select: none;
+  }
+  #help-body summary:hover { background: #e8ebef; }
+  #help-body summary::-webkit-details-marker { display: none; }
+  #help-body summary::before {
+    content: "▶";
+    display: inline-block;
+    width: 1em;
+    margin-right: 6px;
+    font-size: 10px;
+    color: #6366f1;
+    transition: transform 0.15s;
+  }
+  #help-body details[open] summary::before { transform: rotate(90deg); }
+  #help-body details > *:not(summary) { padding-left: 16px; padding-right: 16px; }
+  #help-body details > *:last-child { padding-bottom: 10px; }
   #help-body mark.help-hl { background: #fde047; color: inherit; padding: 0 1px; border-radius: 2px; }
-  #help-body mark.help-hl.current { background: #fb923c; box-shadow: 0 0 0 1px #ea580c; }
+  #help-body mark.help-hl.current { background: #fdba74; animation: hl-pulse-soft 1.5s ease-in-out infinite; }
   /* 모달 안 '맨 위로' 버튼 (스크롤 내리면 표시) */
   #help-top {
     position: absolute;
@@ -667,7 +712,7 @@
     </div>
     <div id="editor-wrap">
       <div id="editor-backdrop"><div id="editor-highlights"></div></div>
-      <textarea id="editor" spellcheck="false" placeholder="여기에 마크다운을 입력하세요..."></textarea>
+      <textarea id="editor" spellcheck="false" wrap="off" placeholder="여기에 마크다운을 입력하세요..."></textarea>
     </div>
     <button id="editor-top" class="scroll-top" title="맨 위로">▲</button>
   </div>
@@ -696,6 +741,7 @@
       <div id="help-tabs">
         <button class="help-tab active" data-tab="app">프로그램 사용 설명</button>
         <button class="help-tab" data-tab="md">마크다운 사용법</button>
+        <button class="help-tab" data-tab="ver">버전 기록</button>
       </div>
       <div id="help-search">
         <input id="help-search-input" type="text" placeholder="설명서 검색... (Ctrl+F)" spellcheck="false">
@@ -708,6 +754,7 @@
     <div id="help-body">
       <article id="help-content" class="markdown-body"></article>
       <article id="help-content-md" class="markdown-body" style="display:none"></article>
+      <article id="help-content-ver" class="markdown-body" style="display:none"></article>
     </div>
     <button id="help-top" title="맨 위로">▲</button>
     <div id="help-footer"><button id="help-close-btn">닫기</button></div>
@@ -1200,7 +1247,7 @@ const HELP_MD = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
 에디터에서 단어를 선택한 뒤 \`Ctrl+F\`를 누르면 해당 단어가 자동으로 검색어에 입력됩니다.
 
 > 💡 이 **설명서 모달이 열려 있을 때** \`Ctrl+F\`를 누르면 상단의 **설명서 검색창**이 활성화됩니다.
-> 각 탭(프로그램 사용 설명 / 마크다운 사용법)별로 현재 보고 있는 내용이 검색되며,
+> 각 탭(프로그램 사용 설명 / 마크다운 사용법 / 버전 기록)별로 현재 보고 있는 내용이 검색되며,
 > \`Enter\`/\`Shift+Enter\`로 다음/이전 결과로 이동합니다.
 
 ---
@@ -1292,6 +1339,70 @@ def hello(name: str) -> str:
 \`\`\`
 
 > 💡 이 설명서는 **닫기** 버튼, 우측 상단 **✕**, 창 바깥 영역 클릭 또는 \`Esc\` 키로 닫을 수 있습니다.
+
+---
+
+### 👨‍💻 개발자
+
+**Shin.DoYeon** · ✉️ [jinroh77@gmail.com](mailto:jinroh77@gmail.com)
+
+자세한 버전 정보는 상단의 **버전 기록** 탭을 참고하세요.
+`;
+
+/* 버전 기록 (설명서 세 번째 탭) */
+const VERSION_MD = `# 🗒️ 버전 기록
+
+## ℹ️ 앱 · 개발자 정보
+
+| 항목 | 내용 |
+|------|------|
+| 프로그램 | jm-mdv (Markdown Viewer) |
+| **최신 버전** | **v1.0.0** |
+| 최종 업데이트 | 2026-07-07 |
+| 개발자 | **Shin.DoYeon** |
+| 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
+
+---
+
+## 📌 업데이트 이력
+
+<p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
+
+<details markdown="1" open>
+<summary>💠 <b>v1.0.0</b> &nbsp;·&nbsp; 2026-07-07 &nbsp;·&nbsp; 첫 정식 버전</summary>
+
+첫 정식 버전. 실시간 미리보기 마크다운 에디터의 핵심 기능을 완성했습니다.
+
+### ✨ 새 기능
+
+- 🔍 **검색 기능** (\`Ctrl+F\`)
+    - 에디터와 미리보기 화면에서 **동시에** 검색어 하이라이트
+    - 현재 위치는 주황색 **펄스 애니메이션**으로 강조되어 한눈에 확인
+    - 대소문자 구분 토글, \`Enter\`/\`Shift+Enter\`/\`F3\`로 결과 이동, 결과 개수 표시
+- 📖 **설명서 모달**
+    - **프로그램 사용 설명 / 마크다운 사용법 / 버전 기록** 3개 탭
+    - 타이틀 바 **드래그로 창 이동**, 설명서 내부 검색(탭별), 맨 위로 가기 버튼
+    - 마크다운 필수 문법 **30종**을 문법+결과 예시와 함께 정리
+- 🗂️ **디렉토리 파일 관리**
+    - 파일 **우클릭 메뉴**: 이름 변경 · 삭제 · 새 파일(\`noname.md\`, 중복 시 \`_1\`, \`_2\`…)
+    - 파일을 **드래그**해서 다른 폴더/드라이브로 이동
+- 🕒 **파일 정보 표시**: 에디터 상단에 현재 파일의 **최초 생성일 / 최근 수정일** 표시
+- 📐 에디터·미리보기 **가로 스크롤**(넓은 표/코드) 및 창 최상단 **버전 표시**
+
+### 🛡️ 개선
+
+- 💾 **모두 저장** / 🚪 **모두 닫기** 실행 전 **확인 창** 추가 (실수 방지)
+
+### 🧱 기본 기능 (기존)
+
+- 다중 파일 **탭**, 좌우 **동기 스크롤**, **HTML 내보내기**, 폴더 탐색 패널
+- 코드 하이라이팅, 표, 체크박스, 각주, Admonition 등 확장 마크다운 문법 지원
+
+</details>
+
+---
+
+> 🙌 사용 중 불편한 점이나 제안이 있다면 언제든 알려주세요!
 `;
 
 /* 마크다운 필수 문법 30선 (설명서 두 번째 탭) */
@@ -1865,10 +1976,12 @@ const helpModal = document.getElementById('help-modal');
 const helpHeader = document.getElementById('help-header');
 const helpContent = document.getElementById('help-content');
 const helpContentMd = document.getElementById('help-content-md');
+const helpContentVer = document.getElementById('help-content-ver');
 const helpBody = document.getElementById('help-body');
 const helpTopBtn = document.getElementById('help-top');
 let helpLoaded = false;
 let helpMdLoaded = false;
+let helpVerLoaded = false;
 
 async function openHelp() {
   if (!helpLoaded) {
@@ -1884,12 +1997,13 @@ async function openHelp() {
 
 function closeHelp() { helpOverlay.classList.remove('open'); }
 
-/* 탭 전환: 프로그램 사용 설명 / 마크다운 사용법 */
+/* 탭 전환: 프로그램 사용 설명 / 마크다운 사용법 / 버전 기록 */
 async function switchHelpTab(tab) {
   document.querySelectorAll('.help-tab').forEach(b =>
     b.classList.toggle('active', b.dataset.tab === tab));
   helpContent.style.display = tab === 'app' ? '' : 'none';
   helpContentMd.style.display = tab === 'md' ? '' : 'none';
+  helpContentVer.style.display = tab === 'ver' ? '' : 'none';
   helpBody.scrollTop = 0;
   helpTopBtn.classList.remove('show');
   if (tab === 'md' && !helpMdLoaded) {
@@ -1897,6 +2011,13 @@ async function switchHelpTab(tab) {
       const r = await window.pywebview.api.render(MD_GUIDE);
       helpContentMd.innerHTML = r.html;
       helpMdLoaded = true;
+    } catch (e) { /* API 준비 전 무시 */ }
+  }
+  if (tab === 'ver' && !helpVerLoaded) {
+    try {
+      const r = await window.pywebview.api.render(VERSION_MD);
+      helpContentVer.innerHTML = r.html;
+      helpVerLoaded = true;
     } catch (e) { /* API 준비 전 무시 */ }
   }
   runHelpSearch(); // 탭이 바뀌면 현재 탭 내용 기준으로 검색 다시 적용
@@ -1912,7 +2033,9 @@ let helpMatches = [];   // 현재 탭의 <mark> 요소 목록
 let helpMatchIdx = -1;
 
 function activeHelpArticle() {
-  return helpContentMd.style.display === 'none' ? helpContent : helpContentMd;
+  if (helpContentMd.style.display !== 'none') return helpContentMd;
+  if (helpContentVer.style.display !== 'none') return helpContentVer;
+  return helpContent;
 }
 
 function clearHelpHighlights() {
@@ -2347,6 +2470,7 @@ function renderHighlights() {
   html += escHtml(text.slice(last));
   highlightsEl.innerHTML = html;
   backdrop.scrollTop = editor.scrollTop;
+  backdrop.scrollLeft = editor.scrollLeft;
 }
 
 /* 프리뷰의 검색 하이라이트 제거 (텍스트 노드 원상 복구) */
@@ -2422,7 +2546,12 @@ function updateSearchUI(scroll) {
     const cur = highlightsEl.querySelector('mark.current');
     if (cur) {
       editor.scrollTop = Math.max(0, cur.offsetTop - editor.clientHeight / 2);
+      /* 가로로 벗어난 위치의 매치면 가로 스크롤로도 드러냄 */
+      if (cur.offsetLeft > editor.scrollLeft + editor.clientWidth - 40 || cur.offsetLeft < editor.scrollLeft) {
+        editor.scrollLeft = Math.max(0, cur.offsetLeft - editor.clientWidth / 2);
+      }
       backdrop.scrollTop = editor.scrollTop;
+      backdrop.scrollLeft = editor.scrollLeft;
     }
     updatePreviewCurrent(true); // 프리뷰도 현재 위치를 화면 중앙으로
     clearTimeout(scrollResetTimer);
@@ -2500,11 +2629,14 @@ searchInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); gotoMatch(e.shiftKey ? -1 : 1); }
 });
 
-/* 하이라이트 레이어를 textarea 스크롤/크기와 동기화 */
-editor.addEventListener('scroll', () => { backdrop.scrollTop = editor.scrollTop; });
-new ResizeObserver(() => {
-  highlightsEl.style.width = editor.clientWidth + 'px';
+/* 하이라이트 레이어를 textarea 스크롤(가로/세로)/크기와 동기화 */
+editor.addEventListener('scroll', () => {
   backdrop.scrollTop = editor.scrollTop;
+  backdrop.scrollLeft = editor.scrollLeft;
+});
+new ResizeObserver(() => {
+  backdrop.scrollTop = editor.scrollTop;
+  backdrop.scrollLeft = editor.scrollLeft;
 }).observe(editor);
 
 /* 단축키 */

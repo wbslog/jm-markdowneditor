@@ -60,6 +60,37 @@ pip install -r requirements.txt        # macOS는 pip3
 python app.py                          # macOS는 python3 app.py
 ```
 
+### 가상환경(.venv) 사용 — 권장
+
+시스템 Python을 더럽히지 않고 이 프로젝트 전용으로 라이브러리를 격리하려면 가상환경을 사용하세요.
+특히 macOS는 시스템 Python 보호(`externally-managed-environment` 오류) 때문에 가상환경이 사실상 필요합니다.
+
+**Windows (cmd / PowerShell)**
+
+```bat
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+python app.py
+```
+
+**macOS / Linux**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python app.py
+```
+
+> - 활성화되면 프롬프트 앞에 `(.venv)` 가 표시됩니다. 이후 `pip`/`python`은 모두 이 가상환경을 가리킵니다.
+> - 아래 **빌드**도 이 활성화 상태에서 실행하면 격리된 환경으로 깔끔하게 빌드됩니다.
+> - 작업이 끝나면 `deactivate` 로 빠져나옵니다.
+> - `.venv/` 폴더는 `.gitignore`에 포함되어 git에 커밋되지 않습니다.
+>
+> ⚠️ **가상환경은 개발/빌드하는 사람에게만 해당합니다.** 빌드 결과물(exe/.app)은 Python과
+> 모든 라이브러리를 번들에 포함하므로, **배포받은 최종 사용자는 Python도 가상환경도 필요 없습니다.**
+
 ---
 
 ## 🪟 Windows 빌드 상세 매뉴얼 (무설치 단일 exe)
@@ -86,13 +117,19 @@ build_exe.bat
 
 스크립트가 PyInstaller를 자동으로 호출해 빌드합니다. 끝나면 `dist\jm-mdv.exe`가 생성됩니다.
 
-### 방법 B — 명령어로 직접 빌드
+### 방법 B — 명령어로 직접 빌드 (가상환경 사용, 권장)
 
-의존성을 먼저 설치한 뒤 PyInstaller를 직접 실행합니다.
+시스템 Python을 건드리지 않도록 **가상환경 안에서** 의존성을 설치하고 빌드합니다.
 
 ```bat
+REM 1) 가상환경 생성 및 활성화 (프로젝트 폴더에서)
+python -m venv .venv
+.venv\Scripts\activate
+
+REM 2) 의존성 설치 (이 가상환경에만 설치됨)
 pip install -r requirements.txt
 
+REM 3) PyInstaller로 빌드
 pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv ^
   --add-data "ui;ui" ^
   --collect-submodules markdown ^
@@ -101,7 +138,14 @@ pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv ^
   --exclude-module numpy --exclude-module pandas --exclude-module scipy ^
   --exclude-module matplotlib --exclude-module PIL --exclude-module tkinter ^
   app.py
+
+REM 4) 빌드가 끝나면 가상환경 빠져나오기
+deactivate
 ```
+
+> 가상환경 없이 곧바로 빌드하려면 위에서 1·4번(venv 생성/deactivate)을 빼고,
+> 2번을 `pip install -r requirements.txt`로 실행한 뒤 3번 명령만 그대로 쓰면 됩니다.
+> (PowerShell에서 활성화가 막히면 `Set-ExecutionPolicy -Scope Process RemoteSigned` 후 `.venv\Scripts\Activate.ps1`)
 
 > **핵심 옵션 설명**
 > - `--onefile` : 모든 것을 exe 하나로 묶음 (배포 편의 ↑, 첫 실행 시 임시폴더 압축해제로 몇 초 소요)
@@ -164,12 +208,20 @@ chmod +x build_mac.sh   # 최초 1회 실행 권한 부여
 
 스크립트가 의존성 설치와 빌드를 자동으로 수행합니다.
 
-### 방법 B — 명령어로 직접 빌드
+### 방법 B — 명령어로 직접 빌드 (가상환경 사용, 권장)
+
+macOS는 시스템 Python 보호 정책 때문에 **가상환경 사용을 강력히 권장**합니다.
 
 ```bash
-python3 -m pip install --upgrade pywebview markdown pymdown-extensions pygments pyinstaller
+# 1) 가상환경 생성 및 활성화 (프로젝트 폴더에서)
+python3 -m venv .venv
+source .venv/bin/activate
 
-python3 -m PyInstaller --noconfirm --clean --onedir --windowed --name jm-mdv \
+# 2) 의존성 설치 (이 가상환경에만 설치됨)
+pip install -r requirements.txt
+
+# 3) PyInstaller로 빌드
+python -m PyInstaller --noconfirm --clean --onedir --windowed --name jm-mdv \
   --add-data "ui:ui" \
   --collect-submodules markdown \
   --collect-submodules pymdownx \
@@ -177,7 +229,14 @@ python3 -m PyInstaller --noconfirm --clean --onedir --windowed --name jm-mdv \
   --exclude-module numpy --exclude-module pandas --exclude-module scipy \
   --exclude-module matplotlib --exclude-module PIL --exclude-module tkinter \
   app.py
+
+# 4) 빌드가 끝나면 가상환경 빠져나오기
+deactivate
 ```
+
+> 가상환경 없이 빌드하려면 1·4번을 빼고 2번을
+> `python3 -m pip install --upgrade pywebview markdown pymdown-extensions pygments pyinstaller`로
+> 바꾼 뒤 3번을 `python3 -m PyInstaller ...`로 실행하면 됩니다.
 
 > **Windows와의 차이점**
 > - `--add-data "ui:ui"` : **macOS는 구분자가 콜론(`:`)** (Windows의 세미콜론과 다름)
