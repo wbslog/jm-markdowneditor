@@ -60,6 +60,30 @@
   #file-path.clickable { cursor: pointer; }
   #file-path.clickable:hover .name { color: #a5b4fc; text-decoration: underline; }
 
+  /* ---------- 언어 토글 (KOR/ENG) ---------- */
+  #lang-toggle {
+    flex-shrink: 0;
+    display: flex;
+    gap: 0;
+    margin-left: 8px;
+    border: 1px solid #4a4a6a;
+    border-radius: 7px;
+    overflow: hidden;
+  }
+  #lang-toggle button {
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: #a5a5c5;
+    background: #2b2b40;
+    border: none;
+    padding: 6px 11px;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  #lang-toggle button:hover { background: #3a3a58; color: #e4e4f0; }
+  #lang-toggle button.active { background: #6366f1; color: #fff; }
+
   /* ---------- 파일 탭 바 ---------- */
   #tabbar {
     display: flex;
@@ -681,6 +705,10 @@
   <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
   <button id="btn-help" title="프로그램 기능/사용 설명서 보기">❓ 설명서</button>
   <div id="file-path"><span class="name">새 문서</span></div>
+  <div id="lang-toggle" title="언어 / Language">
+    <button id="lang-ko" class="active">KOR</button>
+    <button id="lang-en">ENG</button>
+  </div>
 </div>
 
 <div id="tabbar">
@@ -770,6 +798,174 @@ const statPos = document.getElementById('stat-pos');
 const statLen = document.getElementById('stat-len');
 const statMsg = document.getElementById('stat-msg');
 
+/* ================= 다국어 (i18n) ================= */
+const I18N = {
+  ko: {
+    btnNew: '📄 새 파일', btnNew_t: '새 문서 (Ctrl+N)',
+    btnDir: '🗂️ 디렉토리', btnDir_t: '폴더 탐색 패널 열기/닫기',
+    btnOpen: '📂 열기', btnOpen_t: '파일 열기 (Ctrl+O)',
+    btnSave: '💾 저장', btnSave_t: '저장 (Ctrl+S)',
+    btnSaveas: '📝 다른 이름', btnSaveas_t: '다른 이름으로 저장 (Ctrl+Shift+S)',
+    btnSaveall: '🗃️ 모두 저장', btnSaveall_t: '열린 파일 모두 저장',
+    btnCloseall: '🚪 모두 닫기', btnCloseall_t: '열린 탭 모두 닫기 (변경사항은 파일마다 확인)',
+    btnSearch: '🔍 검색', btnSearch_t: '검색 (Ctrl+F)',
+    btnExport: '🌐 HTML 내보내기', btnExport_t: '미리보기 그대로 HTML로 저장',
+    btnHelp: '❓ 설명서', btnHelp_t: '프로그램 기능/사용 설명서 보기',
+    tabLeft_t: '이전 파일 보기', tabRight_t: '다음 파일 보기',
+    sbUp_t: '상위 폴더로', sbClose_t: '디렉토리 닫기',
+    fullEditor_t: '에디터 전체보기 전환', fullPreview_t: '미리보기 전체보기 전환',
+    viewFull: '⛶ 전체보기', viewSplit: '◫ 분할보기',
+    editorPlaceholder: '여기에 마크다운을 입력하세요...',
+    searchPlaceholder: '검색...', searchCase_t: '대소문자 구분',
+    searchPrev_t: '이전 결과 (Shift+Enter)', searchNext_t: '다음 결과 (Enter)', searchClose_t: '닫기 (Esc)',
+    helpTitle: '📖 설명서',
+    tabApp: '프로그램 사용 설명', tabMd: '마크다운 사용법', tabVer: '버전 기록',
+    helpSearchPlaceholder: '설명서 검색... (Ctrl+F)',
+    helpX_t: '닫기 (Esc)', helpClose: '닫기', helpTop_t: '맨 위로', scrollTop_t: '맨 위로',
+    langTitle: '언어 / Language',
+    newDoc: '새 문서',
+    filePathTitle: '\n클릭하면 탐색기에서 이 파일 위치를 엽니다',
+    charSuffix: '자',
+    createdLabel: '생성: ', modifiedLabel: '  ·  수정: ',
+    myPc: '내 PC',
+    upDblClick: '더블클릭: 상위 폴더로 이동', folderDblClick: '더블클릭: 폴더 열기',
+    fileDblClick: '더블클릭: 열기', tabClose_t: '탭 닫기',
+    ctxRename: '✏️ 이름 변경', ctxDelete: '🗑️ 삭제', ctxNew: '📄 새 파일',
+    sbEmpty: '표시할 폴더/마크다운 파일이 없습니다',
+    openDone: '열기 완료',
+    reloadConfirm: '내용이 수정되어 다시 로딩 하시겠습니까?',
+    closeTabConfirm: '저장하지 않은 변경사항이 있습니다. 탭을 닫을까요?',
+    savedPrefix: '저장됨: ',
+    saveAllConfirm: (n) => '열려 있는 탭 ' + n + '개를 모두 저장할까요?',
+    savedAll: (n) => '모두 저장 완료 (' + n + '개)',
+    closeAllConfirm: (n) => '열려 있는 탭 ' + n + '개를 모두 닫을까요?',
+    closeAllPerFile: (name) => '"' + name + '" 파일에 변경사항이 있습니다. 저장하고 닫을까요?\n(취소하면 저장하지 않고 닫습니다)',
+    htmlSaved: 'HTML 저장됨: ',
+    moveFail: '이동 실패: ', moveDone: '이동 완료: ',
+    unknownErr: '알 수 없는 오류',
+    needFolder: '폴더를 연 상태에서만 새 파일을 만들 수 있습니다',
+    createFail: '생성 실패: ', createDone: '새 파일 생성: ',
+    renameFail: '이름 변경 실패: ', renameDone: '이름 변경 완료: ',
+    deleteConfirm: (name) => '"' + name + '" 파일을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
+    deleteFail: '삭제 실패: ', deleteDone: '삭제 완료: ',
+  },
+  en: {
+    btnNew: '📄 New', btnNew_t: 'New document (Ctrl+N)',
+    btnDir: '🗂️ Directory', btnDir_t: 'Toggle folder explorer panel',
+    btnOpen: '📂 Open', btnOpen_t: 'Open file (Ctrl+O)',
+    btnSave: '💾 Save', btnSave_t: 'Save (Ctrl+S)',
+    btnSaveas: '📝 Save As', btnSaveas_t: 'Save as (Ctrl+Shift+S)',
+    btnSaveall: '🗃️ Save All', btnSaveall_t: 'Save all open files',
+    btnCloseall: '🚪 Close All', btnCloseall_t: 'Close all tabs (unsaved changes confirmed per file)',
+    btnSearch: '🔍 Search', btnSearch_t: 'Search (Ctrl+F)',
+    btnExport: '🌐 Export HTML', btnExport_t: 'Save preview as an HTML file',
+    btnHelp: '❓ Help', btnHelp_t: 'View program features / user guide',
+    tabLeft_t: 'Previous file', tabRight_t: 'Next file',
+    sbUp_t: 'Up to parent folder', sbClose_t: 'Close directory',
+    fullEditor_t: 'Toggle editor full view', fullPreview_t: 'Toggle preview full view',
+    viewFull: '⛶ Full view', viewSplit: '◫ Split view',
+    editorPlaceholder: 'Type your Markdown here...',
+    searchPlaceholder: 'Search...', searchCase_t: 'Match case',
+    searchPrev_t: 'Previous match (Shift+Enter)', searchNext_t: 'Next match (Enter)', searchClose_t: 'Close (Esc)',
+    helpTitle: '📖 Help',
+    tabApp: 'User Guide', tabMd: 'Markdown Guide', tabVer: 'Version History',
+    helpSearchPlaceholder: 'Search help... (Ctrl+F)',
+    helpX_t: 'Close (Esc)', helpClose: 'Close', helpTop_t: 'Back to top', scrollTop_t: 'Back to top',
+    langTitle: '언어 / Language',
+    newDoc: 'Untitled',
+    filePathTitle: '\nClick to reveal this file in the file explorer',
+    charSuffix: ' chars',
+    createdLabel: 'Created: ', modifiedLabel: '  ·  Modified: ',
+    myPc: 'My PC',
+    upDblClick: 'Double-click: go to parent folder', folderDblClick: 'Double-click: open folder',
+    fileDblClick: 'Double-click: open', tabClose_t: 'Close tab',
+    ctxRename: '✏️ Rename', ctxDelete: '🗑️ Delete', ctxNew: '📄 New file',
+    sbEmpty: 'No folders or Markdown files to show',
+    openDone: 'Opened',
+    reloadConfirm: 'This file has changed on disk. Reload it?',
+    closeTabConfirm: 'You have unsaved changes. Close this tab?',
+    savedPrefix: 'Saved: ',
+    saveAllConfirm: (n) => 'Save all ' + n + ' open tab(s)?',
+    savedAll: (n) => 'All saved (' + n + ')',
+    closeAllConfirm: (n) => 'Close all ' + n + ' open tab(s)?',
+    closeAllPerFile: (name) => '"' + name + '" has unsaved changes. Save and close?\n(Cancel = close without saving)',
+    htmlSaved: 'HTML saved: ',
+    moveFail: 'Move failed: ', moveDone: 'Moved: ',
+    unknownErr: 'Unknown error',
+    needFolder: 'Open a folder first to create a new file',
+    createFail: 'Create failed: ', createDone: 'File created: ',
+    renameFail: 'Rename failed: ', renameDone: 'Renamed: ',
+    deleteConfirm: (name) => 'Delete "' + name + '"?\n(This deletes immediately without using the Recycle Bin)',
+    deleteFail: 'Delete failed: ', deleteDone: 'Deleted: ',
+  },
+};
+let lang = 'ko';
+function L() { return I18N[lang]; }
+
+function setTxt(id, s) { const el = document.getElementById(id); if (el) el.textContent = s; }
+function setTitle(id, s) { const el = document.getElementById(id); if (el) el.title = s; }
+
+/* 언어 적용: 정적 UI 텍스트/툴팁/플레이스홀더 갱신 */
+function applyLang() {
+  const d = L();
+  document.documentElement.lang = lang;
+  setTxt('btn-new', d.btnNew); setTitle('btn-new', d.btnNew_t);
+  setTxt('btn-dir', d.btnDir); setTitle('btn-dir', d.btnDir_t);
+  setTxt('btn-open', d.btnOpen); setTitle('btn-open', d.btnOpen_t);
+  setTxt('btn-save', d.btnSave); setTitle('btn-save', d.btnSave_t);
+  setTxt('btn-saveas', d.btnSaveas); setTitle('btn-saveas', d.btnSaveas_t);
+  setTxt('btn-saveall', d.btnSaveall); setTitle('btn-saveall', d.btnSaveall_t);
+  setTxt('btn-closeall', d.btnCloseall); setTitle('btn-closeall', d.btnCloseall_t);
+  setTxt('btn-search', d.btnSearch); setTitle('btn-search', d.btnSearch_t);
+  setTxt('btn-export', d.btnExport); setTitle('btn-export', d.btnExport_t);
+  setTxt('btn-help', d.btnHelp); setTitle('btn-help', d.btnHelp_t);
+  setTitle('tab-left', d.tabLeft_t); setTitle('tab-right', d.tabRight_t);
+  setTitle('sb-up', d.sbUp_t); setTitle('sb-close', d.sbClose_t);
+  setTitle('btn-full-editor', d.fullEditor_t); setTitle('btn-full-preview', d.fullPreview_t);
+  setTitle('editor-top', d.scrollTop_t); setTitle('preview-top', d.scrollTop_t);
+  editor.setAttribute('placeholder', d.editorPlaceholder);
+  searchInput.placeholder = d.searchPlaceholder;
+  setTitle('search-case', d.searchCase_t); setTitle('search-prev', d.searchPrev_t);
+  setTitle('search-next', d.searchNext_t); setTitle('search-close', d.searchClose_t);
+  helpSearchInput.placeholder = d.helpSearchPlaceholder;
+  setTitle('help-search-prev', d.searchPrev_t); setTitle('help-search-next', d.searchNext_t);
+  setTitle('help-x', d.helpX_t); setTxt('help-close-btn', d.helpClose); setTitle('help-top', d.helpTop_t);
+  setTitle('lang-toggle', d.langTitle);
+  const ht = document.querySelector('#help-header > span'); if (ht) ht.textContent = d.helpTitle;
+  document.querySelector('.help-tab[data-tab="app"]').textContent = d.tabApp;
+  document.querySelector('.help-tab[data-tab="md"]').textContent = d.tabMd;
+  document.querySelector('.help-tab[data-tab="ver"]').textContent = d.tabVer;
+  document.getElementById('lang-ko').classList.toggle('active', lang === 'ko');
+  document.getElementById('lang-en').classList.toggle('active', lang === 'en');
+  updateFullButtons();
+  updatePath();
+  updateStats();
+  updateFileTimes();
+  /* 설명서 문서는 언어별로 다시 렌더링되도록 캐시 초기화 */
+  helpLoaded = helpMdLoaded = helpVerLoaded = false;
+  if (helpOverlay.classList.contains('open')) {
+    const cur = document.querySelector('.help-tab.active');
+    reloadHelpDocs(cur ? cur.dataset.tab : 'app');
+  }
+  try { localStorage.setItem('jm-mdv-lang', lang); } catch (e) {}
+}
+
+/* 열려 있는 설명서를 현재 언어로 다시 채움 */
+async function reloadHelpDocs(tab) {
+  try {
+    const r = await window.pywebview.api.render(getHelpMd());
+    helpContent.innerHTML = r.html;
+    helpLoaded = true;
+  } catch (e) {}
+  await switchHelpTab(tab || 'app');
+}
+
+function setLang(l) {
+  if (l === lang) return;
+  lang = l;
+  applyLang();
+}
+
 /* 다중 파일 탭 상태 */
 let tabs = [];        // [{path, name, content, dirty}] (path=null → 새 문서)
 let activeTab = null;
@@ -849,18 +1045,18 @@ async function updateFileTimes() {
   try {
     const r = await window.pywebview.api.file_times(requested);
     if (currentPath !== requested) return; // 응답 전에 탭이 바뀌면 무시
-    fileTimesEl.textContent = r ? ('생성: ' + r.created + '  ·  수정: ' + r.modified) : '';
+    fileTimesEl.textContent = r ? (L().createdLabel + r.created + L().modifiedLabel + r.modified) : '';
   } catch (e) { fileTimesEl.textContent = ''; /* API 준비 전 무시 */ }
 }
 
 function updatePath() {
-  const name = currentPath || '새 문서';
+  const name = currentPath || L().newDoc;
   const dirty = activeTab ? activeTab.dirty : false;
   filePathEl.innerHTML = (dirty ? '<span class="dirty">● </span>' : '')
     + '<span class="name"></span>';
   filePathEl.querySelector('.name').textContent = name;
   filePathEl.classList.toggle('clickable', !!currentPath);
-  filePathEl.title = currentPath ? name + '\n클릭하면 탐색기에서 이 파일 위치를 엽니다' : name;
+  filePathEl.title = currentPath ? name + L().filePathTitle : name;
   updateFileTimes();
 }
 
@@ -874,7 +1070,7 @@ function updateStats() {
   const line = (before.match(/\n/g) || []).length + 1;
   const col = pos - before.lastIndexOf('\n');
   statPos.textContent = line + ':' + col;
-  statLen.textContent = editor.value.length.toLocaleString() + '자';
+  statLen.textContent = editor.value.length.toLocaleString() + L().charSuffix;
 }
 
 function flash(msg) {
@@ -997,12 +1193,12 @@ function renderTabs() {
     const nm = document.createElement('span');
     nm.className = 'tab-name';
     nm.innerHTML = (t.dirty ? '<span class="dirty">● </span>' : '');
-    nm.append(document.createTextNode(t.name));
-    nm.title = t.path || '새 문서';
+    nm.append(document.createTextNode(t.path ? t.name : L().newDoc));
+    nm.title = t.path || L().newDoc;
     const x = document.createElement('span');
     x.className = 'tab-close';
     x.textContent = '✕';
-    x.title = '탭 닫기';
+    x.title = L().tabClose_t;
     x.addEventListener('click', (e) => { e.stopPropagation(); closeTab(t); });
     el.append(nm, x);
     el.addEventListener('click', () => activateTab(t));
@@ -1019,7 +1215,7 @@ async function activateTab(t) {
   if (t.path) {
     const r = await window.pywebview.api.open_path(t.path);
     if (r && r.content !== t.content) {
-      if (confirm('내용이 수정되어 다시 로딩 하시겠습니까?')) {
+      if (confirm(L().reloadConfirm)) {
         t.content = r.content;
         t.dirty = false;
       } else {
@@ -1044,12 +1240,12 @@ async function openFileIntoTabs(r) {
   activeTab = t;
   showActiveTab();
   editor.scrollTop = 0;
-  flash('열기 완료');
+  flash(L().openDone);
 }
 
 async function closeTab(t) {
   if (t === activeTab) syncEditorToTab();
-  if (t.dirty && !confirm('저장하지 않은 변경사항이 있습니다. 탭을 닫을까요?')) return;
+  if (t.dirty && !confirm(L().closeTabConfirm)) return;
   const idx = tabs.indexOf(t);
   tabs.splice(idx, 1);
   if (t === activeTab) {
@@ -1064,7 +1260,7 @@ async function closeTab(t) {
 async function doNew() {
   syncEditorToTab();
   await window.pywebview.api.new_file();
-  const t = { path: null, name: '새 문서', content: '', dirty: false };
+  const t = { path: null, name: L().newDoc, content: '', dirty: false };
   tabs.push(t);
   activeTab = t;
   showActiveTab();
@@ -1089,14 +1285,14 @@ async function doSave() {
   renderTabs();
   markActiveFile();
   saveSession();
-  flash('저장됨: ' + r.path);
+  flash(L().savedPrefix + r.path);
 }
 
 /* 다른 이름으로 저장 */
 async function doSaveAs() {
   if (!activeTab) return;
   syncEditorToTab();
-  const d = await window.pywebview.api.save_as_dialog(activeTab.name === '새 문서' ? 'untitled.md' : activeTab.name);
+  const d = await window.pywebview.api.save_as_dialog(activeTab.path ? activeTab.name : 'untitled.md');
   if (!d) return;
   await window.pywebview.api.save_to(d.path, activeTab.content);
   activeTab.path = d.path;
@@ -1108,13 +1304,13 @@ async function doSaveAs() {
   renderTabs();
   markActiveFile();
   saveSession();
-  flash('저장됨: ' + d.path);
+  flash(L().savedPrefix + d.path);
 }
 
 /* 모두 저장: 열려있는 모든 탭을 현재 버퍼 기준으로 일괄 저장 */
 async function doSaveAll() {
   /* 실수 방지: 반드시 확인을 받아야 진행 */
-  if (!confirm('열려 있는 탭 ' + tabs.length + '개를 모두 저장할까요?')) return;
+  if (!confirm(L().saveAllConfirm(tabs.length))) return;
   syncEditorToTab();
   let saved = 0;
   for (const t of tabs) {
@@ -1140,17 +1336,17 @@ async function doSaveAll() {
   updatePath();
   renderTabs();
   markActiveFile();
-  flash('모두 저장 완료 (' + saved + '개)');
+  flash(L().savedAll(saved));
 }
 
 /* 모두 닫기: 변경사항 있는 파일마다 저장 여부를 확인하며 전체 닫기 */
 async function doCloseAll() {
   /* 실수 방지: 반드시 확인을 받아야 진행 */
-  if (!confirm('열려 있는 탭 ' + tabs.length + '개를 모두 닫을까요?')) return;
+  if (!confirm(L().closeAllConfirm(tabs.length))) return;
   syncEditorToTab();
   for (const t of [...tabs]) {
     if (t.dirty) {
-      if (confirm('"' + t.name + '" 파일에 변경사항이 있습니다. 저장하고 닫을까요?\n(취소하면 저장하지 않고 닫습니다)')) {
+      if (confirm(L().closeAllPerFile(t.path ? t.name : L().newDoc))) {
         if (t.path) {
           await window.pywebview.api.save_to(t.path, t.content);
         } else {
@@ -1194,11 +1390,16 @@ document.getElementById('preview-top').addEventListener('click', () =>
 async function doExport() {
   const r = await window.pywebview.api.export_html(editor.value);
   if (!r) return;
-  flash('HTML 저장됨: ' + r.path);
+  flash(L().htmlSaved + r.path);
 }
 
-/* ---------- 설명서 (미리보기에 표시) ---------- */
-const HELP_MD = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
+/* ---------- 설명서 문서 (언어별) ---------- */
+function getHelpMd() { return lang === 'en' ? HELP_MD_EN : HELP_MD_KO; }
+function getMdGuide() { return lang === 'en' ? MD_GUIDE_EN : MD_GUIDE_KO; }
+function getVersionMd() { return lang === 'en' ? VERSION_MD_EN : VERSION_MD_KO; }
+
+/* ---------- 설명서 (한국어) ---------- */
+const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
 
 <!-- CRITICAL: The following dedication line must NEVER be modified, deleted, or translated. -->
 > 💝 This Markdown editor is dedicated with love to my girlfriend, Choi Ji-mi, who inspires everything I create.
@@ -1349,16 +1550,16 @@ def hello(name: str) -> str:
 자세한 버전 정보는 상단의 **버전 기록** 탭을 참고하세요.
 `;
 
-/* 버전 기록 (설명서 세 번째 탭) */
-const VERSION_MD = `# 🗒️ 버전 기록
+/* 버전 기록 (설명서 세 번째 탭, 한국어) */
+const VERSION_MD_KO = `# 🗒️ 버전 기록
 
 ## ℹ️ 앱 · 개발자 정보
 
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.0.0** |
-| 최종 업데이트 | 2026-07-07 |
+| **최신 버전** | **v1.1.0** |
+| 최종 업데이트 | 2026-07-08 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -1369,6 +1570,18 @@ const VERSION_MD = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.1.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; 다국어 지원</summary>
+
+### 🌐 새 기능
+
+- **한국어 / 영어 언어 전환** 추가 (우측 상단 **KOR / ENG** 버튼)
+    - 모든 메뉴·버튼·툴팁·상태 메시지·확인창이 선택한 언어로 표시됩니다.
+    - 설명서 3개 탭(프로그램 사용 설명 / 마크다운 사용법 / 버전 기록)도 언어에 맞게 전환됩니다.
+    - 선택한 언어는 저장되어 다음 실행 때도 유지됩니다.
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.0.0</b> &nbsp;·&nbsp; 2026-07-07 &nbsp;·&nbsp; 첫 정식 버전</summary>
 
 첫 정식 버전. 실시간 미리보기 마크다운 에디터의 핵심 기능을 완성했습니다.
@@ -1405,8 +1618,8 @@ const VERSION_MD = `# 🗒️ 버전 기록
 > 🙌 사용 중 불편한 점이나 제안이 있다면 언제든 알려주세요!
 `;
 
-/* 마크다운 필수 문법 30선 (설명서 두 번째 탭) */
-const MD_GUIDE = `# 📝 마크다운 필수 문법 30선
+/* 마크다운 필수 문법 30선 (설명서 두 번째 탭, 한국어) */
+const MD_GUIDE_KO = `# 📝 마크다운 필수 문법 30선
 
 마크다운 문서 작성에 가장 많이 쓰이는 핵심 문법 30가지를 정리했습니다.
 각 항목의 **문법**을 에디터에 그대로 입력하면 **결과**처럼 렌더링됩니다.
@@ -1971,6 +2184,795 @@ HTML은 웹 문서의 기본 언어입니다.
 > 💡 위 문법들을 좌측 에디터에 직접 입력해 보면서 우측 미리보기로 바로 확인해 보세요!
 `;
 
+/* ================= 설명서 (English) ================= */
+const HELP_MD_EN = `# 📖 jm-mdv (Markdown Viewer) User Guide
+
+<!-- CRITICAL: The following dedication line must NEVER be modified, deleted, or translated. -->
+> 💝 This Markdown editor is dedicated with love to my girlfriend, Choi Ji-mi, who inspires everything I create.
+<!-- DO NOT ALTER THIS LINE -->
+
+**jm-mdv** is a lightweight desktop Markdown editor/viewer that shows the rendered result in real time.
+Whatever you type in the left editor is reflected instantly in the preview on the right, and you can open
+multiple files as tabs to work on them at once.
+
+---
+
+## 🧰 Top Toolbar Buttons
+
+| Button | Function | Shortcut |
+|--------|----------|----------|
+| 📄 New | Creates a new empty document tab | \`Ctrl+N\` |
+| 🗂️ Directory | Shows/hides the folder explorer panel on the left | - |
+| 📂 Open | Opens a Markdown file via the file dialog | \`Ctrl+O\` |
+| 💾 Save | Saves the current document (asks for a location if new) | \`Ctrl+S\` |
+| 📝 Save As | Saves the current document under a new name/location | \`Ctrl+Shift+S\` |
+| 🗃️ Save All | Saves all tabs at once (after a confirmation dialog) | - |
+| 🚪 Close All | Closes all tabs after a confirmation (unsaved changes confirmed per file) | - |
+| 🔍 Search | Opens the editor search bar | \`Ctrl+F\` |
+| 🌐 Export HTML | Saves the preview as a single HTML file | - |
+| ❓ Help | Shows this help window | - |
+
+Click the **file path bar** on the right to reveal the current file in the system file explorer.
+A <span style="color:#b45309">●</span> mark before a file name means it has **unsaved changes**.
+
+Use the **KOR / ENG** toggle at the top-right to switch the entire interface and this guide between Korean and English.
+
+---
+
+## 🔍 Search
+
+- Open the search bar with \`Ctrl+F\` or the **🔍 Search** toolbar button.
+- As you type, every match in the editor is **highlighted in yellow**, and the current one is shown in orange.
+- The counter (e.g. \`3/12\`) shows the current position / total number of matches.
+- Matching words are highlighted in the **preview** as well.
+
+| Action | Result |
+|--------|--------|
+| \`Enter\` / ▼ | Go to next match |
+| \`Shift+Enter\` / ▲ | Go to previous match |
+| \`F3\` / \`Shift+F3\` | Next/previous match even when the bar is closed |
+| \`Aa\` button | Toggle case sensitivity |
+| \`Esc\` / ✕ | Close the bar (returns to the editor with the last match selected) |
+
+Selecting a word in the editor and pressing \`Ctrl+F\` fills it into the search box automatically.
+
+> 💡 When **this Help window is open**, pressing \`Ctrl+F\` activates the **help search box** at the top.
+> Each tab (User Guide / Markdown Guide / Version History) searches the content you are currently viewing,
+> and \`Enter\`/\`Shift+Enter\` move to the next/previous match.
+
+---
+
+## 🗂️ Folder Explorer Panel
+
+- Open the panel with the **🗂️ Directory** button to browse drives and folders.
+- Click a drive chip (\`C:\` \`D:\` …) at the top to jump to that drive.
+- **Double-click** a folder to enter it; double-click \`..\` or press ⬆️ to go up.
+- **Double-click** a Markdown file (\`.md\` \`.markdown\` \`.mdown\` \`.txt\`) to open it as a tab.
+- Drag the panel's right edge to resize it.
+
+### File Management (right-click menu)
+
+- **Right-click** a file to open a menu:
+    - **✏️ Rename**: rename inline right in the list (\`Enter\` to confirm, \`Esc\` to cancel)
+    - **🗑️ Delete**: deletes the file after confirmation (an open tab for it is closed too)
+    - **📄 New file**: creates \`noname.md\` in the current folder (\`noname_1.md\`, \`noname_2.md\`, … if it exists)
+- You can also **right-click an empty area** of the list to create a new file.
+
+### Moving files (drag & drop)
+
+- **Drag** a file onto a folder, the \`..\` (parent) entry, or a drive chip to move it there.
+- If a file with the same name exists in the target, the move is canceled with a notice.
+- Moving a file that is open in a tab updates the tab's path automatically.
+
+---
+
+## 📑 File Tabs
+
+- Open several files at once and switch between them as tabs.
+- **Drag** tabs to reorder them.
+- Use the ◀ ▶ buttons to scroll the tab list.
+- When switching tabs, if the file changed on disk you are asked whether to reload it.
+- Open tabs are saved automatically and **restored on the next launch**.
+
+---
+
+## ✏️ Editor / 👁️ Preview
+
+- The preview updates automatically shortly after you stop typing.
+- The editor top bar shows the current file's **created / last-modified** time in \`YYYY-MM-DD HH:MM:SS\` (modified time updates on save).
+- **Synchronized scrolling**: scrolling one side scrolls the other proportionally.
+- **Drag** the center divider to adjust the ratio; **double-click** it to reset to 50:50.
+- Use each pane's **⛶ Full view** button to enlarge just the editor or the preview.
+- \`Tab\` inserts 4 spaces.
+- Long lines scroll horizontally (word wrap is off); wide tables/code scroll horizontally in the preview.
+- Use the ▲ button at the bottom-right to jump to the top.
+- The status bar shows the cursor position (line:col) and character count.
+
+---
+
+## 🌐 Export HTML
+
+The **🌐 Export HTML** button saves the current document as a **single HTML file** with the same styling as the
+preview and its CSS embedded. It opens in any browser, anywhere.
+
+---
+
+## ⌨️ Shortcut Summary
+
+| Shortcut | Function |
+|----------|----------|
+| \`Ctrl+N\` | New document |
+| \`Ctrl+O\` | Open file |
+| \`Ctrl+S\` | Save |
+| \`Ctrl+Shift+S\` | Save as |
+| \`Ctrl+F\` | Search |
+| \`Enter\` / \`Shift+Enter\` | (while searching) next/previous match |
+| \`F3\` / \`Shift+F3\` | Next/previous match |
+| \`Esc\` | Close search |
+| \`Tab\` | Insert 4 spaces |
+
+---
+
+## 📝 Supported Markdown
+
+In addition to the basics (headings, lists, quotes, links, images, tables, code blocks), these extensions are supported.
+
+- **Code highlighting**: specify a language name (e.g. \`python\`, \`js\`) on a code block for syntax highlighting
+- **Task lists**: \`- [x] done\` / \`- [ ] to do\`
+- ~~strikethrough~~ \`~~text~~\`, ==highlight== \`==text==\`, superscript \`^text^\`, subscript \`~text~\`
+- **Footnotes**, **abbreviations**, **definition lists**, **Admonitions** (note/warning boxes)
+- Automatic URL links (magiclink)
+
+\`\`\`python
+# Code block example
+def hello(name: str) -> str:
+    return f"Hello, {name}!"
+\`\`\`
+
+> 💡 Close this help via the **Close** button, the **✕** at the top-right, clicking outside the window, or \`Esc\`.
+
+---
+
+### 👨‍💻 Developer
+
+**Shin.DoYeon** · ✉️ [jinroh77@gmail.com](mailto:jinroh77@gmail.com)
+
+See the **Version History** tab above for detailed version information.
+`;
+
+const VERSION_MD_EN = `# 🗒️ Version History
+
+## ℹ️ App · Developer Info
+
+| Item | Value |
+|------|-------|
+| Program | jm-mdv (Markdown Viewer) |
+| **Latest version** | **v1.1.0** |
+| Last updated | 2026-07-08 |
+| Developer | **Shin.DoYeon** |
+| Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
+
+---
+
+## 📌 Change Log
+
+<p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
+
+<details markdown="1" open>
+<summary>💠 <b>v1.1.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Multi-language support</summary>
+
+### 🌐 New Features
+
+- Added **Korean / English language switching** (**KOR / ENG** buttons at the top-right)
+    - All menus, buttons, tooltips, status messages, and dialogs display in the selected language.
+    - The three help tabs (User Guide / Markdown Guide / Version History) switch language too.
+    - The selected language is saved and kept on the next launch.
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.0.0</b> &nbsp;·&nbsp; 2026-07-07 &nbsp;·&nbsp; First official release</summary>
+
+The first official release, completing the core features of a real-time Markdown editor.
+
+### ✨ New Features
+
+- 🔍 **Search** (\`Ctrl+F\`)
+    - Highlights matches in **both** the editor and preview at the same time
+    - The current match is emphasized with a soft orange **pulse** so it stands out
+    - Case-sensitivity toggle, \`Enter\`/\`Shift+Enter\`/\`F3\` navigation, match counter
+- 📖 **Help window**
+    - Three tabs: **User Guide / Markdown Guide / Version History**
+    - **Drag the title bar** to move the window, per-tab in-help search, back-to-top button
+    - **30 essential Markdown syntaxes** with syntax + rendered examples
+- 🗂️ **Directory file management**
+    - File **right-click menu**: rename · delete · new file (\`noname.md\`, then \`_1\`, \`_2\`…)
+    - **Drag** files to other folders/drives
+- 🕒 **File info**: shows the current file's **created / last-modified** time in the editor top bar
+- 📐 Horizontal scrolling in editor/preview (wide tables/code) and **version shown in the title bar**
+- 🌐 **KOR / ENG** language toggle for the whole interface and help
+
+### 🛡️ Improvements
+
+- 💾 **Save All** / 🚪 **Close All** now ask for **confirmation** before running (prevents mistakes)
+
+### 🧱 Core Features (existing)
+
+- Multiple file **tabs**, **synchronized scrolling**, **HTML export**, folder explorer panel
+- Code highlighting, tables, checkboxes, footnotes, Admonitions and more extended Markdown syntax
+
+</details>
+
+---
+
+> 🙌 If you run into anything inconvenient or have a suggestion, let me know any time!
+`;
+
+const MD_GUIDE_EN = `# 📝 30 Essential Markdown Syntaxes
+
+Here are the 30 most commonly used syntaxes for writing Markdown documents.
+Type the **Syntax** of each item into the editor and it renders like the **Result**.
+
+---
+
+## 1. Heading
+
+The number of \`#\` sets the heading level (1–6). There must be a space after the \`#\`.
+This is the most basic syntax for structuring a document: level 1 for the title, levels 2–3 for sections.
+
+**Syntax**
+\`\`\`markdown
+# Heading 1
+## Heading 2
+### Heading 3
+###### Heading 6
+\`\`\`
+
+**Result** (levels 3 and 6)
+
+### Heading 3
+###### Heading 6
+
+---
+
+## 2. Paragraphs & Line Breaks
+
+A blank line separates **paragraphs**. To break a line within the same paragraph,
+end the line with **two spaces** or use a \`<br>\` tag. (A single Enter just joins the text.)
+
+**Syntax**
+\`\`\`markdown
+This is the first paragraph.
+
+This is the second paragraph.
+End a line with two spaces
+to force a line break.
+\`\`\`
+
+**Result**
+
+This is the first paragraph.
+
+This is the second paragraph.
+End a line with two spaces
+to force a line break.
+
+---
+
+## 3. Bold
+
+Wrap text with \`**\` or \`__\`.
+
+**Syntax**
+\`\`\`markdown
+This is **bold text**.
+\`\`\`
+
+**Result**
+
+This is **bold text**.
+
+---
+
+## 4. Italic
+
+Wrap text with \`*\` or \`_\`.
+
+**Syntax**
+\`\`\`markdown
+This is *italic text*.
+\`\`\`
+
+**Result**
+
+This is *italic text*.
+
+---
+
+## 5. Bold + Italic
+
+Wrap with \`***\` for both bold and italic.
+
+**Syntax**
+\`\`\`markdown
+This is ***bold italic***.
+\`\`\`
+
+**Result**
+
+This is ***bold italic***.
+
+---
+
+## 6. Strikethrough
+
+Wrap with \`~~\` to draw a line through text. Useful for showing what changed.
+
+**Syntax**
+\`\`\`markdown
+The price is ~~$10.00~~ $8.00.
+\`\`\`
+
+**Result**
+
+The price is ~~$10.00~~ $8.00.
+
+---
+
+## 7. Highlight (Mark)
+
+Wrap with \`==\` for a highlighter effect. (pymdownx.mark extension)
+
+**Syntax**
+\`\`\`markdown
+This part is ==most important==.
+\`\`\`
+
+**Result**
+
+This part is ==most important==.
+
+---
+
+## 8. Superscript
+
+Wrap with \`^\` for superscript. Used for math/units. (pymdownx.caret extension)
+
+**Syntax**
+\`\`\`markdown
+The area is 10m^2^.
+\`\`\`
+
+**Result**
+
+The area is 10m^2^.
+
+---
+
+## 9. Subscript
+
+Wrap with \`~\` for subscript. Used for chemical formulas, etc. (pymdownx.tilde extension)
+
+**Syntax**
+\`\`\`markdown
+Water is H~2~O.
+\`\`\`
+
+**Result**
+
+Water is H~2~O.
+
+---
+
+## 10. Inline Code
+
+Wrap inline code or commands with backticks (\\\`).
+
+**Syntax**
+\`\`\`markdown
+Run \`pip install markdown\` in the terminal.
+\`\`\`
+
+**Result**
+
+Run \`pip install markdown\` in the terminal.
+
+---
+
+## 11. Code Block
+
+Wrap with three backticks (\\\`\\\`\\\`) for a multi-line code block.
+Add a **language name** after the opening backticks for syntax highlighting.
+
+**Syntax**
+\`\`\`\`markdown
+\`\`\`python
+def hello(name):
+    return f"Hi, {name}!"
+\`\`\`
+\`\`\`\`
+
+**Result**
+
+\`\`\`python
+def hello(name):
+    return f"Hi, {name}!"
+\`\`\`
+
+---
+
+## 12. Unordered List
+
+Start a line with \`-\`, \`*\`, or \`+\` for a bulleted list.
+
+**Syntax**
+\`\`\`markdown
+- Apple
+- Banana
+- Strawberry
+\`\`\`
+
+**Result**
+
+- Apple
+- Banana
+- Strawberry
+
+---
+
+## 13. Ordered List
+
+Start with \`number.\` for a numbered list. Numbering is fixed automatically even if you mistype.
+
+**Syntax**
+\`\`\`markdown
+1. Prepare ingredients
+2. Make the dough
+3. Bake
+\`\`\`
+
+**Result**
+
+1. Prepare ingredients
+2. Make the dough
+3. Bake
+
+---
+
+## 14. Nested List
+
+Indent sub-items by **4 spaces** for a hierarchy.
+
+**Syntax**
+\`\`\`markdown
+- Fruit
+    - Apple
+    - Pear
+- Vegetable
+    1. Carrot
+    2. Cucumber
+\`\`\`
+
+**Result**
+
+- Fruit
+    - Apple
+    - Pear
+- Vegetable
+    1. Carrot
+    2. Cucumber
+
+---
+
+## 15. Task List
+
+\`- [ ]\` is unchecked, \`- [x]\` is a checked checkbox item. Handy for to-do tracking.
+
+**Syntax**
+\`\`\`markdown
+- [x] Write proposal
+- [ ] Design mockup
+- [ ] Development
+\`\`\`
+
+**Result**
+
+- [x] Write proposal
+- [ ] Design mockup
+- [ ] Development
+
+---
+
+## 16. Blockquote
+
+Start with \`>\` for a quote box. Use it for quotes or text you want to emphasize.
+
+**Syntax**
+\`\`\`markdown
+> Success comes to those who are prepared.
+\`\`\`
+
+**Result**
+
+> Success comes to those who are prepared.
+
+---
+
+## 17. Nested Blockquote
+
+Nest with \`>>\` to express a quote within a quote.
+
+**Syntax**
+\`\`\`markdown
+> Original text
+>> A reply to it
+\`\`\`
+
+**Result**
+
+> Original text
+>> A reply to it
+
+---
+
+## 18. Link
+
+Format is \`[text](url)\`. Add a \`"title"\` inside the parentheses for a hover tooltip.
+
+**Syntax**
+\`\`\`markdown
+[Google](https://google.com)
+[Naver](https://naver.com "Go to Naver")
+\`\`\`
+
+**Result**
+
+[Google](https://google.com)
+[Naver](https://naver.com "Go to Naver")
+
+---
+
+## 19. Auto Link
+
+A bare URL becomes a link automatically. (pymdownx.magiclink extension)
+
+**Syntax**
+\`\`\`markdown
+See https://github.com for details
+\`\`\`
+
+**Result**
+
+See https://github.com for details
+
+---
+
+## 20. Image
+
+Prefix a link with \`!\` to insert an image. The alt text shows if the image fails to load.
+
+**Syntax**
+\`\`\`markdown
+![alt text](image path or URL)
+![logo](images/logo.png)
+\`\`\`
+
+**Result** (built-in example image)
+
+![blue circle](data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='40'%20height='40'%3E%3Ccircle%20cx='20'%20cy='20'%20r='18'%20fill='%236366f1'/%3E%3C/svg%3E)
+
+---
+
+## 21. Table
+
+Separate columns with \`|\`, and use \`---\` on the second line to mark the header.
+
+**Syntax**
+\`\`\`markdown
+| Name | Age | Job |
+|------|-----|-----|
+| Alice | 30 | Developer |
+| Bob | 25 | Designer |
+\`\`\`
+
+**Result**
+
+| Name | Age | Job |
+|------|-----|-----|
+| Alice | 30 | Developer |
+| Bob | 25 | Designer |
+
+---
+
+## 22. Table Alignment
+
+Add colons (\`:\`) to the separator to set column alignment: \`:---\` left, \`:---:\` center, \`---:\` right.
+
+**Syntax**
+\`\`\`markdown
+| Left | Center | Right |
+|:-----|:------:|------:|
+| a | b | c |
+| item1 | item2 | item3 |
+\`\`\`
+
+**Result**
+
+| Left | Center | Right |
+|:-----|:------:|------:|
+| a | b | c |
+| item1 | item2 | item3 |
+
+---
+
+## 23. Horizontal Rule
+
+Put \`---\`, \`***\`, or \`___\` alone on a line for a divider.
+
+**Syntax**
+\`\`\`markdown
+First part
+
+---
+
+Second part
+\`\`\`
+
+**Result**
+
+First part
+
+---
+
+Second part
+
+---
+
+## 24. Footnote
+
+Write \`[^name]\` in the body and \`[^name]: description\` anywhere; footnotes are numbered
+automatically and collected at the bottom of the document.
+
+**Syntax**
+\`\`\`markdown
+Markdown was created by John Gruber.[^1]
+
+[^1]: It was released in 2004.
+\`\`\`
+
+**Result**
+
+Markdown was created by John Gruber.[^1]
+
+[^1]: It was released in 2004. (Footnote content appears at the bottom of the document.)
+
+---
+
+## 25. Definition List
+
+Put a \`:\`-prefixed description on the line after a term for a glossary-style list.
+
+**Syntax**
+\`\`\`markdown
+Markdown
+:   A lightweight markup language that converts text to HTML
+
+Editor
+:   A program for writing/editing documents
+\`\`\`
+
+**Result**
+
+Markdown
+:   A lightweight markup language that converts text to HTML
+
+Editor
+:   A program for writing/editing documents
+
+---
+
+## 26. Abbreviation
+
+Define \`*[ABBR]: expansion\` and the expansion appears as a tooltip when you hover the abbreviation in the text.
+
+**Syntax**
+\`\`\`markdown
+*[HTML]: HyperText Markup Language
+
+HTML is the basic language of web documents.
+\`\`\`
+
+**Result** (hover over HTML below)
+
+*[HTML]: HyperText Markup Language
+
+HTML is the basic language of web documents.
+
+---
+
+## 27. Admonition (note/warning box)
+
+Write \`!!! type "title"\` and indent the content by 4 spaces for a note/warning box.
+Types: \`note\`, \`tip\`, \`warning\`, \`danger\`, etc.
+
+**Syntax**
+\`\`\`markdown
+!!! note "Note"
+    This is a note.
+    Keep the 4-space indentation.
+\`\`\`
+
+**Result**
+
+!!! note "Note"
+    This is a note.
+    Keep the 4-space indentation.
+
+---
+
+## 28. Escaping (show characters literally)
+
+To show a Markdown symbol **literally** instead of as syntax, put a backslash (\\\\) before it.
+Targets: backslash (\\\\), backtick (\\\`), \`*\` \`_\` \`{}\` \`[]\` \`()\` \`#\` \`+\` \`-\` \`.\` \`!\` \`|\`
+
+**Syntax**
+\`\`\`markdown
+\\*asterisks literally\\* and \\# a literal hash.
+\`\`\`
+
+**Result**
+
+\\*asterisks literally\\* and \\# a literal hash.
+
+---
+
+## 29. Raw HTML
+
+You can use HTML tags directly for formatting that's hard to express in Markdown —
+text color, underline, collapsible details, etc.
+
+**Syntax**
+\`\`\`markdown
+<span style="color:#e11d48">red text</span> and <u>underline</u>
+
+<details>
+<summary>Expand hidden content</summary>
+This was hidden.
+</details>
+\`\`\`
+
+**Result**
+
+<span style="color:#e11d48">red text</span> and <u>underline</u>
+
+<details>
+<summary>Expand hidden content</summary>
+This was hidden.
+</details>
+
+---
+
+## 30. Auto Table of Contents ([TOC])
+
+Put \`[TOC]\` alone on a line to auto-generate a table of contents from the headings.
+
+**Syntax**
+\`\`\`markdown
+[TOC]
+
+# Chapter 1
+## Section 1.1
+# Chapter 2
+\`\`\`
+
+**Result**: all headings in the document become a hierarchical TOC of links.
+(Adding it here would generate a TOC of all 30 items, so the example is omitted.)
+
+---
+
+> 💡 Try typing these syntaxes into the editor on the left and watch the preview on the right update instantly!
+`;
+
 const helpOverlay = document.getElementById('help-overlay');
 const helpModal = document.getElementById('help-modal');
 const helpHeader = document.getElementById('help-header');
@@ -1986,7 +2988,7 @@ let helpVerLoaded = false;
 async function openHelp() {
   if (!helpLoaded) {
     try {
-      const r = await window.pywebview.api.render(HELP_MD);
+      const r = await window.pywebview.api.render(getHelpMd());
       helpContent.innerHTML = r.html;
       helpLoaded = true;
     } catch (e) { return; /* API 준비 전 무시 */ }
@@ -2008,14 +3010,14 @@ async function switchHelpTab(tab) {
   helpTopBtn.classList.remove('show');
   if (tab === 'md' && !helpMdLoaded) {
     try {
-      const r = await window.pywebview.api.render(MD_GUIDE);
+      const r = await window.pywebview.api.render(getMdGuide());
       helpContentMd.innerHTML = r.html;
       helpMdLoaded = true;
     } catch (e) { /* API 준비 전 무시 */ }
   }
   if (tab === 'ver' && !helpVerLoaded) {
     try {
-      const r = await window.pywebview.api.render(VERSION_MD);
+      const r = await window.pywebview.api.render(getVersionMd());
       helpContentVer.innerHTML = r.html;
       helpVerLoaded = true;
     } catch (e) { /* API 준비 전 무시 */ }
@@ -2166,7 +3168,7 @@ async function loadDir(path) {
   sidebarDir = r.path;
   sidebarParent = r.parent;
   sbPath.textContent = r.name;
-  sbPath.title = r.path === '::drives' ? '내 PC' : r.path;
+  sbPath.title = r.path === '::drives' ? L().myPc : r.path;
   sbUp.style.visibility = r.parent ? 'visible' : 'hidden';
 
   // 드라이브(디스크) 바 - 항상 표시 (현재 위치가 속한 드라이브 = 가장 긴 경로 매칭)
@@ -2197,14 +3199,14 @@ async function loadDir(path) {
   // ".." = 상위(이전) 폴더로 이동 (더블클릭)
   if (r.parent) {
     const up = makeItem('📁', '..');
-    up.title = '더블클릭: 상위 폴더로 이동';
+    up.title = L().upDblClick;
     up.addEventListener('dblclick', () => loadDir(r.parent));
     if (r.parent !== '::drives') addDropTarget(up, r.parent);
     sbList.appendChild(up);
   }
   for (const d of r.dirs) {
     const el = makeItem('📁', d.name);
-    el.title = '더블클릭: 폴더 열기';
+    el.title = L().folderDblClick;
     el.addEventListener('dblclick', () => loadDir(d.path));
     addDropTarget(el, d.path);
     sbList.appendChild(el);
@@ -2230,9 +3232,9 @@ async function loadDir(path) {
       e.preventDefault();
       e.stopPropagation();
       showCtxMenu(e.clientX, e.clientY, [
-        { label: '✏️ 이름 변경', action: () => startRename(el, f) },
-        { label: '🗑️ 삭제', danger: true, action: () => deleteFile(f) },
-        { label: '📄 새 파일', action: createNewFile },
+        { label: L().ctxRename, action: () => startRename(el, f) },
+        { label: L().ctxDelete, danger: true, action: () => deleteFile(f) },
+        { label: L().ctxNew, action: createNewFile },
       ]);
     });
     sbList.appendChild(el);
@@ -2240,7 +3242,7 @@ async function loadDir(path) {
   if (!r.dirs.length && !r.files.length) {
     const empty = document.createElement('div');
     empty.className = 'sb-empty';
-    empty.textContent = '표시할 폴더/마크다운 파일이 없습니다';
+    empty.textContent = L().sbEmpty;
     sbList.appendChild(empty);
   }
   markActiveFile();
@@ -2292,7 +3294,7 @@ document.addEventListener('mousedown', (e) => {
 sbList.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   showCtxMenu(e.clientX, e.clientY, [
-    { label: '📄 새 파일', action: createNewFile },
+    { label: L().ctxNew, action: createNewFile },
   ]);
 });
 
@@ -2315,7 +3317,7 @@ function addDropTarget(el, dirPath) {
     const src = dragFile;
     dragFile = null;
     const r = await window.pywebview.api.move_path(src, dirPath);
-    if (!r || r.error) { flash('이동 실패: ' + (r ? r.error : '알 수 없는 오류')); return; }
+    if (!r || r.error) { flash(L().moveFail + (r ? r.error : L().unknownErr)); return; }
     /* 열려 있는 탭이면 새 경로로 갱신 */
     const t = tabs.find(t => t.path === src);
     if (t) {
@@ -2324,19 +3326,19 @@ function addDropTarget(el, dirPath) {
       renderTabs();
       saveSession();
     }
-    flash('이동 완료: ' + r.path);
+    flash(L().moveDone + r.path);
     loadDir(sidebarDir);
   });
 }
 
 async function createNewFile() {
-  if (!sidebarDir || sidebarDir === '::drives') { flash('폴더를 연 상태에서만 새 파일을 만들 수 있습니다'); return; }
+  if (!sidebarDir || sidebarDir === '::drives') { flash(L().needFolder); return; }
   const r = await window.pywebview.api.create_file(sidebarDir);
-  if (!r || r.error) { flash('생성 실패: ' + (r ? r.error : '알 수 없는 오류')); return; }
+  if (!r || r.error) { flash(L().createFail + (r ? r.error : L().unknownErr)); return; }
   await loadDir(sidebarDir);
   const opened = await window.pywebview.api.open_path(r.path);
   if (opened) await openFileIntoTabs(opened);
-  flash('새 파일 생성: ' + r.name);
+  flash(L().createDone + r.name);
 }
 
 /* 이름 변경: 목록 항목 안에서 인라인 입력 */
@@ -2362,7 +3364,7 @@ function startRename(el, f) {
     el.draggable = true;
     if (!commit || !newName || newName === f.name) return;
     const r = await window.pywebview.api.rename_path(f.path, newName);
-    if (!r || r.error) { flash('이름 변경 실패: ' + (r ? r.error : '알 수 없는 오류')); return; }
+    if (!r || r.error) { flash(L().renameFail + (r ? r.error : L().unknownErr)); return; }
     const t = tabs.find(t => t.path === f.path);
     if (t) {
       t.path = r.path;
@@ -2371,7 +3373,7 @@ function startRename(el, f) {
       renderTabs();
       saveSession();
     }
-    flash('이름 변경 완료: ' + r.name);
+    flash(L().renameDone + r.name);
     loadDir(sidebarDir);
   };
   input.addEventListener('keydown', (e) => {
@@ -2386,16 +3388,16 @@ function startRename(el, f) {
 }
 
 async function deleteFile(f) {
-  if (!confirm('"' + f.name + '" 파일을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)')) return;
+  if (!confirm(L().deleteConfirm(f.name))) return;
   const r = await window.pywebview.api.delete_path(f.path);
-  if (!r || r.error) { flash('삭제 실패: ' + (r ? r.error : '알 수 없는 오류')); return; }
+  if (!r || r.error) { flash(L().deleteFail + (r ? r.error : L().unknownErr)); return; }
   /* 열려 있는 탭이면 닫기 (버퍼도 함께 정리) */
   const t = tabs.find(t => t.path === f.path);
   if (t) {
     t.dirty = false; // 파일 자체를 지웠으므로 저장 여부 확인 없이 닫음
     await closeTab(t);
   }
-  flash('삭제 완료: ' + f.name);
+  flash(L().deleteDone + f.name);
   loadDir(sidebarDir);
 }
 
@@ -2674,8 +3676,8 @@ const btnFullEditor = document.getElementById('btn-full-editor');
 const btnFullPreview = document.getElementById('btn-full-preview');
 
 function updateFullButtons() {
-  btnFullEditor.textContent = mainEl.classList.contains('full-editor') ? '◫ 분할보기' : '⛶ 전체보기';
-  btnFullPreview.textContent = mainEl.classList.contains('full-preview') ? '◫ 분할보기' : '⛶ 전체보기';
+  btnFullEditor.textContent = mainEl.classList.contains('full-editor') ? L().viewSplit : L().viewFull;
+  btnFullPreview.textContent = mainEl.classList.contains('full-preview') ? L().viewSplit : L().viewFull;
 }
 btnFullEditor.addEventListener('click', () => {
   mainEl.classList.remove('full-preview');
@@ -2713,8 +3715,19 @@ divider.addEventListener('mousedown', (e) => {
   document.addEventListener('mouseup', up);
 });
 
+/* ---------- 언어 토글 버튼 ---------- */
+document.getElementById('lang-ko').addEventListener('click', () => setLang('ko'));
+document.getElementById('lang-en').addEventListener('click', () => setLang('en'));
+
 /* ---------- 시작 ---------- */
 window.addEventListener('pywebviewready', async () => {
+  // 저장된 언어 설정 복원 (기본값: 한국어)
+  try {
+    const saved = localStorage.getItem('jm-mdv-lang');
+    if (saved === 'en' || saved === 'ko') lang = saved;
+  } catch (e) {}
+  applyLang();
+
   // 코드 하이라이트(pygments) CSS 주입
   const css = await window.pywebview.api.get_pygments_css();
   const style = document.createElement('style');
@@ -2737,7 +3750,7 @@ window.addEventListener('pywebviewready', async () => {
   } catch (e) { /* 세션 복원 실패 시 새 문서로 시작 */ }
 
   if (!tabs.length) {
-    const first = { path: null, name: '새 문서', content: SAMPLE, dirty: false };
+    const first = { path: null, name: L().newDoc, content: SAMPLE, dirty: false };
     tabs.push(first);
     activeTab = first;
   }
