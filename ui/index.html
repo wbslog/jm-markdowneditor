@@ -11,39 +11,111 @@
     font-family: "Segoe UI", "Malgun Gothic", sans-serif;
     display: flex;
     flex-direction: column;
-    background: #1e1e2e;
+    /* 글래스모피즘: 유리 뒤로 비칠 컬러 그라데이션 배경 */
+    background:
+      radial-gradient(1100px 720px at 12% -8%, rgba(124, 92, 255, 0.30), transparent 60%),
+      radial-gradient(1000px 700px at 108% 12%, rgba(38, 132, 255, 0.26), transparent 60%),
+      radial-gradient(900px 640px at 60% 116%, rgba(236, 72, 153, 0.18), transparent 60%),
+      linear-gradient(160deg, #14131f 0%, #191830 55%, #141324 100%);
   }
+  /* 유리 재질 공통 변수감 (참고): rgba 배경 + backdrop blur + 옅은 흰 테두리 */
 
   /* ---------- 상단 툴바 ---------- */
   #toolbar {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 12px;
-    background: linear-gradient(180deg, #2b2b40, #232336);
-    border-bottom: 1px solid #3b3b55;
+    padding: 9px 12px;
+    /* 유리 재질 툴바 */
+    background: rgba(38, 38, 64, 0.55);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
     flex-shrink: 0;
+    z-index: 20;
   }
   #toolbar button {
     font-family: inherit;
     font-size: 13px;
-    color: #e4e4f0;
-    background: #383854;
-    border: 1px solid #4a4a6a;
-    border-radius: 7px;
-    padding: 6px 14px;
+    color: #e9e9f6;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    padding: 7px 14px;
     cursor: pointer;
     white-space: nowrap;
-    transition: background 0.15s;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   }
-  #toolbar button:hover { background: #46466a; }
-  #toolbar button:active { background: #52527a; }
+  #toolbar button:hover {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.22);
+  }
+  #toolbar button:active { background: rgba(255, 255, 255, 0.20); }
   #toolbar button.primary {
-    background: #6366f1;
-    border-color: #7376ff;
+    background: rgba(99, 102, 241, 0.85);
+    border-color: rgba(147, 150, 255, 0.7);
     font-weight: 600;
+    box-shadow: 0 2px 12px rgba(99, 102, 241, 0.4);
   }
-  #toolbar button.primary:hover { background: #7477f5; }
+  #toolbar button.primary:hover { background: rgba(116, 119, 245, 0.95); }
+
+  /* ---------- 툴바 드롭다운 메뉴 (파일 등) ---------- */
+  .menu-group { position: relative; flex-shrink: 0; }
+  .menu-group > button.has-caret::after {
+    content: "▾";
+    font-size: 16px;
+    line-height: 1;
+    margin-left: 7px;
+    opacity: 0.85;
+    vertical-align: middle;
+  }
+  .menu-group.open > button.has-caret::after { opacity: 1; }
+  /* 모던 & 심플 드롭다운 (목록 형태) */
+  .dropdown {
+    position: absolute;
+    top: calc(100% + 7px);
+    left: 0;
+    z-index: 30;
+    display: none;
+    min-width: 220px;
+    padding: 6px 0;
+    background: rgba(38, 38, 62, 0.72);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    animation: dd-in 0.13s ease;
+  }
+  @keyframes dd-in {
+    from { opacity: 0; transform: translateY(-5px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .menu-group.open .dropdown { display: block; }
+  .menu-group.open > button.has-caret { background: #52527e; }
+  /* 목록형 항목: 아이콘 + 텍스트의 평평한 리스트 행 (버튼 느낌 제거) */
+  .dropdown button {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 400;
+    color: #c5c5dd;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 8px 18px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.1s, color 0.1s;
+  }
+  .dropdown button + button { border-top: 1px solid #2f2f48; }  /* 행 사이 옅은 구분선 */
+  .dropdown button:hover { background: #313150; color: #fff; }
+  .dropdown .menu-sep { display: none; }
   #file-path {
     flex: 1;
     min-width: 0;
@@ -88,8 +160,10 @@
   #tabbar {
     display: flex;
     align-items: stretch;
-    background: #232336;
-    border-bottom: 1px solid #3b3b55;
+    background: rgba(26, 26, 46, 0.45);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     flex-shrink: 0;
   }
   #tabbar > button {
@@ -123,8 +197,9 @@
     flex-shrink: 0;
     max-width: 230px;
   }
-  .tab:hover { background: #2b2b44; }
-  .tab.active { background: #1e1e2e; color: #fff; box-shadow: inset 0 2px 0 #6366f1; }
+  .tab:hover { background: rgba(255, 255, 255, 0.06); }
+  /* 활성 탭: 유리 위 은은한 밝은 층 + 상단 인디고 라인 */
+  .tab.active { background: rgba(255, 255, 255, 0.12); color: #fff; box-shadow: inset 0 2px 0 #818cf8; }
   .tab-name { overflow: hidden; text-overflow: ellipsis; }
   .tab-name .dirty { color: #fbbf24; }
   .tab-close {
@@ -148,8 +223,10 @@
     flex-shrink: 0;
     overflow: hidden;
     transition: width 0.18s ease;
-    background: #232336;
-    border-right: 1px solid #3b3b55;
+    background: rgba(26, 26, 46, 0.5);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
     display: flex;
     flex-direction: column;
   }
@@ -238,6 +315,8 @@
   }
   .sb-item:hover { background: #31314e; }
   .sb-item.file.active { background: #4048a0; color: #fff; }
+  .sb-item.hidden-item { opacity: 0.5; }              /* 숨김 파일/폴더는 흐리게 */
+  .sb-item.hidden-item.active { opacity: 1; }
   .sb-empty { padding: 12px 14px; font-size: 12px; color: #6b6b8f; }
   /* 드래그 이동 시 놓을 수 있는 대상 표시 */
   .sb-item.drop-target { background: #4048a0; box-shadow: inset 0 0 0 1px #6366f1; color: #fff; }
@@ -261,23 +340,25 @@
     position: fixed;
     z-index: 200;
     display: none;
-    min-width: 160px;
-    padding: 5px;
-    background: #2b2b40;
-    border: 1px solid #4a4a6a;
-    border-radius: 8px;
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    min-width: 168px;
+    padding: 6px;
+    background: rgba(40, 40, 66, 0.72);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
   }
   .ctx-item {
-    padding: 6px 12px;
+    padding: 8px 12px;
     font-size: 13px;
     color: #e4e4f0;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
     white-space: nowrap;
     user-select: none;
   }
-  .ctx-item:hover { background: #46466a; }
+  .ctx-item:hover { background: rgba(255, 255, 255, 0.12); }
   .ctx-item.danger { color: #f87171; }
   .ctx-item.danger:hover { background: #7f1d1d; color: #fff; }
   #editor-pane, #preview-pane {
@@ -348,7 +429,7 @@
   /* 탭 드래그 정렬 표시 */
   .tab.drag-over { box-shadow: inset 3px 0 0 #6366f1; }
   .tab.dragging { opacity: 0.4; }
-  #editor-pane .pane-label { color: #8a8ab0; background: #232336; }
+  #editor-pane .pane-label { color: #b7b7d6; background: rgba(26, 26, 46, 0.4); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   /* 파일 생성일/수정일 표시 */
   #file-times {
     font-weight: 400;
@@ -359,13 +440,16 @@
     margin-left: 12px;
     white-space: nowrap;
   }
-  #preview-pane .pane-label { color: #6b7280; background: #eef0f4; border-bottom: 1px solid #e0e2e8; }
+  #preview-pane .pane-label { color: #5b6172; background: rgba(255, 255, 255, 0.72); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0, 0, 0, 0.06); }
 
   #editor-wrap {
     flex: 1;
     min-height: 0;
     position: relative;
-    background: #1e1e2e;
+    /* 유리 느낌의 어두운 편집 영역 (가독성 유지) */
+    background: rgba(20, 20, 34, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
   #editor {
     width: 100%;
@@ -443,25 +527,27 @@
     display: none;
     align-items: center;
     gap: 5px;
-    padding: 5px 7px;
-    background: #2b2b40;
-    border: 1px solid #4a4a6a;
-    border-radius: 8px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    padding: 6px 8px;
+    background: rgba(40, 40, 66, 0.7);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
   }
   #search-bar.open { display: flex; }
   #search-input {
     width: 190px;
     font-family: inherit;
     font-size: 13px;
-    color: #e4e4f0;
-    background: #1e1e2e;
-    border: 1px solid #4a4a6a;
-    border-radius: 5px;
-    padding: 4px 8px;
+    color: #e9e9f6;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 8px;
+    padding: 5px 9px;
     outline: none;
   }
-  #search-input:focus { border-color: #6366f1; }
+  #search-input:focus { border-color: #818cf8; }
   #search-count {
     font-size: 12px;
     color: #8a8ab0;
@@ -494,7 +580,10 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: auto;   /* 표/코드 등 넓은 내용은 가로 스크롤 */
-    background: #ffffff;
+    /* 프리뷰는 가독성을 위해 밝은 반투명 유리 카드 */
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px) saturate(120%);
+    -webkit-backdrop-filter: blur(12px) saturate(120%);
     padding: 24px 36px 60vh;
   }
 
@@ -521,7 +610,9 @@
     display: none;
     align-items: center;
     justify-content: center;
-    background: rgba(10, 10, 20, 0.55);
+    background: rgba(8, 8, 18, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   #help-overlay.open { display: flex; }
   #help-modal {
@@ -531,18 +622,21 @@
     width: min(860px, 90vw);
     height: min(85vh, 900px);
     background: #ffffff;
-    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   }
   #help-header {
     flex-shrink: 0;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 16px;
-    background: linear-gradient(180deg, #2b2b40, #232336);
-    border-bottom: 1px solid #3b3b55;
+    padding: 9px 16px;
+    background: rgba(38, 38, 62, 0.85);
+    backdrop-filter: blur(20px) saturate(150%);
+    -webkit-backdrop-filter: blur(20px) saturate(150%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     color: #e4e4f0;
     font-size: 14px;
     font-weight: 600;
@@ -677,6 +771,108 @@
   }
   #help-footer button:hover { background: #7477f5; }
 
+  /* ---------- 설정 / Confluence 모달 ---------- */
+  .app-overlay {
+    position: fixed; inset: 0; z-index: 110; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(8, 8, 18, 0.45);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .app-overlay.open { display: flex; }
+  .app-modal {
+    display: flex; flex-direction: column;
+    width: min(560px, 92vw); max-height: 88vh;
+    background: rgba(35, 35, 58, 0.72);
+    backdrop-filter: blur(30px) saturate(160%);
+    -webkit-backdrop-filter: blur(30px) saturate(160%);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  }
+  .app-modal.wide { width: min(680px, 92vw); }
+  .app-modal-header {
+    flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 16px; background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09); color: #e9e9f6; font-size: 14px; font-weight: 600;
+  }
+  .app-modal-header .x {
+    background: none; border: none; color: #b7b7d0; font-size: 14px;
+    cursor: pointer; padding: 4px 9px; border-radius: 7px;
+  }
+  .app-modal-header .x:hover { background: rgba(255, 255, 255, 0.14); color: #fff; }
+  .app-modal-body { padding: 18px 20px; overflow-y: auto; color: #e0e0f0; font-size: 13px; }
+  .app-modal-footer {
+    flex-shrink: 0; display: flex; justify-content: flex-end; gap: 8px;
+    padding: 12px 16px; border-top: 1px solid rgba(255, 255, 255, 0.09); background: rgba(0, 0, 0, 0.14);
+  }
+  .app-modal-footer button, .app-modal-body .btn {
+    font-family: inherit; font-size: 13px; color: #e9e9f6; background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 9px; padding: 7px 16px; cursor: pointer;
+  }
+  .app-modal-footer button:hover, .app-modal-body .btn:hover { background: rgba(255, 255, 255, 0.16); }
+  .app-modal-footer button.primary, .app-modal-body .btn.primary { background: #6366f1; border-color: #7376ff; font-weight: 600; }
+  .app-modal-footer button.primary:hover, .app-modal-body .btn.primary:hover { background: #7477f5; }
+  /* 설정 모달: 좌측 네비 + 우측 패널 */
+  .app-modal.settings-modal { width: min(780px, 94vw); height: min(70vh, 640px); position: relative; }
+  /* 저장 완료 안내 토스트 (상단 중앙, 잠깐 표시) */
+  #set-toast {
+    position: absolute; top: 52px; left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    z-index: 8; display: flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 20px;
+    background: #16a34a; color: #fff; font-size: 12.5px; font-weight: 600;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+  #set-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .settings-content { flex: 1; display: flex; min-height: 0; }
+  .settings-nav {
+    flex-shrink: 0; width: 168px; padding: 12px 10px;
+    background: rgba(0, 0, 0, 0.16); border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .set-nav-item {
+    font-family: inherit; font-size: 13px; text-align: left; color: #c3c3dc;
+    background: none; border: none; border-radius: 9px; padding: 10px 12px; cursor: pointer;
+    transition: background 0.12s;
+  }
+  .set-nav-item:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+  .set-nav-item.active { background: rgba(99, 102, 241, 0.8); color: #fff; font-weight: 600; box-shadow: 0 2px 10px rgba(99,102,241,0.35); }
+  .settings-panels { flex: 1; overflow-y: auto; padding: 20px 22px; }
+  .set-panel-desc { font-size: 12.5px; color: #9a9ab8; line-height: 1.6; margin: 0 0 16px; }
+  .input-with-btn { display: flex; gap: 8px; align-items: stretch; }
+  .input-with-btn input { flex: 1; }
+
+  .form-row { margin-bottom: 13px; }
+  .form-row label { display: block; font-size: 12px; color: #a5a5c5; margin-bottom: 4px; }
+  .form-row input {
+    width: 100%; font-family: inherit; font-size: 13px; color: #e9e9f6;
+    background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 9px; padding: 8px 11px; outline: none;
+  }
+  .form-row input:focus { border-color: #818cf8; background: rgba(0, 0, 0, 0.3); }
+  .form-hint { font-size: 11px; color: #7a7a9a; margin-top: 3px; }
+  .section-title { font-size: 13px; font-weight: 700; color: #c5c5e5; margin: 4px 0 12px; }
+  #set-test-result { font-size: 12px; margin-top: 6px; min-height: 16px; }
+  #set-test-result.ok { color: #4ade80; }
+  #set-test-result.err { color: #f87171; }
+  #conf-list { display: flex; flex-direction: column; gap: 2px; margin: 6px 0 14px; }
+  .conf-item {
+    display: flex; align-items: center; gap: 8px; padding: 9px 12px; font-size: 13px;
+    color: #e0e0f0; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px; cursor: pointer; transition: background 0.12s, border-color 0.12s;
+  }
+  .conf-item:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.2); }
+  .conf-note { font-size: 12px; color: #8a8ab0; }
+
+  /* Confluence 페이지 탭 배지 */
+  .tab-badge {
+    font-size: 9px; font-weight: 700; color: #fff; background: #2684ff;
+    border-radius: 3px; padding: 1px 4px; margin-right: 5px; letter-spacing: 0.03em;
+  }
+
   /* ---------- 하단 상태바 ---------- */
   #statusbar {
     flex-shrink: 0;
@@ -696,13 +892,21 @@
 <div id="toolbar">
   <button id="btn-new" title="새 문서 (Ctrl+N)">📄 새 파일</button>
   <button id="btn-dir" title="폴더 탐색 패널 열기/닫기">🗂️ 디렉토리</button>
-  <button id="btn-open" title="파일 열기 (Ctrl+O)">📂 열기</button>
-  <button id="btn-save" class="primary" title="저장 (Ctrl+S)">💾 저장</button>
-  <button id="btn-saveas" title="다른 이름으로 저장 (Ctrl+Shift+S)">📝 다른 이름</button>
-  <button id="btn-saveall" title="열린 파일 모두 저장">🗃️ 모두 저장</button>
-  <button id="btn-closeall" title="열린 탭 모두 닫기 (변경사항은 파일마다 확인)">🚪 모두 닫기</button>
+  <div class="menu-group" id="file-menu-group">
+    <button id="btn-file" class="has-caret" title="파일 메뉴 (열기/저장 등)">📁 파일</button>
+    <div class="dropdown" id="file-menu">
+      <button id="btn-open" title="파일 열기 (Ctrl+O)">📂 열기</button>
+      <button id="btn-save" title="저장 (Ctrl+S)">💾 저장</button>
+      <button id="btn-saveas" title="다른 이름으로 저장 (Ctrl+Shift+S)">📝 다른 이름 저장</button>
+      <div class="menu-sep"></div>
+      <button id="btn-saveall" title="열린 파일 모두 저장">🗃️ 모두 저장</button>
+      <button id="btn-closeall" title="열린 탭 모두 닫기 (변경사항은 파일마다 확인)">🚪 모두 닫기</button>
+    </div>
+  </div>
   <button id="btn-search" title="검색 (Ctrl+F)">🔍 검색</button>
   <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
+  <button id="btn-settings" title="설정 (Confluence 연동 등)">⚙️ 설정</button>
+  <button id="btn-confluence" title="Confluence 문서 탐색" style="display:none">🔗 Confluence</button>
   <button id="btn-help" title="프로그램 기능/사용 설명서 보기">❓ 설명서</button>
   <div id="file-path"><span class="name">새 문서</span></div>
   <div id="lang-toggle" title="언어 / Language">
@@ -789,6 +993,84 @@
   </div>
 </div>
 
+<div id="settings-overlay" class="app-overlay">
+  <div class="app-modal settings-modal">
+    <div class="app-modal-header">
+      <span id="set-title">⚙️ 설정</span>
+      <button class="x" id="set-x" title="닫기 (Esc)">✕</button>
+    </div>
+    <div id="set-toast"></div>
+    <div class="settings-content">
+      <div class="settings-nav">
+        <button class="set-nav-item active" data-panel="general" id="set-nav-general">기본 설정</button>
+        <button class="set-nav-item" data-panel="conf" id="set-nav-conf">Confluence 연결</button>
+      </div>
+      <div class="settings-panels">
+        <!-- 기본 설정: 백업 경로 -->
+        <div class="set-panel" data-panel="general">
+          <div class="section-title" id="set-backup-section">💾 백업 파일 저장 경로</div>
+          <p class="set-panel-desc" id="set-backup-desc"></p>
+          <div class="form-row">
+            <label id="set-backup-l">백업 폴더</label>
+            <div class="input-with-btn">
+              <input id="set-backup" type="text" readonly placeholder="(설정 안 함 — 백업하지 않음)">
+              <button class="btn" id="set-backup-choose">폴더 선택</button>
+              <button class="btn" id="set-backup-clear">지우기</button>
+            </div>
+          </div>
+        </div>
+        <!-- Confluence 연결 -->
+        <div class="set-panel" data-panel="conf" style="display:none">
+          <div class="section-title" id="set-conf-section">🔗 Confluence 연동</div>
+          <div class="form-row">
+            <label id="set-email-l">아틀란시안 계정 (email)</label>
+            <input id="set-email" type="text" spellcheck="false" placeholder="you@example.com">
+          </div>
+          <div class="form-row">
+            <label id="set-tokenname-l">토큰 이름</label>
+            <input id="set-tokenname" type="text" spellcheck="false" placeholder="jm-mdv">
+          </div>
+          <div class="form-row">
+            <label id="set-token-l">토큰 값 (API token)</label>
+            <input id="set-token" type="password" spellcheck="false" placeholder="••••••••">
+            <div class="form-hint" id="set-token-help">API 토큰: Atlassian 계정 → 보안 → API 토큰에서 발급</div>
+          </div>
+          <div class="form-row">
+            <label id="set-work-l">나의 작업 폴더 또는 링크</label>
+            <input id="set-work" type="text" spellcheck="false" placeholder="https://site.atlassian.net/wiki/spaces/KEY/overview">
+            <div class="form-hint" id="set-work-hint"></div>
+          </div>
+          <button class="btn" id="set-test">🔌 연동 테스트</button>
+          <div id="set-test-result"></div>
+        </div>
+      </div>
+    </div>
+    <div class="app-modal-footer">
+      <button id="set-cancel">취소</button>
+      <button id="set-save" class="primary">저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="confluence-overlay" class="app-overlay">
+  <div class="app-modal wide">
+    <div class="app-modal-header">
+      <span id="conf-title">🔗 Confluence</span>
+      <span>
+        <button class="x" id="conf-reload" title="목록 새로고침">🔄</button>
+        <button class="x" id="conf-x" title="닫기 (Esc)">✕</button>
+      </span>
+    </div>
+    <div class="app-modal-body">
+      <div class="section-title" id="conf-list-title">내 문서 목록</div>
+      <div id="conf-list"></div>
+    </div>
+    <div class="app-modal-footer">
+      <button id="conf-save-new" class="primary">📄 현재 내용을 새 페이지로 저장</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const editor = document.getElementById('editor');
 const preview = document.getElementById('preview');
@@ -803,13 +1085,16 @@ const I18N = {
   ko: {
     btnNew: '📄 새 파일', btnNew_t: '새 문서 (Ctrl+N)',
     btnDir: '🗂️ 디렉토리', btnDir_t: '폴더 탐색 패널 열기/닫기',
+    btnFile: '📁 파일', btnFile_t: '파일 메뉴 (열기/저장 등)',
     btnOpen: '📂 열기', btnOpen_t: '파일 열기 (Ctrl+O)',
     btnSave: '💾 저장', btnSave_t: '저장 (Ctrl+S)',
-    btnSaveas: '📝 다른 이름', btnSaveas_t: '다른 이름으로 저장 (Ctrl+Shift+S)',
+    btnSaveas: '📝 다른 이름 저장', btnSaveas_t: '다른 이름으로 저장 (Ctrl+Shift+S)',
     btnSaveall: '🗃️ 모두 저장', btnSaveall_t: '열린 파일 모두 저장',
     btnCloseall: '🚪 모두 닫기', btnCloseall_t: '열린 탭 모두 닫기 (변경사항은 파일마다 확인)',
     btnSearch: '🔍 검색', btnSearch_t: '검색 (Ctrl+F)',
     btnExport: '🌐 HTML 내보내기', btnExport_t: '미리보기 그대로 HTML로 저장',
+    btnSettings: '⚙️ 설정', btnSettings_t: '설정 (Confluence 연동 등)',
+    btnConfluence: '🔗 Confluence', btnConfluence_t: 'Confluence 문서 탐색',
     btnHelp: '❓ 설명서', btnHelp_t: '프로그램 기능/사용 설명서 보기',
     tabLeft_t: '이전 파일 보기', tabRight_t: '다음 파일 보기',
     sbUp_t: '상위 폴더로', sbClose_t: '디렉토리 닫기',
@@ -828,7 +1113,7 @@ const I18N = {
     charSuffix: '자',
     createdLabel: '생성: ', modifiedLabel: '  ·  수정: ',
     myPc: '내 PC',
-    upDblClick: '더블클릭: 상위 폴더로 이동', folderDblClick: '더블클릭: 폴더 열기',
+    upDblClick: '클릭: 상위 폴더로 이동', folderDblClick: '클릭: 폴더 열기',
     fileDblClick: '더블클릭: 열기', tabClose_t: '탭 닫기',
     ctxRename: '✏️ 이름 변경', ctxDelete: '🗑️ 삭제', ctxNew: '📄 새 파일',
     sbEmpty: '표시할 폴더/마크다운 파일이 없습니다',
@@ -848,10 +1133,34 @@ const I18N = {
     renameFail: '이름 변경 실패: ', renameDone: '이름 변경 완료: ',
     deleteConfirm: (name) => '"' + name + '" 파일을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
     deleteFail: '삭제 실패: ', deleteDone: '삭제 완료: ',
+    // 설정 / Confluence
+    setTitle: '⚙️ 설정', setClose_t: '닫기 (Esc)',
+    setConfSection: '🔗 Confluence 연동',
+    setEmail: '아틀란시안 계정 (email)', setTokenName: '토큰 이름',
+    setToken: '토큰 값 (API token)', setWork: '나의 작업 폴더 또는 링크',
+    setWorkHint: '예: https://사이트.atlassian.net/wiki/spaces/스페이스키/overview',
+    setTokenHelp: 'API 토큰: Atlassian 계정 → 보안 → API 토큰에서 발급',
+    setTest: '🔌 연동 테스트', setSave: '저장', setCancel: '취소',
+    setTesting: '연결 확인 중...', setTestOk: '연결 성공: ', setTestFail: '연결 실패: ',
+    setSaved: '설정이 저장되었습니다', setNeedTest: '먼저 연동 테스트에 성공해야 저장됩니다',
+    setNavGeneral: '기본 설정', setNavConf: 'Confluence 연결',
+    setBackupSection: '💾 백업 파일 저장 경로',
+    setBackupDesc: '파일을 저장하면 원본은 같은 경로에 그대로 업데이트되고, 이와 별개로 백업 폴더에 "파일명_년월일시분초" 사본이 원본 경로 구조 그대로 저장됩니다. 폴더를 지정하지 않으면 백업하지 않습니다.',
+    setBackupLabel: '백업 폴더', setBackupPlaceholder: '(설정 안 함 — 백업하지 않음)',
+    setChooseFolder: '폴더 선택', setClear: '지우기', setBackupSaved: '백업 경로가 저장되었습니다',
+    backupTag: ' (백업됨)',
+    confTitle: '🔗 Confluence', confReload_t: '목록 새로고침', confClose_t: '닫기 (Esc)',
+    confListTitle: '내 문서 목록', confLoading: '불러오는 중...', confEmpty: '표시할 페이지가 없습니다',
+    confSaveNew: '📄 현재 내용을 새 페이지로 저장', confTitlePrompt: '새 Confluence 페이지 제목:',
+    confNeedSetup: '먼저 설정에서 Confluence 연동을 완료하세요',
+    confErr: 'Confluence 오류: ', confOpened: 'Confluence 페이지 열기: ',
+    confSaved: 'Confluence에 저장됨: ', confUpdated: 'Confluence 업데이트됨: ',
+    confBadge: 'Confluence',
   },
   en: {
     btnNew: '📄 New', btnNew_t: 'New document (Ctrl+N)',
     btnDir: '🗂️ Directory', btnDir_t: 'Toggle folder explorer panel',
+    btnFile: '📁 File', btnFile_t: 'File menu (open/save, etc.)',
     btnOpen: '📂 Open', btnOpen_t: 'Open file (Ctrl+O)',
     btnSave: '💾 Save', btnSave_t: 'Save (Ctrl+S)',
     btnSaveas: '📝 Save As', btnSaveas_t: 'Save as (Ctrl+Shift+S)',
@@ -859,6 +1168,8 @@ const I18N = {
     btnCloseall: '🚪 Close All', btnCloseall_t: 'Close all tabs (unsaved changes confirmed per file)',
     btnSearch: '🔍 Search', btnSearch_t: 'Search (Ctrl+F)',
     btnExport: '🌐 Export HTML', btnExport_t: 'Save preview as an HTML file',
+    btnSettings: '⚙️ Settings', btnSettings_t: 'Settings (Confluence integration, etc.)',
+    btnConfluence: '🔗 Confluence', btnConfluence_t: 'Browse Confluence documents',
     btnHelp: '❓ Help', btnHelp_t: 'View program features / user guide',
     tabLeft_t: 'Previous file', tabRight_t: 'Next file',
     sbUp_t: 'Up to parent folder', sbClose_t: 'Close directory',
@@ -877,7 +1188,7 @@ const I18N = {
     charSuffix: ' chars',
     createdLabel: 'Created: ', modifiedLabel: '  ·  Modified: ',
     myPc: 'My PC',
-    upDblClick: 'Double-click: go to parent folder', folderDblClick: 'Double-click: open folder',
+    upDblClick: 'Click: go to parent folder', folderDblClick: 'Click: open folder',
     fileDblClick: 'Double-click: open', tabClose_t: 'Close tab',
     ctxRename: '✏️ Rename', ctxDelete: '🗑️ Delete', ctxNew: '📄 New file',
     sbEmpty: 'No folders or Markdown files to show',
@@ -897,6 +1208,29 @@ const I18N = {
     renameFail: 'Rename failed: ', renameDone: 'Renamed: ',
     deleteConfirm: (name) => 'Delete "' + name + '"?\n(This deletes immediately without using the Recycle Bin)',
     deleteFail: 'Delete failed: ', deleteDone: 'Deleted: ',
+    // Settings / Confluence
+    setTitle: '⚙️ Settings', setClose_t: 'Close (Esc)',
+    setConfSection: '🔗 Confluence Integration',
+    setEmail: 'Atlassian account (email)', setTokenName: 'Token name',
+    setToken: 'Token value (API token)', setWork: 'My work folder or link',
+    setWorkHint: 'e.g. https://site.atlassian.net/wiki/spaces/SPACEKEY/overview',
+    setTokenHelp: 'API token: create at Atlassian account → Security → API tokens',
+    setTest: '🔌 Test connection', setSave: 'Save', setCancel: 'Cancel',
+    setTesting: 'Testing connection...', setTestOk: 'Connected: ', setTestFail: 'Connection failed: ',
+    setSaved: 'Settings saved', setNeedTest: 'Pass the connection test before saving',
+    setNavGeneral: 'General', setNavConf: 'Confluence',
+    setBackupSection: '💾 Backup save location',
+    setBackupDesc: 'When you save, the original file is updated in place, and separately a copy named "filename_YYYYMMDDHHMMSS" is stored in the backup folder, mirroring the original path structure. If no folder is set, no backup is made.',
+    setBackupLabel: 'Backup folder', setBackupPlaceholder: '(not set — no backup)',
+    setChooseFolder: 'Choose folder', setClear: 'Clear', setBackupSaved: 'Backup location saved',
+    backupTag: ' (backed up)',
+    confTitle: '🔗 Confluence', confReload_t: 'Refresh list', confClose_t: 'Close (Esc)',
+    confListTitle: 'My documents', confLoading: 'Loading...', confEmpty: 'No pages to show',
+    confSaveNew: '📄 Save current content as a new page', confTitlePrompt: 'New Confluence page title:',
+    confNeedSetup: 'Complete Confluence setup in Settings first',
+    confErr: 'Confluence error: ', confOpened: 'Opened Confluence page: ',
+    confSaved: 'Saved to Confluence: ', confUpdated: 'Updated on Confluence: ',
+    confBadge: 'Confluence',
   },
 };
 let lang = 'ko';
@@ -911,6 +1245,7 @@ function applyLang() {
   document.documentElement.lang = lang;
   setTxt('btn-new', d.btnNew); setTitle('btn-new', d.btnNew_t);
   setTxt('btn-dir', d.btnDir); setTitle('btn-dir', d.btnDir_t);
+  setTxt('btn-file', d.btnFile); setTitle('btn-file', d.btnFile_t);
   setTxt('btn-open', d.btnOpen); setTitle('btn-open', d.btnOpen_t);
   setTxt('btn-save', d.btnSave); setTitle('btn-save', d.btnSave_t);
   setTxt('btn-saveas', d.btnSaveas); setTitle('btn-saveas', d.btnSaveas_t);
@@ -918,6 +1253,8 @@ function applyLang() {
   setTxt('btn-closeall', d.btnCloseall); setTitle('btn-closeall', d.btnCloseall_t);
   setTxt('btn-search', d.btnSearch); setTitle('btn-search', d.btnSearch_t);
   setTxt('btn-export', d.btnExport); setTitle('btn-export', d.btnExport_t);
+  setTxt('btn-settings', d.btnSettings); setTitle('btn-settings', d.btnSettings_t);
+  setTxt('btn-confluence', d.btnConfluence); setTitle('btn-confluence', d.btnConfluence_t);
   setTxt('btn-help', d.btnHelp); setTitle('btn-help', d.btnHelp_t);
   setTitle('tab-left', d.tabLeft_t); setTitle('tab-right', d.tabRight_t);
   setTitle('sb-up', d.sbUp_t); setTitle('sb-close', d.sbClose_t);
@@ -935,6 +1272,21 @@ function applyLang() {
   document.querySelector('.help-tab[data-tab="app"]').textContent = d.tabApp;
   document.querySelector('.help-tab[data-tab="md"]').textContent = d.tabMd;
   document.querySelector('.help-tab[data-tab="ver"]').textContent = d.tabVer;
+  /* 설정 모달 */
+  setTxt('set-title', d.setTitle); setTitle('set-x', d.setClose_t);
+  setTxt('set-nav-general', d.setNavGeneral); setTxt('set-nav-conf', d.setNavConf);
+  setTxt('set-backup-section', d.setBackupSection); setTxt('set-backup-desc', d.setBackupDesc);
+  setTxt('set-backup-l', d.setBackupLabel);
+  document.getElementById('set-backup').placeholder = d.setBackupPlaceholder;
+  setTxt('set-backup-choose', d.setChooseFolder); setTxt('set-backup-clear', d.setClear);
+  setTxt('set-conf-section', d.setConfSection);
+  setTxt('set-email-l', d.setEmail); setTxt('set-tokenname-l', d.setTokenName);
+  setTxt('set-token-l', d.setToken); setTxt('set-token-help', d.setTokenHelp);
+  setTxt('set-work-l', d.setWork); setTxt('set-work-hint', d.setWorkHint);
+  setTxt('set-test', d.setTest); setTxt('set-cancel', d.setCancel); setTxt('set-save', d.setSave);
+  /* Confluence 모달 */
+  setTxt('conf-title', d.confTitle); setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
+  setTxt('conf-list-title', d.confListTitle); setTxt('conf-save-new', d.confSaveNew);
   document.getElementById('lang-ko').classList.toggle('active', lang === 'ko');
   document.getElementById('lang-en').classList.toggle('active', lang === 'en');
   updateFullButtons();
@@ -1192,9 +1544,10 @@ function renderTabs() {
     });
     const nm = document.createElement('span');
     nm.className = 'tab-name';
-    nm.innerHTML = (t.dirty ? '<span class="dirty">● </span>' : '');
-    nm.append(document.createTextNode(t.path ? t.name : L().newDoc));
-    nm.title = t.path || L().newDoc;
+    nm.innerHTML = (t.conf ? '<span class="tab-badge">' + L().confBadge + '</span>' : '')
+      + (t.dirty ? '<span class="dirty">● </span>' : '');
+    nm.append(document.createTextNode(t.conf ? t.name : (t.path ? t.name : L().newDoc)));
+    nm.title = t.conf ? (L().confBadge + ': ' + t.name) : (t.path || L().newDoc);
     const x = document.createElement('span');
     x.className = 'tab-close';
     x.textContent = '✕';
@@ -1275,6 +1628,8 @@ async function doOpen() {
 async function doSave() {
   if (!activeTab) return;
   syncEditorToTab();
+  /* Confluence 페이지로 열린 탭이면 Confluence로 업데이트 */
+  if (activeTab.conf) { await confUpdateCurrent(); return; }
   const r = await window.pywebview.api.save_file(editor.value);
   if (!r) return;
   activeTab.path = r.path;
@@ -1285,7 +1640,7 @@ async function doSave() {
   renderTabs();
   markActiveFile();
   saveSession();
-  flash(L().savedPrefix + r.path);
+  flash(L().savedPrefix + r.path + (r.backup ? L().backupTag : ''));
 }
 
 /* 다른 이름으로 저장 */
@@ -1457,7 +1812,7 @@ const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
 
 - **🗂️ 디렉토리** 버튼으로 좌측 패널을 열면 드라이브/폴더를 탐색할 수 있습니다.
 - 상단의 드라이브 칩(\`C:\` \`D:\` …)을 클릭해 드라이브를 바로 이동할 수 있습니다.
-- 폴더는 **더블클릭**으로 이동, \`..\` 항목 더블클릭 또는 ⬆️ 버튼으로 상위 폴더 이동.
+- 폴더는 **한 번 클릭**으로 이동, \`..\` 항목 클릭 또는 ⬆️ 버튼으로 상위 폴더 이동.
 - 마크다운 파일(\`.md\` \`.markdown\` \`.mdown\` \`.txt\`)을 **더블클릭**하면 탭으로 열립니다.
 - 패널 오른쪽 경계를 드래그하면 폭을 조절할 수 있습니다.
 
@@ -1558,7 +1913,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.1.0** |
+| **최신 버전** | **v1.3.0** |
 | 최종 업데이트 | 2026-07-08 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -1570,6 +1925,60 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.3.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; 드래그 앤 드롭 원본 연동</summary>
+
+### 🖱️ 드래그 앤 드롭 개선
+
+- 탐색기(Windows)/Finder(macOS)에서 드롭한 파일을 **실제 원본 경로로** 열도록 개선
+    - 상단에 **파일명 + 원본 경로** 표시 (일반 파일 열기와 동일)
+    - 저장하면 **원본 파일을 그대로 업데이트**, 백업 폴더 설정 시 **백업본도 생성**
+- Windows·macOS·Linux 공통 지원
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.2.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; 메뉴 그룹화 · Confluence 연동 · 파일 표시 확장</summary>
+
+### 🧰 상단 메뉴 개편
+
+- 열기 / 저장 / 다른 이름 저장 / 모두 저장 / 모두 닫기를 **📁 파일** 드롭다운 메뉴로 그룹화
+- 상단 툴바 배경색을 편집기와 뚜렷이 구분되도록 변경
+
+### ⚙️ 설정 (좌측 메뉴 방식) · 백업
+
+- 설정 모달을 **좌측 메뉴(기본 설정 / Confluence 연결) + 우측 패널** 구조로 개편
+- **기본 설정 → 백업 파일 저장 경로**: 파일 저장 시 원본은 그대로 업데이트하고,
+  별도로 **"파일명_년월일시분초"** 사본을 백업 폴더에 **원본 경로 구조 그대로** 저장 (미설정 시 백업 안 함)
+
+### 🔗 Confluence 연동 (신규)
+
+- **⚙️ 설정 → Confluence 연결**에서 아틀란시안 계정 · 토큰 이름 · 토큰 값 · 작업 폴더(링크) 입력 + **연동 테스트**
+- 연동 완료 시 상단에 **🔗 Confluence** 메뉴 노출
+- Confluence 메뉴에서 **문서 목록 조회 → 열기 → 편집 → 저장(업데이트)**
+- 신규 문서를 **제목 입력 후 새 페이지로 저장** (원본 마크다운을 property로 보존해 재편집 가능)
+
+### 🗂️ 디렉토리 개선
+
+- **숨김 파일**과 **모든 확장자의 파일**을 목록에 표시(숨김은 흐리게), 더블클릭으로 편집
+- 폴더/\`..\`는 **한 번 클릭**으로 이동
+
+### 🖱️ 드래그 앤 드롭
+
+- Windows 파일 탐색기 / macOS Finder에서 파일을 창에 **드롭하면 바로 편집** 가능
+- 드롭한 파일의 **파일명과 원본 경로를 상단에 표시**하고, 저장하면 **원본 파일을 그대로 업데이트**(백업 폴더 설정 시 백업도 생성)
+
+### 🎨 디자인
+
+- 전체 UI를 **글래스모피즘(반투명 유리)** 테마로 개편 — 컬러 그라데이션 배경 위에 툴바·탭·사이드바·검색바·드롭다운·모달을 반투명 블러 유리 재질로 통일
+- 파일 드롭다운을 **목록형**으로 재디자인, 활성 탭 강조, 설정 저장 시 창을 닫지 않고 **상단 토스트**로 안내
+
+### 🖥️ 기타
+
+- 프리뷰도 넓은 표/코드가 우측을 벗어나면 **팬 전체에 하단 가로 스크롤** 표시
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.1.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; 다국어 지원</summary>
 
 ### 🌐 새 기능
@@ -2246,7 +2655,7 @@ Selecting a word in the editor and pressing \`Ctrl+F\` fills it into the search 
 
 - Open the panel with the **🗂️ Directory** button to browse drives and folders.
 - Click a drive chip (\`C:\` \`D:\` …) at the top to jump to that drive.
-- **Double-click** a folder to enter it; double-click \`..\` or press ⬆️ to go up.
+- **Single-click** a folder to enter it; click \`..\` or press ⬆️ to go up.
 - **Double-click** a Markdown file (\`.md\` \`.markdown\` \`.mdown\` \`.txt\`) to open it as a tab.
 - Drag the panel's right edge to resize it.
 
@@ -2347,7 +2756,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.1.0** |
+| **Latest version** | **v1.3.0** |
 | Last updated | 2026-07-08 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2359,6 +2768,60 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.3.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Drag & drop original-file integration</summary>
+
+### 🖱️ Drag & drop improvements
+
+- Files dropped from File Explorer (Windows) / Finder (macOS) now open by their **real original path**
+    - Shows the **file name + original path** at the top (same as a normally opened file)
+    - Saving **updates the original file in place**; a **backup** is also created when a backup folder is set
+- Works on Windows, macOS, and Linux
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.2.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Menu grouping · Confluence · broader file listing</summary>
+
+### 🧰 Toolbar redesign
+
+- Grouped Open / Save / Save As / Save All / Close All into a **📁 File** dropdown menu
+- Toolbar background color now clearly distinct from the editor below
+
+### ⚙️ Settings (left-nav) · Backup
+
+- Reworked the Settings modal into a **left menu (General / Confluence) + right panel** layout
+- **General → Backup save location**: on save, the original is updated in place, and separately a
+  **"filename_YYYYMMDDHHMMSS"** copy is stored in the backup folder, **mirroring the original path structure** (skipped if not set)
+
+### 🔗 Confluence integration (new)
+
+- In **⚙️ Settings → Confluence**, enter Atlassian account · token name · token value · work folder (link) + **Test connection**
+- A **🔗 Confluence** menu appears in the toolbar once configured
+- From the Confluence menu: **list pages → open → edit → save (update)**
+- Save a new document **as a new page after entering a title** (raw Markdown kept as a content property for re-editing)
+
+### 🗂️ Directory improvements
+
+- **Hidden files** and files of **all extensions** are shown (hidden ones dimmed), double-click to edit
+- Folders / \`..\` navigate with a **single click**
+
+### 🖱️ Drag & drop
+
+- Drop a file from Windows File Explorer / macOS Finder onto the window to **edit it immediately**
+- Shows the dropped file's **name and original path** at the top; saving **updates the original file in place** (and creates a backup if a backup folder is set)
+
+### 🎨 Design
+
+- Redesigned the whole UI with a **glassmorphism (frosted glass)** theme — a colorful gradient backdrop with translucent, blurred toolbar, tabs, sidebar, search bar, dropdowns, and modals
+- File dropdown reworked into a **list style**, active tab emphasis, and Settings save now keeps the window open with a **top toast** notification
+
+### 🖥️ Other
+
+- The preview now shows a **pane-wide bottom horizontal scrollbar** when wide tables/code exceed the right edge
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.1.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Multi-language support</summary>
 
 ### 🌐 New Features
@@ -3152,6 +3615,39 @@ document.getElementById('btn-open').addEventListener('click', doOpen);
 document.getElementById('btn-save').addEventListener('click', doSave);
 document.getElementById('btn-export').addEventListener('click', doExport);
 
+/* ---------- 파일 드롭다운 메뉴 ---------- */
+const fileMenuGroup = document.getElementById('file-menu-group');
+document.getElementById('btn-file').addEventListener('click', (e) => {
+  e.stopPropagation();
+  fileMenuGroup.classList.toggle('open');
+});
+/* 드롭다운 안의 항목을 누르면 실행 후 자동으로 닫힘 */
+document.getElementById('file-menu').addEventListener('click', () => fileMenuGroup.classList.remove('open'));
+/* 바깥을 누르면 닫힘 */
+document.addEventListener('click', (e) => {
+  if (!fileMenuGroup.contains(e.target)) fileMenuGroup.classList.remove('open');
+});
+
+/* ---------- OS 파일 탐색기/Finder에서 드래그 앤 드롭으로 열기 ----------
+   pywebview가 드롭한 파일의 실제 경로를 Python 핸들러(on_files_dropped)로 전달하고,
+   그쪽에서 이 함수를 경로와 함께 호출한다. 경로로 열므로 파일명·경로 표시,
+   저장 시 원본 업데이트, 백업까지 일반 파일과 동일하게 동작한다. */
+window.__openDroppedPath = async function (path) {
+  try {
+    const r = await window.pywebview.api.open_path(path);
+    if (r) { await openFileIntoTabs(r); }
+  } catch (e) { /* 무시 */ }
+};
+
+/* dragover/drop 기본 동작(브라우저가 파일을 직접 여는 것) 차단.
+   실제 열기는 위 __openDroppedPath(경로 기반)가 담당한다. */
+document.addEventListener('dragover', (e) => {
+  if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
+});
+document.addEventListener('drop', (e) => {
+  if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
+});
+
 /* ---------- 폴더 탐색 패널 ---------- */
 const sidebar = document.getElementById('sidebar');
 const sbList = document.getElementById('sb-list');
@@ -3196,24 +3692,28 @@ async function loadDir(path) {
 
   sbList.innerHTML = '';
 
-  // ".." = 상위(이전) 폴더로 이동 (더블클릭)
+  // ".." = 상위(이전) 폴더로 이동 (원클릭)
   if (r.parent) {
     const up = makeItem('📁', '..');
     up.title = L().upDblClick;
-    up.addEventListener('dblclick', () => loadDir(r.parent));
+    up.style.cursor = 'pointer';
+    up.addEventListener('click', () => loadDir(r.parent));
     if (r.parent !== '::drives') addDropTarget(up, r.parent);
     sbList.appendChild(up);
   }
   for (const d of r.dirs) {
     const el = makeItem('📁', d.name);
     el.title = L().folderDblClick;
-    el.addEventListener('dblclick', () => loadDir(d.path));
+    el.style.cursor = 'pointer';
+    if (d.hidden) el.classList.add('hidden-item');
+    el.addEventListener('click', () => loadDir(d.path));
     addDropTarget(el, d.path);
     sbList.appendChild(el);
   }
   for (const f of r.files) {
-    const el = makeItem('📄', f.name);
+    const el = makeItem(f.md ? '📄' : '📃', f.name);
     el.classList.add('file');
+    if (f.hidden) el.classList.add('hidden-item');
     el.dataset.path = f.path;
     el.addEventListener('dblclick', async () => {
       const opened = await window.pywebview.api.open_path(f.path);
@@ -3644,6 +4144,8 @@ new ResizeObserver(() => {
 /* 단축키 */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ctxMenu.style.display === 'block') { hideCtxMenu(); return; }
+  if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) { closeSettings(); return; }
+  if (e.key === 'Escape' && confluenceOverlay.classList.contains('open')) { closeConfluence(); return; }
   if (e.key === 'Escape' && helpOverlay.classList.contains('open')) { closeHelp(); return; }
   if (e.key === 'Escape' && searchOpen()) { closeSearch(); return; }
   if (e.key === 'F3') {
@@ -3715,6 +4217,218 @@ divider.addEventListener('mousedown', (e) => {
   document.addEventListener('mouseup', up);
 });
 
+/* ================= 설정 (Confluence 연동) ================= */
+const settingsOverlay = document.getElementById('settings-overlay');
+const confluenceOverlay = document.getElementById('confluence-overlay');
+const btnConfluence = document.getElementById('btn-confluence');
+const setEmail = document.getElementById('set-email');
+const setTokenName = document.getElementById('set-tokenname');
+const setToken = document.getElementById('set-token');
+const setWork = document.getElementById('set-work');
+const setTestResult = document.getElementById('set-test-result');
+const setBackup = document.getElementById('set-backup');
+let confTested = false;   // 이번 세션에서 테스트 통과 여부
+let settingsPanel = 'general';
+
+function setSettingsPanel(panel) {
+  settingsPanel = panel;
+  document.querySelectorAll('.set-nav-item').forEach(b =>
+    b.classList.toggle('active', b.dataset.panel === panel));
+  document.querySelectorAll('.set-panel').forEach(p =>
+    p.style.display = p.dataset.panel === panel ? '' : 'none');
+}
+
+async function openSettings() {
+  try {
+    const cfg = await window.pywebview.api.conf_load_config();
+    setEmail.value = cfg.email || '';
+    setTokenName.value = cfg.token_name || '';
+    setToken.value = cfg.token || '';
+    setWork.value = cfg.work || '';
+    confTested = !!cfg.verified;
+  } catch (e) {}
+  try {
+    const s = await window.pywebview.api.settings_load();
+    setBackup.value = (s && s.backup_dir) || '';
+  } catch (e) {}
+  setTestResult.textContent = '';
+  setTestResult.className = '';
+  setSettingsPanel('general');
+  settingsOverlay.classList.add('open');
+}
+function closeSettings() { settingsOverlay.classList.remove('open'); }
+
+document.querySelectorAll('.set-nav-item').forEach(b =>
+  b.addEventListener('click', () => setSettingsPanel(b.dataset.panel)));
+
+/* 백업 폴더 선택 / 지우기 */
+document.getElementById('set-backup-choose').addEventListener('click', async () => {
+  const r = await window.pywebview.api.choose_folder();
+  if (r && r.path) setBackup.value = r.path;
+});
+document.getElementById('set-backup-clear').addEventListener('click', () => { setBackup.value = ''; });
+
+function currentConfCfg() {
+  return {
+    email: setEmail.value.trim(),
+    token_name: setTokenName.value.trim(),
+    token: setToken.value.trim(),
+    work: setWork.value.trim(),
+  };
+}
+
+async function testConf() {
+  setTestResult.className = '';
+  setTestResult.textContent = L().setTesting;
+  try {
+    const r = await window.pywebview.api.conf_test(currentConfCfg());
+    if (r && r.ok) {
+      confTested = true;
+      let msg = L().setTestOk + r.user;
+      if (r.space) msg += ' / space=' + r.space + (r.space_ok === false ? ' (⚠ 확인 실패)' : ' ✓');
+      setTestResult.className = 'ok';
+      setTestResult.textContent = msg;
+    } else {
+      confTested = false;
+      setTestResult.className = 'err';
+      setTestResult.textContent = L().setTestFail + ((r && r.error) || L().unknownErr);
+    }
+  } catch (e) {
+    confTested = false;
+    setTestResult.className = 'err';
+    setTestResult.textContent = L().setTestFail + e;
+  }
+}
+
+/* 설정 저장 완료 토스트 (창은 닫지 않음) */
+let setToastTimer = null;
+function showSetToast(msg) {
+  const el = document.getElementById('set-toast');
+  el.textContent = '✅ ' + msg;
+  el.classList.add('show');
+  clearTimeout(setToastTimer);
+  setToastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+/* 저장: 현재 보고 있는 패널의 설정을 저장 (저장 후에도 창은 유지) */
+async function saveSettings() {
+  if (settingsPanel === 'general') {
+    const r = await window.pywebview.api.settings_save({ backup_dir: setBackup.value.trim() });
+    if (r && r.error) { setTestResult.textContent = ''; showSetToast(r.error); return; }
+    showSetToast(L().setBackupSaved);
+    return;
+  }
+  // Confluence 패널
+  if (!confTested) {
+    setSettingsPanel('conf');
+    setTestResult.className = 'err';
+    setTestResult.textContent = L().setNeedTest;
+    return;
+  }
+  const cfg = currentConfCfg();
+  cfg.verified = true;
+  const r = await window.pywebview.api.conf_save_config(cfg);
+  if (r && r.error) { setTestResult.className = 'err'; setTestResult.textContent = r.error; return; }
+  updateConfluenceMenu(true);
+  showSetToast(L().setSaved);
+}
+
+/* 연동 완료 시 상단에 Confluence 메뉴 노출 */
+function updateConfluenceMenu(show) {
+  btnConfluence.style.display = show ? '' : 'none';
+}
+
+document.getElementById('btn-settings').addEventListener('click', openSettings);
+document.getElementById('set-x').addEventListener('click', closeSettings);
+document.getElementById('set-cancel').addEventListener('click', closeSettings);
+document.getElementById('set-test').addEventListener('click', testConf);
+document.getElementById('set-save').addEventListener('click', saveSettings);
+settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
+
+/* ---------- Confluence 문서 탐색 ---------- */
+const confListEl = document.getElementById('conf-list');
+
+async function openConfluence() {
+  confluenceOverlay.classList.add('open');
+  await loadConfList();
+}
+function closeConfluence() { confluenceOverlay.classList.remove('open'); }
+
+async function loadConfList() {
+  confListEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
+  try {
+    const r = await window.pywebview.api.conf_list();
+    if (r && r.error) { confListEl.innerHTML = '<div class="conf-note">' + L().confErr + r.error + '</div>'; return; }
+    const pages = (r && r.pages) || [];
+    if (!pages.length) { confListEl.innerHTML = '<div class="conf-note">' + L().confEmpty + '</div>'; return; }
+    confListEl.innerHTML = '';
+    for (const p of pages) {
+      const el = document.createElement('div');
+      el.className = 'conf-item';
+      el.textContent = '📄 ' + p.title;
+      el.title = L().confOpened.trim() + ' (id=' + p.id + ')';
+      el.addEventListener('click', () => openConfPage(p.id));
+      confListEl.appendChild(el);
+    }
+  } catch (e) {
+    confListEl.innerHTML = '<div class="conf-note">' + L().confErr + e + '</div>';
+  }
+}
+
+/* Confluence 페이지를 탭으로 열기 (원본 마크다운을 편집) */
+async function openConfPage(pageId) {
+  const existing = tabs.find(t => t.conf && t.conf.id === pageId);
+  if (existing) { closeConfluence(); await activateTab(existing); return; }
+  const r = await window.pywebview.api.conf_get(pageId);
+  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
+  syncEditorToTab();
+  const t = { path: null, name: r.title, content: r.markdown, dirty: false,
+              conf: { id: r.id, version: r.version, title: r.title } };
+  tabs.push(t);
+  activeTab = t;
+  showActiveTab();
+  editor.scrollTop = 0;
+  closeConfluence();
+  flash(L().confOpened + r.title);
+}
+
+/* 현재 Confluence 탭 업데이트(저장) */
+async function confUpdateCurrent() {
+  if (!activeTab || !activeTab.conf) return;
+  const c = activeTab.conf;
+  const r = await window.pywebview.api.conf_update(c.id, c.title, editor.value, c.version);
+  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
+  c.version = r.version;
+  activeTab.dirty = false;
+  updatePath();
+  renderTabs();
+  flash(L().confUpdated + c.title);
+}
+
+/* 현재 편집 내용을 Confluence 새 페이지로 저장 */
+async function confSaveNew() {
+  const title = prompt(L().confTitlePrompt, activeTab && activeTab.path ? baseName(activeTab.path).replace(/\.[^.]+$/, '') : (activeTab ? activeTab.name : ''));
+  if (!title) return;
+  syncEditorToTab();
+  const r = await window.pywebview.api.conf_create(title.trim(), editor.value);
+  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
+  if (activeTab) {
+    activeTab.conf = { id: r.id, version: r.version, title: title.trim() };
+    activeTab.name = title.trim();
+    activeTab.dirty = false;
+    updatePath();
+    renderTabs();
+  }
+  flash(L().confSaved + title.trim());
+  closeConfluence();
+}
+
+btnConfluence.addEventListener('click', openConfluence);
+document.getElementById('conf-x').addEventListener('click', closeConfluence);
+document.getElementById('conf-reload').addEventListener('click', loadConfList);
+document.getElementById('conf-save-new').addEventListener('click', confSaveNew);
+confluenceOverlay.addEventListener('click', (e) => { if (e.target === confluenceOverlay) closeConfluence(); });
+
 /* ---------- 언어 토글 버튼 ---------- */
 document.getElementById('lang-ko').addEventListener('click', () => setLang('ko'));
 document.getElementById('lang-en').addEventListener('click', () => setLang('en'));
@@ -3733,6 +4447,12 @@ window.addEventListener('pywebviewready', async () => {
   const style = document.createElement('style');
   style.textContent = css;
   document.head.appendChild(style);
+
+  // Confluence 연동이 이미 완료돼 있으면 상단 Confluence 메뉴 노출
+  try {
+    const ccfg = await window.pywebview.api.conf_load_config();
+    if (ccfg && ccfg.verified) updateConfluenceMenu(true);
+  } catch (e) {}
 
   // 이전 세션(열려 있던 파일들) 복원
   try {

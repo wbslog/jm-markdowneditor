@@ -84,7 +84,12 @@
   border: 1px solid #e2e4e8;
   border-radius: 10px;
   padding: 14px 18px;
-  overflow-x: auto;
+  /* 긴 코드 줄은 접지 않고 확장 → 프리뷰 팬 전체의 하단 가로 스크롤로 처리 */
+  overflow: visible;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
+  box-sizing: border-box;
   line-height: 1.55;
   margin: 0 0 1em;
 }
@@ -103,10 +108,9 @@
 .markdown-body table {
   border-collapse: collapse;
   margin: 0 0 1.2em;
+  /* 넓은 표는 내용 너비대로 확장 → 프리뷰 팬 전체의 하단 가로 스크롤로 처리 */
   width: auto;
-  max-width: 100%;
-  display: block;
-  overflow-x: auto;
+  max-width: none;
   border-radius: 8px;
 }
 .markdown-body table th, .markdown-body table td {

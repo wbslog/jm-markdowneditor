@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 """Markdown View - 실시간 마크다운 에디터/뷰어 (Windows)"""
+import base64
 import datetime
 import json
 import os
+import re
 import shutil
 import string
 import subprocess
@@ -10,13 +12,17 @@ import sys
 import tempfile
 import threading
 import traceback
+import urllib.error
+import urllib.parse
+import urllib.request
 
 import markdown
 import webview
+from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.1.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.3.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -54,6 +60,10 @@ MD_CONFIGS = {
 PYGMENTS_CSS = HtmlFormatter(style="default").get_style_defs(".highlight")
 
 SESSION_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-session.json")
+CONFLUENCE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-confluence.json")
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-settings.json")
+# 편집 왕복(round-trip)을 위해 페이지에 원본 마크다운을 저장하는 content property 키
+MD_PROP_KEY = "jmMdvMarkdown"
 
 
 class Api:
@@ -158,13 +168,17 @@ class Api:
         try:
             entries = sorted(os.scandir(path), key=lambda e: e.name.lower())
             for e in entries:
-                if e.name.startswith((".", "$")) or e.name == "System Volume Information":
+                # 숨김/시스템 항목도 표시 (단, 접근 시 오류나는 특수 항목만 제외)
+                if e.name == "System Volume Information":
                     continue
+                hidden = e.name.startswith(".") or self._is_hidden(e.path)
+                md = e.name.lower().endswith(self.MD_FILE_EXTS)
                 try:
                     if e.is_dir():
-                        dirs.append({"name": e.name, "path": e.path})
-                    elif e.is_file() and e.name.lower().endswith(self.MD_FILE_EXTS):
-                        files.append({"name": e.name, "path": e.path})
+                        dirs.append({"name": e.name, "path": e.path, "hidden": hidden})
+                    elif e.is_file():
+                        # 마크다운뿐 아니라 모든 파일 표시
+                        files.append({"name": e.name, "path": e.path, "hidden": hidden, "md": md})
                 except OSError:
                     continue
         except (PermissionError, OSError):
@@ -178,6 +192,22 @@ class Api:
             "dirs": dirs,
             "files": files,
         }
+
+    @staticmethod
+    def _is_hidden(path):
+        """Windows 숨김 속성 파일 여부 (그 외 OS는 이름의 '.' 접두로 판단)"""
+        if os.name == "nt":
+            try:
+                import ctypes
+
+                attrs = ctypes.windll.kernel32.GetFileAttributesW(str(path))
+                if attrs == -1:
+                    return False
+                # FILE_ATTRIBUTE_HIDDEN(0x2) | FILE_ATTRIBUTE_SYSTEM(0x4)
+                return bool(attrs & 0x2) or bool(attrs & 0x4)
+            except Exception:
+                return False
+        return os.path.basename(path).startswith(".")
 
     def file_times(self, path):
         """파일의 최초 생성일/최근 수정일 (에디터 상단 표시용)"""
@@ -288,7 +318,8 @@ class Api:
             f.write(content)
         self.current_path = path
         self._set_title()
-        return {"path": path}
+        backup = self._backup_file(path, content)
+        return {"path": path, "backup": bool(backup)}
 
     def save_as_dialog(self, default_name="untitled.md"):
         """다른 이름으로 저장 대화상자 - 선택된 경로만 반환"""
@@ -306,7 +337,8 @@ class Api:
         """지정 경로에 저장 (모두 저장/다른 이름 저장용, current_path 변경 없음)"""
         with open(path, "w", encoding="utf-8", newline="") as f:
             f.write(content)
-        return {"path": path}
+        backup = self._backup_file(path, content)
+        return {"path": path, "backup": bool(backup)}
 
     def set_current(self, path):
         """활성 탭 변경 등으로 현재 파일 경로/창 제목 동기화"""
@@ -381,6 +413,277 @@ body {{ margin: 0; background: #f0f2f5; }}
     def get_pygments_css(self):
         return PYGMENTS_CSS
 
+    # ================= 기본 설정 / 백업 =================
+    def settings_load(self):
+        """앱 기본 설정 반환 (백업 폴더 경로 등)"""
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except (OSError, ValueError):
+            cfg = {}
+        return {"backup_dir": cfg.get("backup_dir", "")}
+
+    def settings_save(self, cfg):
+        """앱 기본 설정 저장"""
+        try:
+            data = {"backup_dir": (cfg or {}).get("backup_dir", "").strip()}
+            with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            return {"ok": True}
+        except OSError as e:
+            return {"error": str(e)}
+
+    def choose_folder(self):
+        """폴더 선택 대화상자 (백업 폴더 지정용)"""
+        result = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not result:
+            return None
+        path = result if isinstance(result, str) else result[0]
+        return {"path": path}
+
+    def _backup_file(self, path, content):
+        """원본 저장과 별개로, 백업 폴더에 '파일명_년월일시분초' 백업 생성.
+        백업 폴더가 미설정이면 아무것도 하지 않음.
+        원본 경로 구조를 백업 폴더 아래에 그대로 재현한다."""
+        try:
+            bak = self.settings_load().get("backup_dir", "")
+            if not bak or not os.path.isdir(bak):
+                return None
+            abspath = os.path.abspath(path)
+            drive, rest = os.path.splitdrive(abspath)
+            drive_folder = drive.replace(":", "").strip("\\/") or "root"
+            rel_dir = os.path.dirname(rest).lstrip("\\/")
+            target_dir = os.path.join(bak, drive_folder, rel_dir)
+            os.makedirs(target_dir, exist_ok=True)
+            name, ext = os.path.splitext(os.path.basename(abspath))
+            ts = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+            target = os.path.join(target_dir, f"{name}_{ts}{ext}")
+            with open(target, "w", encoding="utf-8", newline="") as f:
+                f.write(content)
+            return {"path": target}
+        except OSError:
+            return None
+
+    # ================= Confluence 연동 =================
+    def conf_load_config(self):
+        """저장된 Confluence 설정 반환 (없으면 빈 값)"""
+        try:
+            with open(CONFLUENCE_FILE, "r", encoding="utf-8") as f:
+                cfg = json.load(f)
+        except (OSError, ValueError):
+            cfg = {}
+        return {
+            "email": cfg.get("email", ""),
+            "token_name": cfg.get("token_name", ""),
+            "token": cfg.get("token", ""),
+            "work": cfg.get("work", ""),
+            "verified": bool(cfg.get("verified", False)),
+        }
+
+    def conf_save_config(self, cfg):
+        """Confluence 설정 저장"""
+        try:
+            data = {
+                "email": (cfg or {}).get("email", "").strip(),
+                "token_name": (cfg or {}).get("token_name", "").strip(),
+                "token": (cfg or {}).get("token", "").strip(),
+                "work": (cfg or {}).get("work", "").strip(),
+                "verified": bool((cfg or {}).get("verified", False)),
+            }
+            with open(CONFLUENCE_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False)
+            return {"ok": True}
+        except OSError as e:
+            return {"error": str(e)}
+
+    @staticmethod
+    def _conf_parse_work(work):
+        """'작업 폴더 또는 링크'에서 base_url / space_key / page_id 추출.
+        - 전체 링크 예: https://site.atlassian.net/wiki/spaces/DEV/pages/123/Title
+        - 스페이스 링크 예: https://site.atlassian.net/wiki/spaces/DEV/overview
+        """
+        work = (work or "").strip()
+        base_url, space_key, page_id = None, None, None
+        m = re.match(r"(https?://[^/]+)", work)
+        if m:
+            host = m.group(1)
+            base_url = host + "/wiki"
+            sk = re.search(r"/spaces/([^/]+)", work)
+            if sk:
+                space_key = urllib.parse.unquote(sk.group(1))
+            pid = re.search(r"/pages/(\d+)", work)
+            if pid:
+                page_id = pid.group(1)
+        else:
+            # URL이 아니면 스페이스 키로 간주 (base_url은 알 수 없음)
+            space_key = work or None
+        return base_url, space_key, page_id
+
+    def _conf_request(self, cfg, method, path, body=None, base_override=None):
+        """Confluence Cloud REST 호출 (basic auth: email + API token)"""
+        cfg = cfg or self.conf_load_config()
+        base_url, _, _ = self._conf_parse_work(cfg.get("work", ""))
+        base_url = base_override or base_url
+        if not base_url:
+            return None, "작업 폴더/링크에 Confluence 주소(https://...)가 필요합니다"
+        email = (cfg.get("email") or "").strip()
+        token = (cfg.get("token") or "").strip()
+        if not email or not token:
+            return None, "계정(email)과 토큰 값을 입력하세요"
+        url = base_url + path
+        data = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method=method)
+        auth = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
+        req.add_header("Authorization", "Basic " + auth)
+        req.add_header("Accept", "application/json")
+        if data is not None:
+            req.add_header("Content-Type", "application/json")
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                raw = resp.read().decode("utf-8")
+                return (json.loads(raw) if raw else {}), None
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode("utf-8")[:300]
+            except Exception:
+                pass
+            return None, f"HTTP {e.code} {e.reason} {detail}".strip()
+        except urllib.error.URLError as e:
+            return None, f"연결 실패: {e.reason}"
+        except Exception as e:  # noqa: BLE001
+            return None, str(e)
+
+    def conf_test(self, cfg):
+        """연동 테스트: 현재 사용자 정보를 조회해 인증/주소를 검증"""
+        data, err = self._conf_request(cfg, "GET", "/rest/api/user/current")
+        if err:
+            return {"error": err}
+        who = data.get("displayName") or data.get("publicName") or data.get("email") or "OK"
+        # 스페이스 키가 유효한지도 함께 확인 (있으면)
+        _, space_key, _ = self._conf_parse_work((cfg or {}).get("work", ""))
+        space_ok = None
+        if space_key:
+            sd, serr = self._conf_request(cfg, "GET", f"/rest/api/space/{urllib.parse.quote(space_key)}")
+            space_ok = (serr is None)
+        return {"ok": True, "user": who, "space": space_key, "space_ok": space_ok}
+
+    def conf_list(self, cfg=None):
+        """작업 스페이스(또는 부모 페이지)의 페이지 목록"""
+        cfg = cfg or self.conf_load_config()
+        _, space_key, page_id = self._conf_parse_work(cfg.get("work", ""))
+        if page_id:
+            data, err = self._conf_request(
+                cfg, "GET", f"/rest/api/content/{page_id}/child/page?limit=100"
+            )
+        elif space_key:
+            q = urllib.parse.urlencode(
+                {"spaceKey": space_key, "type": "page", "limit": 100, "orderby": "title"}
+            )
+            data, err = self._conf_request(cfg, "GET", "/rest/api/content?" + q)
+        else:
+            return {"error": "작업 스페이스(링크)가 설정되지 않았습니다"}
+        if err:
+            return {"error": err}
+        pages = [{"id": r["id"], "title": r["title"]} for r in data.get("results", [])]
+        return {"pages": pages, "space": space_key}
+
+    def conf_get(self, page_id, cfg=None):
+        """페이지 열기: 저장된 원본 마크다운(있으면) 또는 본문을 반환"""
+        cfg = cfg or self.conf_load_config()
+        data, err = self._conf_request(
+            cfg, "GET", f"/rest/api/content/{page_id}?expand=body.storage,version,space"
+        )
+        if err:
+            return {"error": err}
+        version = data.get("version", {}).get("number", 1)
+        title = data.get("title", "")
+        # 원본 마크다운 property 우선
+        prop, perr = self._conf_request(
+            cfg, "GET", f"/rest/api/content/{page_id}/property/{MD_PROP_KEY}"
+        )
+        if perr is None and prop and isinstance(prop.get("value"), str):
+            markdown_text = prop["value"]
+        else:
+            # 마크다운 원본이 없으면 저장된 HTML을 그대로(간이) 표시
+            markdown_text = data.get("body", {}).get("storage", {}).get("value", "")
+        return {"id": page_id, "title": title, "markdown": markdown_text, "version": version}
+
+    def conf_update(self, page_id, title, markdown_text, version, cfg=None):
+        """기존 페이지 업데이트 (본문 = 렌더링 HTML, 원본 마크다운은 property로 보존)"""
+        cfg = cfg or self.conf_load_config()
+        html = self.render(markdown_text)["html"]
+        body = {
+            "id": page_id,
+            "type": "page",
+            "title": title,
+            "version": {"number": int(version) + 1},
+            "body": {"storage": {"value": html, "representation": "storage"}},
+        }
+        data, err = self._conf_request(cfg, "PUT", f"/rest/api/content/{page_id}", body=body)
+        if err:
+            return {"error": err}
+        self._conf_set_md_prop(cfg, page_id, markdown_text)
+        return {"id": page_id, "version": data.get("version", {}).get("number", int(version) + 1)}
+
+    def conf_create(self, title, markdown_text, cfg=None):
+        """새 페이지 생성 (작업 스페이스/부모 페이지 하위)"""
+        cfg = cfg or self.conf_load_config()
+        _, space_key, page_id = self._conf_parse_work(cfg.get("work", ""))
+        if not space_key and not page_id:
+            return {"error": "작업 스페이스(링크)가 설정되지 않았습니다"}
+        html = self.render(markdown_text)["html"]
+        body = {
+            "type": "page",
+            "title": title,
+            "body": {"storage": {"value": html, "representation": "storage"}},
+        }
+        if space_key:
+            body["space"] = {"key": space_key}
+        if page_id:
+            body["ancestors"] = [{"id": page_id}]
+        data, err = self._conf_request(cfg, "POST", "/rest/api/content", body=body)
+        if err:
+            return {"error": err}
+        new_id = data.get("id")
+        self._conf_set_md_prop(cfg, new_id, markdown_text)
+        return {"id": new_id, "title": title, "version": 1}
+
+    def _conf_set_md_prop(self, cfg, page_id, markdown_text):
+        """페이지에 원본 마크다운을 content property로 저장(왕복 편집용)"""
+        cur, err = self._conf_request(
+            cfg, "GET", f"/rest/api/content/{page_id}/property/{MD_PROP_KEY}"
+        )
+        if err is None and cur and "version" in cur:
+            ver = cur["version"]["number"] + 1
+            self._conf_request(
+                cfg, "PUT", f"/rest/api/content/{page_id}/property/{MD_PROP_KEY}",
+                body={"value": markdown_text, "version": {"number": ver}},
+            )
+        else:
+            self._conf_request(
+                cfg, "POST", f"/rest/api/content/{page_id}/property",
+                body={"key": MD_PROP_KEY, "value": markdown_text},
+            )
+
+    def on_files_dropped(self, event):
+        """OS 탐색기/Finder에서 드롭한 파일들의 실제 경로로 편집기에서 열기.
+        pywebview가 event.dataTransfer.files[i].pywebviewFullPath 에 원본 경로를 주입한다."""
+        try:
+            files = (event or {}).get("dataTransfer", {}).get("files", []) or []
+        except AttributeError:
+            files = []
+        for f in files:
+            path = f.get("pywebviewFullPath") if isinstance(f, dict) else None
+            if not path or not os.path.isfile(path):
+                continue
+            try:
+                self._window.evaluate_js("window.__openDroppedPath(" + json.dumps(path) + ")")
+            except Exception:
+                pass
+
     def show_in_explorer(self):
         """현재 열린 파일을 탐색기(Finder)에서 선택된 상태로 보여줌"""
         if not (self.current_path and os.path.exists(self.current_path)):
@@ -424,6 +727,23 @@ def main():
         text_select=True,  # 미리보기에서 마우스 드래그로 텍스트 선택/복사 허용
     )
     api._window = window
+
+    # OS 파일 드롭 → 실제 경로로 열기 (DOM 로드 후 body에 drop 핸들러 등록)
+    _dnd = {"done": False}
+
+    def _register_dnd():
+        if _dnd["done"]:
+            return
+        _dnd["done"] = True
+        try:
+            window.dom.body.on(
+                "drop",
+                DOMEventHandler(api.on_files_dropped, prevent_default=True, stop_propagation=True),
+            )
+        except Exception:
+            pass
+
+    window.events.loaded += _register_dnd
     webview.start()
 
 
