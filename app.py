@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import ssl
 import string
 import subprocess
 import sys
@@ -22,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.3.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.5.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -65,6 +66,12 @@ SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-settings.json")
 # 편집 왕복(round-trip)을 위해 페이지에 원본 마크다운을 저장하는 content property 키
 MD_PROP_KEY = "jmMdvMarkdown"
 
+# 사내망 SSL 인터셉트(회사 프록시 인증서) 대응: 개발/사내 환경용 완화 컨텍스트.
+# (운영 배포 시 사내 루트CA 신뢰로 대체 권장)
+_CONF_SSL_CTX = ssl.create_default_context()
+_CONF_SSL_CTX.check_hostname = False
+_CONF_SSL_CTX.verify_mode = ssl.CERT_NONE
+
 
 class Api:
     def __init__(self):
@@ -72,6 +79,7 @@ class Api:
         self.current_path = None
         self._md = markdown.Markdown(extensions=MD_EXTENSIONS, extension_configs=MD_CONFIGS)
         self._lock = threading.Lock()
+        self._cloud_ids = {}  # host -> cloudId 캐시
 
     # ---------- 변환 ----------
     def render(self, text):
@@ -464,7 +472,10 @@ body {{ margin: 0; background: #f0f2f5; }}
         except OSError:
             return None
 
-    # ================= Confluence 연동 =================
+    # ================= Confluence 연동 (cloudId 게이트웨이) =================
+    #  커스텀 도메인 뒤의 Confluence Cloud도 직접 /wiki/rest/api 대신
+    #  https://api.atlassian.com/ex/confluence/{cloudId} 게이트웨이 + API 토큰 Basic 인증으로 호출한다.
+    #  (이것이 "caller cannot access Confluence" 403의 근본 해결책)
     def conf_load_config(self):
         """저장된 Confluence 설정 반환 (없으면 빈 값)"""
         try:
@@ -477,17 +488,19 @@ body {{ margin: 0; background: #f0f2f5; }}
             "token_name": cfg.get("token_name", ""),
             "token": cfg.get("token", ""),
             "work": cfg.get("work", ""),
+            "cloud_id": cfg.get("cloud_id", ""),
             "verified": bool(cfg.get("verified", False)),
         }
 
     def conf_save_config(self, cfg):
-        """Confluence 설정 저장"""
+        """Confluence 설정 저장 (토큰은 로컬 사용자 파일에만 저장)"""
         try:
             data = {
                 "email": (cfg or {}).get("email", "").strip(),
                 "token_name": (cfg or {}).get("token_name", "").strip(),
                 "token": (cfg or {}).get("token", "").strip(),
                 "work": (cfg or {}).get("work", "").strip(),
+                "cloud_id": (cfg or {}).get("cloud_id", "").strip(),
                 "verified": bool((cfg or {}).get("verified", False)),
             }
             with open(CONFLUENCE_FILE, "w", encoding="utf-8") as f:
@@ -498,42 +511,83 @@ body {{ margin: 0; background: #f0f2f5; }}
 
     @staticmethod
     def _conf_parse_work(work):
-        """'작업 폴더 또는 링크'에서 base_url / space_key / page_id 추출.
-        - 전체 링크 예: https://site.atlassian.net/wiki/spaces/DEV/pages/123/Title
-        - 스페이스 링크 예: https://site.atlassian.net/wiki/spaces/DEV/overview
+        """'접근할 폴더 링크'에서 host / space_key / folder_id / page_id 추출.
+        - 폴더 링크: https://<site>/wiki/spaces/<KEY>/folder/<ID>?...
+        - 페이지 링크: https://<site>/wiki/spaces/<KEY>/pages/<ID>/Title
+        - 개인 스페이스 KEY는 '~'로 시작 가능(정규식 그대로 매칭)
         """
         work = (work or "").strip()
-        base_url, space_key, page_id = None, None, None
-        m = re.match(r"(https?://[^/]+)", work)
-        if m:
-            host = m.group(1)
-            base_url = host + "/wiki"
-            sk = re.search(r"/spaces/([^/]+)", work)
+        host = space_key = folder_id = page_id = None
+        hm = re.match(r"(https?://[^/]+)", work)
+        if hm:
+            host = hm.group(1)
+        fm = re.search(r"/spaces/([^/?]+)/folder/(\d+)", work)
+        if fm:
+            space_key = urllib.parse.unquote(fm.group(1))
+            folder_id = fm.group(2)
+        else:
+            sk = re.search(r"/spaces/([^/?]+)", work)
             if sk:
                 space_key = urllib.parse.unquote(sk.group(1))
             pid = re.search(r"/pages/(\d+)", work)
             if pid:
                 page_id = pid.group(1)
-        else:
-            # URL이 아니면 스페이스 키로 간주 (base_url은 알 수 없음)
-            space_key = work or None
-        return base_url, space_key, page_id
+        if not host and work and not work.lower().startswith("http"):
+            space_key = space_key or work  # URL이 아니면 스페이스 키로 간주
+        return {"host": host, "space_key": space_key, "folder_id": folder_id, "page_id": page_id}
 
-    def _conf_request(self, cfg, method, path, body=None, base_override=None):
-        """Confluence Cloud REST 호출 (basic auth: email + API token)"""
+    def _conf_cloud_id(self, cfg):
+        """cloudId 확보: 설정에 있으면 사용, 없으면 {host}/(wiki/)_edge/tenant_info 로 조회.
+        SSO 게이트 등으로 비인증 조회가 막히면 Basic 인증을 붙여 재시도한다."""
+        cfg = cfg or {}
+        if (cfg.get("cloud_id") or "").strip():
+            return cfg["cloud_id"].strip(), None
+        host = self._conf_parse_work(cfg.get("work", "")).get("host")
+        if not host:
+            return None, "폴더 링크에 사이트 주소(https://...)가 필요합니다"
+        if host in self._cloud_ids:
+            return self._cloud_ids[host], None
+        email = (cfg.get("email") or "").strip()
+        token = (cfg.get("token") or "").strip()
+        last = ""
+        for use_auth in (False, True):
+            for path in ("/wiki/_edge/tenant_info", "/_edge/tenant_info"):
+                try:
+                    req = urllib.request.Request(host + path, headers={"Accept": "application/json"})
+                    if use_auth and email and token:
+                        a = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
+                        req.add_header("Authorization", "Basic " + a)
+                    with urllib.request.urlopen(req, timeout=15, context=_CONF_SSL_CTX) as r:
+                        raw = r.read().decode("utf-8", "replace").strip()
+                    try:
+                        j = json.loads(raw)
+                    except ValueError:
+                        last = f"{path} 응답이 JSON 아님(로그인 게이트 가능): {raw[:60]}"
+                        continue
+                    cid = j.get("cloudId")
+                    if cid:
+                        self._cloud_ids[host] = cid
+                        return cid, None
+                    last = f"{path} 응답에 cloudId 없음"
+                except urllib.error.HTTPError as e:
+                    last = f"{path} HTTP {e.code}"
+                except Exception as e:  # noqa: BLE001
+                    last = f"{path}: {e}"
+        return None, ("cloudId 자동 조회 실패(" + last + "). 설정의 cloudId 칸에 직접 입력해 주세요. "
+                      "(브라우저에서 " + host + "/wiki/_edge/tenant_info 접속 시 보이는 cloudId 값)")
+
+    def _conf_request(self, cfg, method, path, body=None):
+        """cloudId 게이트웨이로 Confluence REST 호출 (basic auth: email + API token)."""
         cfg = cfg or self.conf_load_config()
-        base_url, _, _ = self._conf_parse_work(cfg.get("work", ""))
-        base_url = base_override or base_url
-        if not base_url:
-            return None, "작업 폴더/링크에 Confluence 주소(https://...)가 필요합니다"
         email = (cfg.get("email") or "").strip()
         token = (cfg.get("token") or "").strip()
         if not email or not token:
             return None, "계정(email)과 토큰 값을 입력하세요"
-        url = base_url + path
-        data = None
-        if body is not None:
-            data = json.dumps(body).encode("utf-8")
+        cid, cerr = self._conf_cloud_id(cfg)
+        if cerr:
+            return None, cerr
+        url = f"https://api.atlassian.com/ex/confluence/{cid}" + path
+        data = json.dumps(body).encode("utf-8") if body is not None else None
         req = urllib.request.Request(url, data=data, method=method)
         auth = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("ascii")
         req.add_header("Authorization", "Basic " + auth)
@@ -541,13 +595,13 @@ body {{ margin: 0; background: #f0f2f5; }}
         if data is not None:
             req.add_header("Content-Type", "application/json")
         try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                raw = resp.read().decode("utf-8")
+            with urllib.request.urlopen(req, timeout=30, context=_CONF_SSL_CTX) as resp:
+                raw = resp.read().decode("utf-8", "replace")
                 return (json.loads(raw) if raw else {}), None
         except urllib.error.HTTPError as e:
             detail = ""
             try:
-                detail = e.read().decode("utf-8")[:300]
+                detail = e.read().decode("utf-8", "replace")[:300]
             except Exception:
                 pass
             return None, f"HTTP {e.code} {e.reason} {detail}".strip()
@@ -557,26 +611,39 @@ body {{ margin: 0; background: #f0f2f5; }}
             return None, str(e)
 
     def conf_test(self, cfg):
-        """연동 테스트: 현재 사용자 정보를 조회해 인증/주소를 검증"""
-        data, err = self._conf_request(cfg, "GET", "/rest/api/user/current")
-        if err:
-            return {"error": err}
-        who = data.get("displayName") or data.get("publicName") or data.get("email") or "OK"
-        # 스페이스 키가 유효한지도 함께 확인 (있으면)
-        _, space_key, _ = self._conf_parse_work((cfg or {}).get("work", ""))
-        space_ok = None
+        """연동 테스트(접근 사전 점검): cloudId 조회 + 폴더/스페이스 접근 확인."""
+        cfg = cfg or self.conf_load_config()
+        cid, cerr = self._conf_cloud_id(cfg)
+        if cerr:
+            return {"error": cerr}
+        info = self._conf_parse_work(cfg.get("work", ""))
+        folder_id, space_key = info["folder_id"] or info["page_id"], info["space_key"]
+        user = None
+        ud, uerr = self._conf_request(cfg, "GET", "/rest/api/user/current")
+        if uerr is None and ud:
+            user = ud.get("displayName") or ud.get("publicName")
+        if folder_id:
+            fd, ferr = self._conf_request(cfg, "GET", f"/rest/api/content/{folder_id}")
+            if ferr:
+                return {"error": "폴더 접근 실패: " + ferr}
+            return {"ok": True, "cloud_id": cid, "user": user,
+                    "folder": fd.get("title", ""), "space": space_key}
         if space_key:
             sd, serr = self._conf_request(cfg, "GET", f"/rest/api/space/{urllib.parse.quote(space_key)}")
-            space_ok = (serr is None)
-        return {"ok": True, "user": who, "space": space_key, "space_ok": space_ok}
+            if serr:
+                return {"error": "스페이스 접근 실패: " + serr}
+            return {"ok": True, "cloud_id": cid, "user": user, "space": space_key}
+        return {"error": "폴더 링크에서 스페이스/폴더를 찾을 수 없습니다"}
 
     def conf_list(self, cfg=None):
-        """작업 스페이스(또는 부모 페이지)의 페이지 목록"""
+        """폴더(또는 스페이스) 하위 페이지 목록."""
         cfg = cfg or self.conf_load_config()
-        _, space_key, page_id = self._conf_parse_work(cfg.get("work", ""))
-        if page_id:
+        info = self._conf_parse_work(cfg.get("work", ""))
+        folder_id = info["folder_id"] or info["page_id"]
+        space_key = info["space_key"]
+        if folder_id:
             data, err = self._conf_request(
-                cfg, "GET", f"/rest/api/content/{page_id}/child/page?limit=100"
+                cfg, "GET", f"/rest/api/content/{folder_id}/child/page?limit=100&expand=version"
             )
         elif space_key:
             q = urllib.parse.urlencode(
@@ -584,14 +651,67 @@ body {{ margin: 0; background: #f0f2f5; }}
             )
             data, err = self._conf_request(cfg, "GET", "/rest/api/content?" + q)
         else:
-            return {"error": "작업 스페이스(링크)가 설정되지 않았습니다"}
+            return {"error": "작업 폴더/스페이스가 설정되지 않았습니다"}
         if err:
             return {"error": err}
-        pages = [{"id": r["id"], "title": r["title"]} for r in data.get("results", [])]
-        return {"pages": pages, "space": space_key}
+        pages = [
+            {"id": r["id"], "title": r["title"], "version": r.get("version", {}).get("number", 1)}
+            for r in data.get("results", [])
+        ]
+        return {"pages": pages, "space": space_key, "folder_id": folder_id}
+
+    def conf_tree(self, cfg=None):
+        """폴더 하위 문서를 '계층 구조(트리)'로 반환. (CQL ancestor로 전체 후손 페이지 조회)"""
+        cfg = cfg or self.conf_load_config()
+        info = self._conf_parse_work(cfg.get("work", ""))
+        folder_id = info["folder_id"] or info["page_id"]
+        space_key = info["space_key"]
+        if not folder_id:
+            return self.conf_list(cfg)  # 폴더가 없으면 스페이스 전체(플랫)
+        q = urllib.parse.urlencode(
+            {"cql": f"ancestor={folder_id} and type=page", "limit": 200, "expand": "ancestors,version"}
+        )
+        data, err = self._conf_request(cfg, "GET", "/rest/api/content/search?" + q)
+        if err or not isinstance(data, dict):
+            return self.conf_list(cfg)  # 폴백: 직계 자식만
+        results = data.get("results", [])
+        nodes = {}
+        for r in results:
+            nodes[r["id"]] = {
+                "id": r["id"], "title": r["title"],
+                "version": r.get("version", {}).get("number", 1), "children": [],
+            }
+        roots = []
+        for r in results:
+            anc = r.get("ancestors", []) or []
+            pid = anc[-1]["id"] if anc else None  # 직속 부모 = ancestors의 마지막
+            if pid and pid != folder_id and pid in nodes:
+                nodes[pid]["children"].append(nodes[r["id"]])
+            else:
+                roots.append(nodes[r["id"]])
+
+        def _sort(ns):
+            ns.sort(key=lambda n: n["title"].lower())
+            for n in ns:
+                _sort(n["children"])
+
+        _sort(roots)
+        return {"tree": roots, "space": space_key, "folder_id": folder_id, "count": len(results)}
+
+    # 스토리지 XHTML은 엄격 → void(빈) 요소를 반드시 self-close 해야 파싱 오류가 없음
+    _VOID_TAGS = "area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr"
+
+    def _conf_storage_body(self, markdown_text):
+        """마크다운을 렌더링한 뒤 Confluence storage(XHTML) 규격에 맞게 정리."""
+        html = self.render(markdown_text)["html"]
+        html = re.sub(
+            r"<(" + self._VOID_TAGS + r")((?:\s[^>]*?)?)\s*/?\s*>",
+            r"<\1\2 />", html, flags=re.IGNORECASE,
+        )
+        return html
 
     def conf_get(self, page_id, cfg=None):
-        """페이지 열기: 저장된 원본 마크다운(있으면) 또는 본문을 반환"""
+        """페이지 열기: 저장된 원본 마크다운(있으면) 또는 본문을 반환."""
         cfg = cfg or self.conf_load_config()
         data, err = self._conf_request(
             cfg, "GET", f"/rest/api/content/{page_id}?expand=body.storage,version,space"
@@ -600,59 +720,81 @@ body {{ margin: 0; background: #f0f2f5; }}
             return {"error": err}
         version = data.get("version", {}).get("number", 1)
         title = data.get("title", "")
-        # 원본 마크다운 property 우선
         prop, perr = self._conf_request(
             cfg, "GET", f"/rest/api/content/{page_id}/property/{MD_PROP_KEY}"
         )
         if perr is None and prop and isinstance(prop.get("value"), str):
-            markdown_text = prop["value"]
+            markdown_text = prop["value"]  # 원본 마크다운 우선(왕복 편집)
         else:
-            # 마크다운 원본이 없으면 저장된 HTML을 그대로(간이) 표시
             markdown_text = data.get("body", {}).get("storage", {}).get("value", "")
         return {"id": page_id, "title": title, "markdown": markdown_text, "version": version}
 
-    def conf_update(self, page_id, title, markdown_text, version, cfg=None):
-        """기존 페이지 업데이트 (본문 = 렌더링 HTML, 원본 마크다운은 property로 보존)"""
+    def conf_update(self, page_id, title, markdown_text, version=None, cfg=None):
+        """기존 페이지 수정: 현재 version 재조회 후 +1 (낙관적 버전 충돌 방지)."""
         cfg = cfg or self.conf_load_config()
-        html = self.render(markdown_text)["html"]
+        cur, cerr = self._conf_request(cfg, "GET", f"/rest/api/content/{page_id}?expand=version")
+        if cerr:
+            return {"error": cerr}
+        curver = cur.get("version", {}).get("number", int(version or 1))
+        html = self._conf_storage_body(markdown_text)
         body = {
-            "id": page_id,
-            "type": "page",
-            "title": title,
-            "version": {"number": int(version) + 1},
+            "id": page_id, "type": "page", "title": title,
+            "version": {"number": curver + 1},
             "body": {"storage": {"value": html, "representation": "storage"}},
         }
         data, err = self._conf_request(cfg, "PUT", f"/rest/api/content/{page_id}", body=body)
         if err:
             return {"error": err}
         self._conf_set_md_prop(cfg, page_id, markdown_text)
-        return {"id": page_id, "version": data.get("version", {}).get("number", int(version) + 1)}
+        return {"id": page_id, "version": data.get("version", {}).get("number", curver + 1)}
 
-    def conf_create(self, title, markdown_text, cfg=None):
-        """새 페이지 생성 (작업 스페이스/부모 페이지 하위)"""
+    def conf_create(self, title, markdown_text, parent_id=None, cfg=None):
+        """새 페이지 생성: v1(선택 위치/폴더 하위 ancestors) 우선, 실패 시 v2 폴백.
+        parent_id 를 주면 그 페이지 하위에, 없으면 폴더 최상위에 생성한다."""
         cfg = cfg or self.conf_load_config()
-        _, space_key, page_id = self._conf_parse_work(cfg.get("work", ""))
-        if not space_key and not page_id:
-            return {"error": "작업 스페이스(링크)가 설정되지 않았습니다"}
-        html = self.render(markdown_text)["html"]
+        info = self._conf_parse_work(cfg.get("work", ""))
+        space_key = info["space_key"]
+        folder_id = parent_id or info["folder_id"] or info["page_id"]
+        if not space_key:
+            return {"error": "작업 스페이스를 찾을 수 없습니다 (폴더 링크 확인)"}
+        html = self._conf_storage_body(markdown_text)
         body = {
-            "type": "page",
-            "title": title,
+            "type": "page", "title": title, "space": {"key": space_key},
             "body": {"storage": {"value": html, "representation": "storage"}},
         }
-        if space_key:
-            body["space"] = {"key": space_key}
-        if page_id:
-            body["ancestors"] = [{"id": page_id}]
+        if folder_id:
+            body["ancestors"] = [{"id": folder_id}]
         data, err = self._conf_request(cfg, "POST", "/rest/api/content", body=body)
+        if err is None and data.get("id"):
+            new_id = data["id"]
+            self._conf_set_md_prop(cfg, new_id, markdown_text)
+            return {"id": new_id, "title": title, "version": 1}
+        # v2 폴백: spaceId 조회 후 /wiki/api/v2/pages
+        sd, serr = self._conf_request(cfg, "GET", f"/rest/api/space/{urllib.parse.quote(space_key)}")
+        space_id = str(sd.get("id", "")) if serr is None and sd else ""
+        if space_id:
+            b2 = {"spaceId": space_id, "status": "current", "title": title,
+                  "body": {"representation": "storage", "value": html}}
+            if folder_id:
+                b2["parentId"] = folder_id
+            d2, e2 = self._conf_request(cfg, "POST", "/wiki/api/v2/pages", body=b2)
+            if e2 is None and d2.get("id"):
+                new_id = d2["id"]
+                self._conf_set_md_prop(cfg, new_id, markdown_text)
+                return {"id": new_id, "title": title, "version": 1}
+            return {"error": "생성 실패(v2): " + (e2 or "알 수 없음")}
+        return {"error": "생성 실패: " + (err or "알 수 없음")}
+
+    def conf_delete(self, page_id, cfg=None):
+        """페이지 삭제(휴지통 이동, 복구 가능)."""
+        cfg = cfg or self.conf_load_config()
+        _, err = self._conf_request(cfg, "DELETE", f"/rest/api/content/{page_id}")
         if err:
             return {"error": err}
-        new_id = data.get("id")
-        self._conf_set_md_prop(cfg, new_id, markdown_text)
-        return {"id": new_id, "title": title, "version": 1}
+        return {"ok": True}
 
     def _conf_set_md_prop(self, cfg, page_id, markdown_text):
-        """페이지에 원본 마크다운을 content property로 저장(왕복 편집용)"""
+        """페이지에 원본 마크다운을 content property로 저장(왕복 편집용)."""
         cur, err = self._conf_request(
             cfg, "GET", f"/rest/api/content/{page_id}/property/{MD_PROP_KEY}"
         )

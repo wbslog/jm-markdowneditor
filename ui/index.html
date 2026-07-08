@@ -790,7 +790,25 @@
     border-radius: 16px;
     overflow: hidden; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
   }
-  .app-modal.wide { width: min(680px, 92vw); }
+  .app-modal.wide { width: min(960px, 95vw); height: min(80vh, 760px); }
+  /* Confluence 계층(트리) */
+  .conf-node { }
+  .conf-row {
+    display: flex; align-items: center; gap: 6px; padding: 7px 10px; font-size: 13px;
+    color: #e0e0f0; border-radius: 9px; cursor: pointer;
+    transition: background 0.1s;
+  }
+  .conf-row:hover { background: rgba(255, 255, 255, 0.10); }
+  .conf-row.selected { background: rgba(99, 102, 241, 0.35); box-shadow: inset 0 0 0 1px rgba(129,140,248,0.6); }
+  #conf-save-tree { max-height: 46vh; overflow-y: auto; margin-top: 6px; }
+  .conf-twisty {
+    flex-shrink: 0; width: 16px; text-align: center; color: #8a8ab0; font-size: 10px;
+    cursor: pointer; user-select: none;
+  }
+  .conf-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .conf-ver { flex-shrink: 0; font-size: 11px; color: #8a8ab0; }
+  .conf-children { margin-left: 18px; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 4px; }
+  .conf-children.collapsed { display: none; }
   .app-modal-header {
     flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
     padding: 12px 16px; background: rgba(255, 255, 255, 0.05);
@@ -865,6 +883,11 @@
     border-radius: 10px; cursor: pointer; transition: background 0.12s, border-color 0.12s;
   }
   .conf-item:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.2); }
+  .conf-del {
+    flex-shrink: 0; background: none; border: none; color: #b7b7d0;
+    font-size: 13px; cursor: pointer; padding: 3px 6px; border-radius: 6px;
+  }
+  .conf-del:hover { background: rgba(248, 113, 113, 0.22); color: #fff; }
   .conf-note { font-size: 12px; color: #8a8ab0; }
 
   /* Confluence 페이지 탭 배지 */
@@ -907,6 +930,7 @@
   <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
   <button id="btn-settings" title="설정 (Confluence 연동 등)">⚙️ 설정</button>
   <button id="btn-confluence" title="Confluence 문서 탐색" style="display:none">🔗 Confluence</button>
+  <button id="btn-conf-save" class="primary" title="현재 문서를 Confluence에 저장" style="display:none">☁️ 컨플 저장</button>
   <button id="btn-help" title="프로그램 기능/사용 설명서 보기">❓ 설명서</button>
   <div id="file-path"><span class="name">새 문서</span></div>
   <div id="lang-toggle" title="언어 / Language">
@@ -1040,13 +1064,18 @@
             <input id="set-work" type="text" spellcheck="false" placeholder="https://site.atlassian.net/wiki/spaces/KEY/overview">
             <div class="form-hint" id="set-work-hint"></div>
           </div>
+          <div class="form-row">
+            <label id="set-cloudid-l">cloudId (선택 — 자동 조회 실패 시 직접 입력)</label>
+            <input id="set-cloudid" type="text" spellcheck="false" placeholder="예: f76202cc-b74c-482b-9290-00246e5cfeb3">
+            <div class="form-hint" id="set-cloudid-hint"></div>
+          </div>
           <button class="btn" id="set-test">🔌 연동 테스트</button>
           <div id="set-test-result"></div>
         </div>
       </div>
     </div>
     <div class="app-modal-footer">
-      <button id="set-cancel">취소</button>
+      <button id="set-cancel">닫기</button>
       <button id="set-save" class="primary">저장</button>
     </div>
   </div>
@@ -1067,6 +1096,27 @@
     </div>
     <div class="app-modal-footer">
       <button id="conf-save-new" class="primary">📄 현재 내용을 새 페이지로 저장</button>
+    </div>
+  </div>
+</div>
+
+<div id="conf-save-overlay" class="app-overlay">
+  <div class="app-modal wide">
+    <div class="app-modal-header">
+      <span id="conf-save-title">☁️ Confluence에 저장</span>
+      <button class="x" id="conf-save-x" title="닫기 (Esc)">✕</button>
+    </div>
+    <div class="app-modal-body">
+      <div class="form-row">
+        <label id="conf-save-title-l">제목 (파일명)</label>
+        <input id="conf-save-name" type="text" spellcheck="false">
+      </div>
+      <div class="section-title" id="conf-save-loc-l">저장 위치</div>
+      <div id="conf-save-tree"></div>
+    </div>
+    <div class="app-modal-footer">
+      <button id="conf-save-cancel">닫기</button>
+      <button id="conf-save-do" class="primary">저장</button>
     </div>
   </div>
 </div>
@@ -1136,11 +1186,13 @@ const I18N = {
     // 설정 / Confluence
     setTitle: '⚙️ 설정', setClose_t: '닫기 (Esc)',
     setConfSection: '🔗 Confluence 연동',
-    setEmail: '아틀란시안 계정 (email)', setTokenName: '토큰 이름',
-    setToken: '토큰 값 (API token)', setWork: '나의 작업 폴더 또는 링크',
-    setWorkHint: '예: https://사이트.atlassian.net/wiki/spaces/스페이스키/overview',
+    setEmail: '로그인 아이디 (Atlassian 계정 email)', setTokenName: '토큰 이름',
+    setToken: '토큰 값 (API token)', setWork: '접근할 폴더 링크',
+    setWorkHint: '예: https://사이트/wiki/spaces/스페이스키/folder/폴더ID  (스페이스 링크도 가능)',
+    setCloudId: 'cloudId (선택 — 자동 조회 실패 시 직접 입력)',
+    setCloudIdHint: '브라우저에서 {사이트}/wiki/_edge/tenant_info 접속 시 보이는 cloudId 값',
     setTokenHelp: 'API 토큰: Atlassian 계정 → 보안 → API 토큰에서 발급',
-    setTest: '🔌 연동 테스트', setSave: '저장', setCancel: '취소',
+    setTest: '🔌 연동 테스트', setSave: '저장', setCancel: '닫기',
     setTesting: '연결 확인 중...', setTestOk: '연결 성공: ', setTestFail: '연결 실패: ',
     setSaved: '설정이 저장되었습니다', setNeedTest: '먼저 연동 테스트에 성공해야 저장됩니다',
     setNavGeneral: '기본 설정', setNavConf: 'Confluence 연결',
@@ -1155,7 +1207,13 @@ const I18N = {
     confNeedSetup: '먼저 설정에서 Confluence 연동을 완료하세요',
     confErr: 'Confluence 오류: ', confOpened: 'Confluence 페이지 열기: ',
     confSaved: 'Confluence에 저장됨: ', confUpdated: 'Confluence 업데이트됨: ',
-    confBadge: 'Confluence',
+    confBadge: 'Confluence', confOpen_t: '열기', confDelete_t: '삭제(휴지통)',
+    confDeleteConfirm: (t) => '"' + t + '" 페이지를 삭제할까요?\n(휴지통으로 이동, 나중에 복구 가능)',
+    confDeleted: 'Confluence에서 삭제됨: ',
+    btnConfSave: '☁️ 컨플 저장', btnConfSave_t: '현재 문서를 Confluence에 저장',
+    confSaveModal: '☁️ Confluence에 저장', confSaveTitleL: '제목 (파일명)',
+    confSaveLocL: '저장 위치 (선택하지 않으면 폴더 최상위)', confSaveRoot: '📁 폴더 최상위',
+    confSaveBtn: '저장', confNeedTitle: '제목을 입력하세요',
   },
   en: {
     btnNew: '📄 New', btnNew_t: 'New document (Ctrl+N)',
@@ -1211,11 +1269,13 @@ const I18N = {
     // Settings / Confluence
     setTitle: '⚙️ Settings', setClose_t: 'Close (Esc)',
     setConfSection: '🔗 Confluence Integration',
-    setEmail: 'Atlassian account (email)', setTokenName: 'Token name',
-    setToken: 'Token value (API token)', setWork: 'My work folder or link',
-    setWorkHint: 'e.g. https://site.atlassian.net/wiki/spaces/SPACEKEY/overview',
+    setEmail: 'Login ID (Atlassian account email)', setTokenName: 'Token name',
+    setToken: 'Token value (API token)', setWork: 'Target folder link',
+    setWorkHint: 'e.g. https://site/wiki/spaces/SPACEKEY/folder/FOLDERID  (a space link also works)',
+    setCloudId: 'cloudId (optional — enter manually if auto-lookup fails)',
+    setCloudIdHint: 'The cloudId shown when you open {site}/wiki/_edge/tenant_info in a browser',
     setTokenHelp: 'API token: create at Atlassian account → Security → API tokens',
-    setTest: '🔌 Test connection', setSave: 'Save', setCancel: 'Cancel',
+    setTest: '🔌 Test connection', setSave: 'Save', setCancel: 'Close',
     setTesting: 'Testing connection...', setTestOk: 'Connected: ', setTestFail: 'Connection failed: ',
     setSaved: 'Settings saved', setNeedTest: 'Pass the connection test before saving',
     setNavGeneral: 'General', setNavConf: 'Confluence',
@@ -1230,14 +1290,24 @@ const I18N = {
     confNeedSetup: 'Complete Confluence setup in Settings first',
     confErr: 'Confluence error: ', confOpened: 'Opened Confluence page: ',
     confSaved: 'Saved to Confluence: ', confUpdated: 'Updated on Confluence: ',
-    confBadge: 'Confluence',
+    confBadge: 'Confluence', confOpen_t: 'Open', confDelete_t: 'Delete (trash)',
+    confDeleteConfirm: (t) => 'Delete "' + t + '"?\n(Moved to trash, recoverable later)',
+    confDeleted: 'Deleted from Confluence: ',
+    btnConfSave: '☁️ Save to Confluence', btnConfSave_t: 'Save current document to Confluence',
+    confSaveModal: '☁️ Save to Confluence', confSaveTitleL: 'Title (file name)',
+    confSaveLocL: 'Location (defaults to folder root if none selected)', confSaveRoot: '📁 Folder root',
+    confSaveBtn: 'Save', confNeedTitle: 'Enter a title',
   },
 };
 let lang = 'ko';
 function L() { return I18N[lang]; }
 
+/* 플랫폼: macOS는 단축키 표기를 Ctrl → Cmd(⌘)로 바꾼다 */
+const IS_MAC = /mac|iphone|ipad|ipod/i.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
+function modKey(s) { return IS_MAC ? String(s).replace(/Ctrl/g, 'Cmd') : s; }
+
 function setTxt(id, s) { const el = document.getElementById(id); if (el) el.textContent = s; }
-function setTitle(id, s) { const el = document.getElementById(id); if (el) el.title = s; }
+function setTitle(id, s) { const el = document.getElementById(id); if (el) el.title = modKey(s); }
 
 /* 언어 적용: 정적 UI 텍스트/툴팁/플레이스홀더 갱신 */
 function applyLang() {
@@ -1255,6 +1325,9 @@ function applyLang() {
   setTxt('btn-export', d.btnExport); setTitle('btn-export', d.btnExport_t);
   setTxt('btn-settings', d.btnSettings); setTitle('btn-settings', d.btnSettings_t);
   setTxt('btn-confluence', d.btnConfluence); setTitle('btn-confluence', d.btnConfluence_t);
+  setTxt('btn-conf-save', d.btnConfSave); setTitle('btn-conf-save', d.btnConfSave_t);
+  setTxt('conf-save-title', d.confSaveModal); setTxt('conf-save-title-l', d.confSaveTitleL);
+  setTxt('conf-save-loc-l', d.confSaveLocL); setTxt('conf-save-do', d.confSaveBtn);
   setTxt('btn-help', d.btnHelp); setTitle('btn-help', d.btnHelp_t);
   setTitle('tab-left', d.tabLeft_t); setTitle('tab-right', d.tabRight_t);
   setTitle('sb-up', d.sbUp_t); setTitle('sb-close', d.sbClose_t);
@@ -1264,7 +1337,7 @@ function applyLang() {
   searchInput.placeholder = d.searchPlaceholder;
   setTitle('search-case', d.searchCase_t); setTitle('search-prev', d.searchPrev_t);
   setTitle('search-next', d.searchNext_t); setTitle('search-close', d.searchClose_t);
-  helpSearchInput.placeholder = d.helpSearchPlaceholder;
+  helpSearchInput.placeholder = modKey(d.helpSearchPlaceholder);
   setTitle('help-search-prev', d.searchPrev_t); setTitle('help-search-next', d.searchNext_t);
   setTitle('help-x', d.helpX_t); setTxt('help-close-btn', d.helpClose); setTitle('help-top', d.helpTop_t);
   setTitle('lang-toggle', d.langTitle);
@@ -1283,6 +1356,7 @@ function applyLang() {
   setTxt('set-email-l', d.setEmail); setTxt('set-tokenname-l', d.setTokenName);
   setTxt('set-token-l', d.setToken); setTxt('set-token-help', d.setTokenHelp);
   setTxt('set-work-l', d.setWork); setTxt('set-work-hint', d.setWorkHint);
+  setTxt('set-cloudid-l', d.setCloudId); setTxt('set-cloudid-hint', d.setCloudIdHint);
   setTxt('set-test', d.setTest); setTxt('set-cancel', d.setCancel); setTxt('set-save', d.setSave);
   /* Confluence 모달 */
   setTxt('conf-title', d.confTitle); setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
@@ -1749,9 +1823,9 @@ async function doExport() {
 }
 
 /* ---------- 설명서 문서 (언어별) ---------- */
-function getHelpMd() { return lang === 'en' ? HELP_MD_EN : HELP_MD_KO; }
-function getMdGuide() { return lang === 'en' ? MD_GUIDE_EN : MD_GUIDE_KO; }
-function getVersionMd() { return lang === 'en' ? VERSION_MD_EN : VERSION_MD_KO; }
+function getHelpMd() { return modKey(lang === 'en' ? HELP_MD_EN : HELP_MD_KO); }
+function getMdGuide() { return modKey(lang === 'en' ? MD_GUIDE_EN : MD_GUIDE_KO); }
+function getVersionMd() { return modKey(lang === 'en' ? VERSION_MD_EN : VERSION_MD_KO); }
 
 /* ---------- 설명서 (한국어) ---------- */
 const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
@@ -1913,7 +1987,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.3.0** |
+| **최신 버전** | **v1.5.0** |
 | 최종 업데이트 | 2026-07-08 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -1925,6 +1999,44 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.5.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence 계층/저장 UX</summary>
+
+### 🔗 Confluence 사용성 개선
+
+- 문서 목록을 **폴더/하위 페이지 계층(트리)** 으로 조회·표시(접기/펼치기), Confluence 창 **너비 확대**
+- **저장 분기**:
+    - Confluence에서 연 문서 → \`Ctrl+S\`(macOS \`⌘+S\`)로 **해당 페이지 직접 업데이트**
+    - 로컬 문서 → 우측 상단 **☁️ 컨플 저장** 버튼(연동 시 활성) → **저장 위치를 트리에서 선택** + **제목(파일명 기본값, 수정 가능)** 입력 후 새 페이지 생성
+- **저장 오류 수정**: 스토리지 XHTML 규격에 맞게 void 요소(\`<br> <img> <input>\` 등)를 self-close 처리하여 "Error parsing xhtml" 400 오류 해결
+- **cloudId 직접 입력** 필드 추가(자동 조회가 SSO로 막힐 때)
+- 설정창은 X/닫기 버튼으로만 닫히도록 변경, 취소 → 닫기
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.4.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence 재구현 · macOS 단축키</summary>
+
+### 🔗 Confluence 연동 재구현 (403 해결)
+
+- 커스텀 도메인 뒤의 Confluence Cloud도 동작하도록 **cloudId 게이트웨이**(\`api.atlassian.com/ex/confluence/{cloudId}\`) 방식으로 전면 재구현
+    - \`{사이트}/wiki/_edge/tenant_info\`로 **cloudId 자동 조회**
+    - **폴더 링크**(\`/spaces/KEY/folder/ID\`) 파싱 지원(개인 스페이스 \`~\` 포함)
+    - 연동 테스트 = **폴더/스페이스 접근 사전 점검**
+- 페이지 **CRUD**: 목록·열기·수정(현재 버전 재조회 후 +1)·**삭제(휴지통)**, 생성은 **v1 우선 → v2 폴백**
+- 사내망 SSL 인터셉트 대응(개발/사내용 완화 컨텍스트)
+
+### ⌨️ macOS 단축키
+
+- Windows/Linux는 \`Ctrl\`, **macOS는 \`Command(⌘)\`** 로 단축키 동작
+- 툴바 툴팁·설명서의 단축키 표기도 macOS에서 \`Cmd\`로 표시
+
+### 🍎 macOS 정상 동작
+
+- 드래그 앤 드롭(Finder), Confluence 게이트웨이 등 macOS(WebKit)에서도 동일 동작
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.3.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; 드래그 앤 드롭 원본 연동</summary>
 
 ### 🖱️ 드래그 앤 드롭 개선
@@ -2756,7 +2868,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.3.0** |
+| **Latest version** | **v1.5.0** |
 | Last updated | 2026-07-08 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2768,6 +2880,44 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.5.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence hierarchy & save UX</summary>
+
+### 🔗 Confluence usability
+
+- Lists documents as a **folder/child-page hierarchy (tree)** with collapse/expand; **wider** Confluence window
+- **Save routing**:
+    - Docs opened from Confluence → \`Ctrl+S\` (macOS \`⌘+S\`) **updates that page directly**
+    - Local docs → the top-right **☁️ Save to Confluence** button (enabled when connected) → **pick a location in the tree** + enter a **title (defaults to the file name, editable)** to create a new page
+- **Save error fixed**: self-closes void elements (\`<br> <img> <input>\` etc.) to meet storage XHTML, fixing the "Error parsing xhtml" 400
+- Added a **manual cloudId** field (for when auto-lookup is blocked by SSO)
+- Settings window now closes only via the X / Close button; Cancel → Close
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.4.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence rework · macOS shortcuts</summary>
+
+### 🔗 Confluence integration reworked (fixes 403)
+
+- Reworked to use the **cloudId gateway** (\`api.atlassian.com/ex/confluence/{cloudId}\`) so Confluence Cloud behind custom domains works too
+    - **Auto-discovers cloudId** via \`{site}/wiki/_edge/tenant_info\`
+    - Parses **folder links** (\`/spaces/KEY/folder/ID\`, personal spaces \`~\` included)
+    - Connection test = **folder/space access precheck**
+- Page **CRUD**: list, open, update (re-fetch current version then +1), **delete (trash)**; create tries **v1 first → v2 fallback**
+- Corporate-network SSL intercept handling (relaxed context for dev/internal use)
+
+### ⌨️ macOS shortcuts
+
+- Windows/Linux use \`Ctrl\`; **macOS uses \`Command(⌘)\`**
+- Shortcut hints in toolbar tooltips and the guide show \`Cmd\` on macOS
+
+### 🍎 macOS support
+
+- Drag & drop (Finder) and the Confluence gateway work identically on macOS (WebKit)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.3.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Drag & drop original-file integration</summary>
 
 ### 🖱️ Drag & drop improvements
@@ -4144,7 +4294,9 @@ new ResizeObserver(() => {
 /* 단축키 */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ctxMenu.style.display === 'block') { hideCtxMenu(); return; }
-  if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) { closeSettings(); return; }
+  /* 설정창은 Esc로 닫지 않음 (X/닫기 버튼 전용) */
+  if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) { return; }
+  if (e.key === 'Escape' && confSaveOverlay.classList.contains('open')) { closeConfSave(); return; }
   if (e.key === 'Escape' && confluenceOverlay.classList.contains('open')) { closeConfluence(); return; }
   if (e.key === 'Escape' && helpOverlay.classList.contains('open')) { closeHelp(); return; }
   if (e.key === 'Escape' && searchOpen()) { closeSearch(); return; }
@@ -4154,7 +4306,8 @@ document.addEventListener('keydown', (e) => {
     else openSearch();
     return;
   }
-  if (!e.ctrlKey) return;
+  /* Windows/Linux = Ctrl, macOS = Command(⌘) */
+  if (!(IS_MAC ? e.metaKey : e.ctrlKey)) return;
   const k = e.key.toLowerCase();
   if (k === 's' && e.shiftKey) { e.preventDefault(); doSaveAs(); }
   else if (k === 's') { e.preventDefault(); doSave(); }
@@ -4227,6 +4380,7 @@ const setToken = document.getElementById('set-token');
 const setWork = document.getElementById('set-work');
 const setTestResult = document.getElementById('set-test-result');
 const setBackup = document.getElementById('set-backup');
+const setCloudId = document.getElementById('set-cloudid');
 let confTested = false;   // 이번 세션에서 테스트 통과 여부
 let settingsPanel = 'general';
 
@@ -4245,6 +4399,8 @@ async function openSettings() {
     setTokenName.value = cfg.token_name || '';
     setToken.value = cfg.token || '';
     setWork.value = cfg.work || '';
+    setCloudId.value = cfg.cloud_id || '';
+    confCloudId = cfg.cloud_id || '';
     confTested = !!cfg.verified;
   } catch (e) {}
   try {
@@ -4268,24 +4424,31 @@ document.getElementById('set-backup-choose').addEventListener('click', async () 
 });
 document.getElementById('set-backup-clear').addEventListener('click', () => { setBackup.value = ''; });
 
+let confCloudId = '';   // 테스트로 확보한 cloudId (저장 시 함께 보존)
+
 function currentConfCfg() {
   return {
     email: setEmail.value.trim(),
     token_name: setTokenName.value.trim(),
     token: setToken.value.trim(),
     work: setWork.value.trim(),
+    cloud_id: setCloudId.value.trim() || confCloudId,
   };
 }
 
 async function testConf() {
   setTestResult.className = '';
   setTestResult.textContent = L().setTesting;
+  confCloudId = '';
   try {
     const r = await window.pywebview.api.conf_test(currentConfCfg());
     if (r && r.ok) {
       confTested = true;
-      let msg = L().setTestOk + r.user;
-      if (r.space) msg += ' / space=' + r.space + (r.space_ok === false ? ' (⚠ 확인 실패)' : ' ✓');
+      confCloudId = r.cloud_id || confCloudId;
+      if (confCloudId && !setCloudId.value.trim()) setCloudId.value = confCloudId;
+      let msg = L().setTestOk + (r.user || '');
+      if (r.folder) msg += ' / 폴더: ' + r.folder;
+      else if (r.space) msg += ' / space=' + r.space;
       setTestResult.className = 'ok';
       setTestResult.textContent = msg;
     } else {
@@ -4333,9 +4496,10 @@ async function saveSettings() {
   showSetToast(L().setSaved);
 }
 
-/* 연동 완료 시 상단에 Confluence 메뉴 노출 */
+/* 연동 완료 시 상단에 Confluence 메뉴 + 컨플 저장 버튼 노출 */
 function updateConfluenceMenu(show) {
   btnConfluence.style.display = show ? '' : 'none';
+  document.getElementById('btn-conf-save').style.display = show ? '' : 'none';
 }
 
 document.getElementById('btn-settings').addEventListener('click', openSettings);
@@ -4343,7 +4507,7 @@ document.getElementById('set-x').addEventListener('click', closeSettings);
 document.getElementById('set-cancel').addEventListener('click', closeSettings);
 document.getElementById('set-test').addEventListener('click', testConf);
 document.getElementById('set-save').addEventListener('click', saveSettings);
-settingsOverlay.addEventListener('click', (e) => { if (e.target === settingsOverlay) closeSettings(); });
+/* 설정창은 바깥 클릭/Esc로 닫히지 않음 — X 또는 닫기 버튼으로만 닫는다 (실수 방지) */
 
 /* ---------- Confluence 문서 탐색 ---------- */
 const confListEl = document.getElementById('conf-list');
@@ -4354,25 +4518,77 @@ async function openConfluence() {
 }
 function closeConfluence() { confluenceOverlay.classList.remove('open'); }
 
+/* 트리의 한 노드(및 하위) 렌더링 */
+function renderConfNode(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'conf-node';
+  const row = document.createElement('div');
+  row.className = 'conf-row';
+  const hasChildren = node.children && node.children.length;
+
+  const twisty = document.createElement('span');
+  twisty.className = 'conf-twisty';
+  twisty.textContent = hasChildren ? '▼' : '';
+  const title = document.createElement('span');
+  title.className = 'conf-title';
+  title.textContent = (hasChildren ? '📁 ' : '📄 ') + node.title;
+  title.title = L().confOpen_t + ' (id=' + node.id + ')';
+  const ver = document.createElement('span');
+  ver.className = 'conf-ver';
+  ver.textContent = node.version ? 'v' + node.version : '';
+  const del = document.createElement('button');
+  del.className = 'conf-del';
+  del.textContent = '🗑️';
+  del.title = L().confDelete_t;
+  del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
+
+  row.append(twisty, title, ver, del);
+  /* 제목 클릭 = 문서 열기 */
+  title.addEventListener('click', () => openConfPage(node.id));
+  wrap.appendChild(row);
+
+  if (hasChildren) {
+    const kids = document.createElement('div');
+    kids.className = 'conf-children';
+    for (const c of node.children) kids.appendChild(renderConfNode(c));
+    wrap.appendChild(kids);
+    /* 삼각형 클릭 = 접기/펼치기 */
+    twisty.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = kids.classList.toggle('collapsed');
+      twisty.textContent = collapsed ? '▶' : '▼';
+    });
+  }
+  return wrap;
+}
+
 async function loadConfList() {
   confListEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
   try {
-    const r = await window.pywebview.api.conf_list();
+    const r = await window.pywebview.api.conf_tree();
     if (r && r.error) { confListEl.innerHTML = '<div class="conf-note">' + L().confErr + r.error + '</div>'; return; }
-    const pages = (r && r.pages) || [];
-    if (!pages.length) { confListEl.innerHTML = '<div class="conf-note">' + L().confEmpty + '</div>'; return; }
+    /* conf_tree는 계층(tree), 폴더 없을 땐 conf_list의 평면(pages)을 반환 */
+    let tree = (r && r.tree) || null;
+    if (!tree && r && r.pages) tree = r.pages.map(p => ({ ...p, children: [] }));
+    tree = tree || [];
+    if (!tree.length) { confListEl.innerHTML = '<div class="conf-note">' + L().confEmpty + '</div>'; return; }
     confListEl.innerHTML = '';
-    for (const p of pages) {
-      const el = document.createElement('div');
-      el.className = 'conf-item';
-      el.textContent = '📄 ' + p.title;
-      el.title = L().confOpened.trim() + ' (id=' + p.id + ')';
-      el.addEventListener('click', () => openConfPage(p.id));
-      confListEl.appendChild(el);
-    }
+    for (const node of tree) confListEl.appendChild(renderConfNode(node));
   } catch (e) {
     confListEl.innerHTML = '<div class="conf-note">' + L().confErr + e + '</div>';
   }
+}
+
+/* Confluence 페이지 삭제(휴지통 이동) */
+async function deleteConfPage(p) {
+  if (!confirm(L().confDeleteConfirm(p.title))) return;
+  const r = await window.pywebview.api.conf_delete(p.id);
+  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
+  /* 열려 있는 탭이면 정리 */
+  const t = tabs.find(t => t.conf && t.conf.id === p.id);
+  if (t) { t.dirty = false; await closeTab(t); }
+  flash(L().confDeleted + p.title);
+  loadConfList();
 }
 
 /* Confluence 페이지를 탭으로 열기 (원본 마크다운을 편집) */
@@ -4405,29 +4621,109 @@ async function confUpdateCurrent() {
   flash(L().confUpdated + c.title);
 }
 
-/* 현재 편집 내용을 Confluence 새 페이지로 저장 */
-async function confSaveNew() {
-  const title = prompt(L().confTitlePrompt, activeTab && activeTab.path ? baseName(activeTab.path).replace(/\.[^.]+$/, '') : (activeTab ? activeTab.name : ''));
-  if (!title) return;
+/* ---------- 현재 문서를 Confluence에 저장(위치 선택 + 제목 입력) ---------- */
+const confSaveOverlay = document.getElementById('conf-save-overlay');
+const confSaveName = document.getElementById('conf-save-name');
+const confSaveTreeEl = document.getElementById('conf-save-tree');
+let confSaveParent = null;   // 선택된 저장 위치(parent page id). null = 폴더 최상위
+
+/* 선택(위치 지정) 모드 트리 노드 렌더링 */
+function renderConfPick(node) {
+  const wrap = document.createElement('div');
+  wrap.className = 'conf-node';
+  const row = document.createElement('div');
+  row.className = 'conf-row';
+  row.dataset.id = node.id;
+  const hasChildren = node.children && node.children.length;
+  const twisty = document.createElement('span');
+  twisty.className = 'conf-twisty';
+  twisty.textContent = hasChildren ? '▼' : '';
+  const title = document.createElement('span');
+  title.className = 'conf-title';
+  title.textContent = (hasChildren ? '📁 ' : '📄 ') + node.title;
+  row.append(twisty, title);
+  row.addEventListener('click', (e) => {
+    if (e.target === twisty) return;
+    confSaveParent = node.id;
+    confSaveTreeEl.querySelectorAll('.conf-row.selected').forEach(x => x.classList.remove('selected'));
+    row.classList.add('selected');
+  });
+  wrap.appendChild(row);
+  if (hasChildren) {
+    const kids = document.createElement('div');
+    kids.className = 'conf-children';
+    for (const c of node.children) kids.appendChild(renderConfPick(c));
+    wrap.appendChild(kids);
+    twisty.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const collapsed = kids.classList.toggle('collapsed');
+      twisty.textContent = collapsed ? '▶' : '▼';
+    });
+  }
+  return wrap;
+}
+
+async function openConfSave() {
+  if (!activeTab) return;
   syncEditorToTab();
-  const r = await window.pywebview.api.conf_create(title.trim(), editor.value);
+  /* 제목 기본값 = 현재 파일명(확장자 제외) 또는 Confluence 제목 */
+  let def = activeTab.conf ? activeTab.conf.title
+    : (activeTab.path ? baseName(activeTab.path).replace(/\.[^.]+$/, '') : activeTab.name);
+  confSaveName.value = def || '';
+  confSaveParent = null;
+  confSaveOverlay.classList.add('open');
+  confSaveName.focus();
+  confSaveName.select();
+  /* 위치 트리 로드 (최상위 '폴더 루트' + 계층) */
+  confSaveTreeEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
+  const root = document.createElement('div');
+  root.className = 'conf-row selected';   // 기본 선택 = 폴더 최상위
+  root.textContent = L().confSaveRoot;
+  root.addEventListener('click', () => {
+    confSaveParent = null;
+    confSaveTreeEl.querySelectorAll('.conf-row.selected').forEach(x => x.classList.remove('selected'));
+    root.classList.add('selected');
+  });
+  try {
+    const r = await window.pywebview.api.conf_tree();
+    confSaveTreeEl.innerHTML = '';
+    confSaveTreeEl.appendChild(root);
+    let tree = (r && r.tree) || (r && r.pages ? r.pages.map(p => ({ ...p, children: [] })) : []);
+    for (const node of (tree || [])) confSaveTreeEl.appendChild(renderConfPick(node));
+  } catch (e) {
+    confSaveTreeEl.innerHTML = '';
+    confSaveTreeEl.appendChild(root);
+  }
+}
+function closeConfSave() { confSaveOverlay.classList.remove('open'); }
+
+async function doConfSave() {
+  const title = confSaveName.value.trim();
+  if (!title) { confSaveName.focus(); flash(L().confNeedTitle); return; }
+  syncEditorToTab();
+  const r = await window.pywebview.api.conf_create(title, editor.value, confSaveParent);
   if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
   if (activeTab) {
-    activeTab.conf = { id: r.id, version: r.version, title: title.trim() };
-    activeTab.name = title.trim();
+    activeTab.conf = { id: r.id, version: r.version, title: title };
+    activeTab.name = title;
     activeTab.dirty = false;
     updatePath();
     renderTabs();
   }
-  flash(L().confSaved + title.trim());
-  closeConfluence();
+  flash(L().confSaved + title);
+  closeConfSave();
 }
 
 btnConfluence.addEventListener('click', openConfluence);
+document.getElementById('btn-conf-save').addEventListener('click', openConfSave);
 document.getElementById('conf-x').addEventListener('click', closeConfluence);
 document.getElementById('conf-reload').addEventListener('click', loadConfList);
-document.getElementById('conf-save-new').addEventListener('click', confSaveNew);
+document.getElementById('conf-save-new').addEventListener('click', () => { closeConfluence(); openConfSave(); });
+document.getElementById('conf-save-x').addEventListener('click', closeConfSave);
+document.getElementById('conf-save-cancel').addEventListener('click', closeConfSave);
+document.getElementById('conf-save-do').addEventListener('click', doConfSave);
 confluenceOverlay.addEventListener('click', (e) => { if (e.target === confluenceOverlay) closeConfluence(); });
+confSaveOverlay.addEventListener('click', (e) => { if (e.target === confSaveOverlay) closeConfSave(); });
 
 /* ---------- 언어 토글 버튼 ---------- */
 document.getElementById('lang-ko').addEventListener('click', () => setLang('ko'));

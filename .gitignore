@@ -8,6 +8,7 @@ venv/
 # PyInstaller 빌드 산출물
 build/
 dist/
+jm-mdv-*.spec
 
 # 앱 세션/설정
 .jm-mdv-session.json
