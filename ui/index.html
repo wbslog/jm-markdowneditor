@@ -389,10 +389,42 @@
     cursor: pointer;
     background: transparent;
   }
-  #editor-pane .btn-full { color: #8a8ab0; }
-  #editor-pane .btn-full:hover { background: #383854; color: #e4e4f0; }
-  #preview-pane .btn-full { color: #6b7280; }
-  #preview-pane .btn-full:hover { background: #dfe2e8; color: #1f2328; }
+  .pane-label .pl-btns { display: inline-flex; align-items: center; gap: 6px; }
+  /* 전체보기/웹편집 버튼: 은은한 알약 버튼으로 잘 보이게 */
+  #editor-pane .btn-full {
+    color: #cfcfe6; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 6px;
+  }
+  #editor-pane .btn-full:hover { background: rgba(255,255,255,0.18); color: #fff; border-color: rgba(255,255,255,0.28); }
+  #editor-pane .btn-full.on { background: rgba(99,102,241,0.9); border-color: rgba(129,140,248,0.8); color: #fff; }
+  #preview-pane .btn-full {
+    color: #3f4756; background: rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.12); border-radius: 6px;
+  }
+  #preview-pane .btn-full:hover { background: #6366f1; color: #fff; border-color: #6366f1; }
+
+  /* 웹에디터(WYSIWYG) */
+  #web-editor-wrap {
+    position: absolute; inset: 0; z-index: 3; display: none;
+    flex-direction: column; background: #ffffff;
+  }
+  #web-editor-wrap.on { display: flex; }
+  #web-toolbar {
+    flex-shrink: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 3px;
+    padding: 6px 10px; background: #f2f4f8; border-bottom: 1px solid #e2e5ec;
+  }
+  #web-toolbar button {
+    font-family: inherit; font-size: 12.5px; color: #2b3040;
+    background: #ffffff; border: 1px solid #d9dde6; border-radius: 6px;
+    padding: 4px 9px; cursor: pointer; min-width: 30px;
+  }
+  #web-toolbar button:hover { background: #6366f1; color: #fff; border-color: #6366f1; }
+  #web-toolbar .wt-sep { width: 1px; align-self: stretch; margin: 3px 4px; background: #d9dde6; }
+  #web-editor {
+    flex: 1; overflow-y: auto; padding: 22px 30px 40vh; outline: none;
+    background: #ffffff; color: #24292f;
+  }
+  #web-editor:focus { outline: none; }
 
   /* 전체보기 모드 (분할 드래그로 지정된 고정 너비(inline flex)를 !important로 무시) */
   #main.full-editor #preview-pane, #main.full-editor #divider { display: none; }
@@ -883,7 +915,9 @@
   }
   #conf-list .conf-row:hover { background: #f2f5ff; }
   #conf-list .conf-twisty { color: #8a90a0; font-size: 11px; }
-  #conf-list .conf-title { color: #1f2328; font-weight: 500; }
+  #conf-list .conf-name-wrap { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
+  #conf-list .conf-title { color: #1f2328; font-weight: 500; flex: 0 1 auto; }
+  .conf-name-wrap { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; }
   #conf-list .conf-ver { color: #8a90a0; }
   #conf-list .conf-created, #conf-list .conf-updated {
     width: 92px; flex-shrink: 0; text-align: center;
@@ -1029,7 +1063,7 @@
   <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
   <button id="btn-settings" title="설정 (Confluence 연동 등)">⚙️ 설정</button>
   <button id="btn-confluence" title="Confluence 문서 탐색" style="display:none">🔗 Confluence</button>
-  <button id="btn-conf-save" class="primary" title="현재 문서를 Confluence에 저장" style="display:none">☁️ 컨플 저장</button>
+  <button id="btn-conf-save" title="현재 문서를 Confluence에 저장" style="display:none">☁️ 컨플 저장</button>
   <button id="btn-help" title="프로그램 기능/사용 설명서 보기">❓ 설명서</button>
   <div id="file-path"><span class="name">새 문서</span></div>
   <div id="lang-toggle" title="언어 / Language">
@@ -1056,7 +1090,7 @@
   </div>
   <div id="sb-divider"></div>
   <div id="editor-pane">
-    <div class="pane-label"><span>Markdown<span id="file-times"></span></span> <button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></div>
+    <div class="pane-label"><span>Markdown<span id="file-times"></span></span> <span class="pl-btns"><button class="btn-full" id="btn-web-editor" title="웹에디터로 편집 (서식 편집)">🖊 웹편집</button><button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></span></div>
     <div id="search-bar">
       <input id="search-input" type="text" placeholder="검색..." spellcheck="false">
       <span id="search-count"></span>
@@ -1068,6 +1102,27 @@
     <div id="editor-wrap">
       <div id="editor-backdrop"><div id="editor-highlights"></div></div>
       <textarea id="editor" spellcheck="false" wrap="off" placeholder="여기에 마크다운을 입력하세요..."></textarea>
+      <!-- 웹에디터(WYSIWYG): 켜면 렌더링된 문서를 직접 편집 -->
+      <div id="web-editor-wrap">
+        <div id="web-toolbar">
+          <button data-cmd="bold" title="굵게"><b>B</b></button>
+          <button data-cmd="italic" title="기울임"><i>I</i></button>
+          <button data-cmd="strike" title="취소선"><s>S</s></button>
+          <span class="wt-sep"></span>
+          <button data-cmd="h1" title="제목 1">H1</button>
+          <button data-cmd="h2" title="제목 2">H2</button>
+          <button data-cmd="h3" title="제목 3">H3</button>
+          <button data-cmd="p" title="본문">¶</button>
+          <span class="wt-sep"></span>
+          <button data-cmd="ul" title="글머리 목록">• 목록</button>
+          <button data-cmd="ol" title="번호 목록">1. 목록</button>
+          <button data-cmd="quote" title="인용">❝</button>
+          <button data-cmd="code" title="인라인 코드">&lt;/&gt;</button>
+          <button data-cmd="link" title="링크">🔗</button>
+          <button data-cmd="hr" title="구분선">―</button>
+        </div>
+        <div id="web-editor" class="markdown-body" contenteditable="true" spellcheck="false"></div>
+      </div>
     </div>
     <button id="editor-top" class="scroll-top" title="맨 위로">▲</button>
   </div>
@@ -1305,6 +1360,8 @@ const I18N = {
     sbUp_t: '상위 폴더로', sbClose_t: '디렉토리 닫기',
     fullEditor_t: '에디터 전체보기 전환', fullPreview_t: '미리보기 전체보기 전환',
     viewFull: '⛶ 전체보기', viewSplit: '◫ 분할보기',
+    webEdit: '🖊 웹편집', webEdit_t: '웹에디터로 서식 편집', srcEdit: '📝 소스편집', srcEdit_t: '마크다운 소스 편집으로',
+    linkPrompt: '링크 주소(URL)를 입력하세요:',
     editorPlaceholder: '여기에 마크다운을 입력하세요...',
     searchPlaceholder: '검색...', searchCase_t: '대소문자 구분',
     searchPrev_t: '이전 결과 (Shift+Enter)', searchNext_t: '다음 결과 (Enter)', searchClose_t: '닫기 (Esc)',
@@ -1413,6 +1470,8 @@ const I18N = {
     sbUp_t: 'Up to parent folder', sbClose_t: 'Close directory',
     fullEditor_t: 'Toggle editor full view', fullPreview_t: 'Toggle preview full view',
     viewFull: '⛶ Full view', viewSplit: '◫ Split view',
+    webEdit: '🖊 Web editor', webEdit_t: 'Edit visually with the web editor', srcEdit: '📝 Source', srcEdit_t: 'Back to Markdown source',
+    linkPrompt: 'Enter the link URL:',
     editorPlaceholder: 'Type your Markdown here...',
     searchPlaceholder: 'Search...', searchCase_t: 'Match case',
     searchPrev_t: 'Previous match (Shift+Enter)', searchNext_t: 'Next match (Enter)', searchClose_t: 'Close (Esc)',
@@ -1541,6 +1600,9 @@ function applyLang() {
   setTitle('tab-left', d.tabLeft_t); setTitle('tab-right', d.tabRight_t);
   setTitle('sb-up', d.sbUp_t); setTitle('sb-close', d.sbClose_t);
   setTitle('btn-full-editor', d.fullEditor_t); setTitle('btn-full-preview', d.fullPreview_t);
+  { const on = (typeof webEditorOn !== 'undefined' && webEditorOn);
+    setTxt('btn-web-editor', on ? d.srcEdit : d.webEdit);
+    setTitle('btn-web-editor', on ? d.srcEdit_t : d.webEdit_t); }
   setTitle('editor-top', d.scrollTop_t); setTitle('preview-top', d.scrollTop_t);
   editor.setAttribute('placeholder', d.editorPlaceholder);
   searchInput.placeholder = d.searchPlaceholder;
@@ -1771,6 +1833,8 @@ editor.addEventListener('keydown', (e) => {
 const tabsEl = document.getElementById('tabs');
 
 function syncEditorToTab() {
+  /* 웹에디터가 열려 있으면 편집 내용을 소스로 반영하고 닫은 뒤 저장 (탭 전환 대비) */
+  if (typeof webEditorOn !== 'undefined' && webEditorOn) exitWebEditor();
   if (activeTab) activeTab.content = editor.value;
 }
 
@@ -2198,7 +2262,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.9.0** |
+| **최신 버전** | **v1.10.0** |
 | 최종 업데이트 | 2026-07-09 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2210,6 +2274,28 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.10.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 웹에디터 · UI 개선</summary>
+
+### 🖊 웹에디터 (WYSIWYG, 신규)
+
+- 에디터 상단(전체보기 왼쪽)에 **🖊 웹편집** 버튼 추가 — 렌더링된 문서를 **직접 서식 편집**
+- 툴바: 굵게/기울임/취소선, 제목(H1~H3)/본문, 목록/번호목록/인용/코드/링크/구분선
+- 편집 내용은 **마크다운 소스로 자동 동기화**(HTML→Markdown 변환)되어 저장·내보내기·Confluence와 호환
+
+### 🎨 UI 개선
+
+- 에디터/미리보기 **전체보기 버튼을 더 잘 보이게**(알약형) 개선, 웹편집 버튼과 함께 정리
+- 상단 **☁️ 컨플 저장** 버튼을 강조 대신 **모던한 톤**으로 변경
+
+### 🐞 Confluence 목록 수정
+
+- **등록일·수정일이 표시되지 않던 문제 수정** — v2 direct-children에 날짜가 없어, 하위 페이지는 v1(child/page)로 날짜·하위존재까지 함께 조회하도록 변경
+- **페이지에 하위 페이지가 있으면** 좌측에 펼치기 아이콘 표시, 클릭 시 하위 로딩 (하위 없으면 아이콘 없음)
+- **새로고침 아이콘을 폴더/페이지 이름 바로 오른쪽**에 잘 보이게 배치
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.9.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence 게시판형 목록</summary>
 
 ### 🔗 Confluence 조회 화면 개편
@@ -3163,7 +3249,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.9.0** |
+| **Latest version** | **v1.10.0** |
 | Last updated | 2026-07-09 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3175,6 +3261,28 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.10.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Web editor · UI polish</summary>
+
+### 🖊 Web editor (WYSIWYG, new)
+
+- Added a **🖊 Web editor** button (left of Full view) — edit the rendered document **visually**
+- Toolbar: bold/italic/strikethrough, headings (H1–H3)/paragraph, lists/quote/code/link/hr
+- Edits **sync back to the Markdown source** (HTML→Markdown), staying compatible with save/export/Confluence
+
+### 🎨 UI polish
+
+- Made the editor/preview **Full view buttons more visible** (pill style), tidied with the web-edit button
+- Toned down the top **☁️ Save to Confluence** button to a **modern, non-flashy** style
+
+### 🐞 Confluence list fixes
+
+- **Fixed missing Created/Updated dates** — v2 direct-children has no dates, so child pages are now fetched via v1 (child/page) including dates and child-existence
+- **Pages that have sub-pages** now show an expand icon; clicking loads children (no icon when there are none)
+- **Refresh icon placed right next to the folder/page name** for visibility
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.9.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence board-style list</summary>
 
 ### 🔗 Confluence browse screen revamp
@@ -4727,6 +4835,160 @@ btnFullPreview.addEventListener('click', () => {
   updateFullButtons();
 });
 
+/* ================= 웹에디터 (WYSIWYG) ================= */
+const webEditorWrap = document.getElementById('web-editor-wrap');
+const webEditorEl = document.getElementById('web-editor');
+const btnWebEditor = document.getElementById('btn-web-editor');
+let webEditorOn = false;
+let webSyncTimer = null;
+
+/* 렌더링된 HTML을 마크다운으로 되돌리는 변환기 (일반 문서 요소 커버) */
+function htmlToMarkdown(root) {
+  const esc = (s) => s.replace(/([\\`*_[\]])/g, '\\$1');
+  function inline(node) {
+    let out = '';
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { out += esc(n.nodeValue.replace(/\s+/g, ' ')); return; }
+      if (n.nodeType !== 1) return;
+      const t = n.tagName.toLowerCase();
+      if (t === 'br') out += '  \n';
+      else if (t === 'strong' || t === 'b') out += '**' + inline(n).trim() + '**';
+      else if (t === 'em' || t === 'i') out += '*' + inline(n).trim() + '*';
+      else if (t === 'del' || t === 's' || t === 'strike') out += '~~' + inline(n).trim() + '~~';
+      else if (t === 'mark') out += '==' + inline(n).trim() + '==';
+      else if (t === 'code') out += '`' + n.textContent + '`';
+      else if (t === 'a') out += '[' + inline(n).trim() + '](' + (n.getAttribute('href') || '') + ')';
+      else if (t === 'img') out += '![' + (n.getAttribute('alt') || '') + '](' + (n.getAttribute('src') || '') + ')';
+      else out += inline(n);
+    });
+    return out;
+  }
+  function block(node, indent) {
+    let md = '';
+    node.childNodes.forEach((n) => {
+      if (n.nodeType === 3) { const s = n.nodeValue.trim(); if (s) md += s + '\n\n'; return; }
+      if (n.nodeType !== 1) return;
+      const t = n.tagName.toLowerCase();
+      if (/^h[1-6]$/.test(t)) md += '#'.repeat(+t[1]) + ' ' + inline(n).trim() + '\n\n';
+      else if (t === 'p') { const s = inline(n).trim(); md += (s ? s : '') + '\n\n'; }
+      else if (t === 'hr') md += '---\n\n';
+      else if (t === 'blockquote') md += block(n, '').trim().split('\n').map(l => '> ' + l).join('\n') + '\n\n';
+      else if (t === 'pre') {
+        const code = n.textContent.replace(/\n$/, '');
+        const cls = (n.querySelector('code') && n.querySelector('code').className) || n.className || '';
+        const lang = (cls.match(/language-(\w+)/) || [,''])[1];
+        md += '```' + lang + '\n' + code + '\n```\n\n';
+      } else if (t === 'ul' || t === 'ol') {
+        md += listMd(n, indent, t === 'ol') + '\n';
+      } else if (t === 'table') {
+        md += tableMd(n) + '\n';
+      } else if (t === 'div' || t === 'article' || t === 'section') {
+        md += block(n, indent);
+      } else {
+        const s = inline(n).trim(); if (s) md += s + '\n\n';
+      }
+    });
+    return md;
+  }
+  function listMd(list, indent, ordered) {
+    let out = ''; let i = 1;
+    [...list.children].forEach((li) => {
+      if (li.tagName.toLowerCase() !== 'li') return;
+      const marker = ordered ? (i++ + '.') : '-';
+      // 체크박스(작업목록)
+      const cb = li.querySelector(':scope > input[type=checkbox], :scope > label > input[type=checkbox]');
+      let prefix = indent + marker + ' ';
+      if (cb) prefix = indent + '- [' + (cb.checked ? 'x' : ' ') + '] ';
+      // 자식 리스트 분리
+      const sub = li.querySelector(':scope > ul, :scope > ol');
+      const clone = li.cloneNode(true);
+      clone.querySelectorAll(':scope > ul, :scope > ol').forEach(e => e.remove());
+      clone.querySelectorAll('input[type=checkbox]').forEach(e => e.remove());
+      out += prefix + inline(clone).trim() + '\n';
+      if (sub) out += listMd(sub, indent + '    ', sub.tagName.toLowerCase() === 'ol');
+    });
+    return out;
+  }
+  function tableMd(table) {
+    const rows = [...table.querySelectorAll('tr')];
+    if (!rows.length) return '';
+    const cells = (tr) => [...tr.children].map(td => inline(td).trim().replace(/\|/g, '\\|'));
+    let out = '| ' + cells(rows[0]).join(' | ') + ' |\n';
+    out += '| ' + cells(rows[0]).map(() => '---').join(' | ') + ' |\n';
+    rows.slice(1).forEach(tr => { out += '| ' + cells(tr).join(' | ') + ' |\n'; });
+    return out;
+  }
+  return block(root, '').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+
+async function enterWebEditor() {
+  syncEditorToTab();
+  /* 최신 렌더링 HTML을 웹에디터에 채움 */
+  try {
+    const r = await window.pywebview.api.render(editor.value);
+    webEditorEl.innerHTML = r.html;
+  } catch (e) { webEditorEl.innerHTML = preview.innerHTML; }
+  webEditorWrap.classList.add('on');
+  webEditorOn = true;
+  btnWebEditor.classList.add('on');
+  btnWebEditor.textContent = L().srcEdit;
+  btnWebEditor.title = L().srcEdit_t;
+  webEditorEl.focus();
+}
+
+function syncWebToSource() {
+  const md = htmlToMarkdown(webEditorEl);
+  if (md !== editor.value) {
+    editor.value = md;
+    setDirty(true);
+    updateStats();
+    scheduleRender();   // 미리보기도 갱신
+  }
+}
+
+function exitWebEditor() {
+  if (!webEditorOn) return;
+  syncWebToSource();
+  webEditorWrap.classList.remove('on');
+  webEditorOn = false;
+  btnWebEditor.classList.remove('on');
+  btnWebEditor.textContent = L().webEdit;
+  btnWebEditor.title = L().webEdit_t;
+}
+
+btnWebEditor.addEventListener('click', () => { webEditorOn ? exitWebEditor() : enterWebEditor(); });
+webEditorEl.addEventListener('input', () => {
+  clearTimeout(webSyncTimer);
+  webSyncTimer = setTimeout(syncWebToSource, 250);   // 편집 → 소스 동기화
+});
+
+/* 툴바 명령 */
+document.getElementById('web-toolbar').addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const cmd = btn.dataset.cmd;
+  webEditorEl.focus();
+  const exec = (c, v) => document.execCommand(c, false, v);
+  if (cmd === 'bold') exec('bold');
+  else if (cmd === 'italic') exec('italic');
+  else if (cmd === 'strike') exec('strikeThrough');
+  else if (cmd === 'h1') exec('formatBlock', 'H1');
+  else if (cmd === 'h2') exec('formatBlock', 'H2');
+  else if (cmd === 'h3') exec('formatBlock', 'H3');
+  else if (cmd === 'p') exec('formatBlock', 'P');
+  else if (cmd === 'ul') exec('insertUnorderedList');
+  else if (cmd === 'ol') exec('insertOrderedList');
+  else if (cmd === 'quote') exec('formatBlock', 'BLOCKQUOTE');
+  else if (cmd === 'code') { const s = getSelection().toString(); if (s) exec('insertHTML', '<code>' + s.replace(/</g,'&lt;') + '</code>'); }
+  else if (cmd === 'link') { const u = prompt(L().linkPrompt, 'https://'); if (u) exec('createLink', u); }
+  else if (cmd === 'hr') exec('insertHorizontalRule');
+  clearTimeout(webSyncTimer);
+  webSyncTimer = setTimeout(syncWebToSource, 100);
+});
+
+/* 탭 전환/새 문서 시 웹에디터는 닫아 소스와 어긋나지 않게 */
+function ensureWebEditorClosed() { if (webEditorOn) exitWebEditor(); }
+
 /* ---------- 분할 크기 조절 ---------- */
 const divider = document.getElementById('divider');
 const editorPane = document.getElementById('editor-pane');
@@ -4924,29 +5186,17 @@ function renderConfNode(node) {
   twisty.className = 'conf-twisty';
   /* 하위가 있을 때만 펼치기 아이콘 표시, 말단이면 제거 */
   twisty.textContent = canExpand ? ((src.expanded || confFilterActive) ? '▼' : '▶') : '';
+  /* 이름 + (하위 있으면) 새로고침 버튼을 한 그룹으로 → 새로고침이 이름 바로 오른쪽에 표시 */
+  const nameWrap = document.createElement('span');
+  nameWrap.className = 'conf-name-wrap';
   const title = document.createElement('span');
   title.className = 'conf-title';
   /* 폴더는 📁, 문서는 📄 — 계층(들여쓰기)과 함께 논리적 단계가 드러나도록 */
   title.textContent = (isFolder ? '📁 ' : '📄 ') + node.title;
   title.title = (isFolder ? node.title : (L().confOpen_t + ' (id=' + node.id + ')'));
-  const created = document.createElement('span');
-  created.className = 'conf-created';
-  created.textContent = node.created || '-';
-  const updated = document.createElement('span');
-  updated.className = 'conf-updated';
-  updated.textContent = node.updated || '-';
-  row.append(twisty, title, created, updated);
-  if (!isFolder) {
-    /* 삭제는 문서에만 제공 */
-    const del = document.createElement('button');
-    del.className = 'conf-del';
-    del.textContent = '🗑️';
-    del.title = L().confDelete_t;
-    del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
-    row.append(del);
-  }
+  nameWrap.append(title);
   if (canExpand) {
-    /* 폴더/하위 있는 페이지: 우측 끝에 하위 새로고침 버튼 (잘 보이게) */
+    /* 폴더/하위 있는 페이지: 이름 우측에 하위 새로고침 버튼 (잘 보이게) */
     const rl = document.createElement('button');
     rl.className = 'conf-reload-node';
     rl.textContent = '🔄';
@@ -4958,7 +5208,23 @@ function renderConfNode(node) {
       src.expanded = true;
       renderConfList();
     });
-    row.append(rl);
+    nameWrap.append(rl);
+  }
+  const created = document.createElement('span');
+  created.className = 'conf-created';
+  created.textContent = node.created || '-';
+  const updated = document.createElement('span');
+  updated.className = 'conf-updated';
+  updated.textContent = node.updated || '-';
+  row.append(twisty, nameWrap, created, updated);
+  if (!isFolder) {
+    /* 삭제는 문서에만 제공 */
+    const del = document.createElement('button');
+    del.className = 'conf-del';
+    del.textContent = '🗑️';
+    del.title = L().confDelete_t;
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
+    row.append(del);
   }
   wrap.appendChild(row);
 
@@ -5233,7 +5499,11 @@ async function showOnboardingIfFirstRun() {
 
 function closeOnboarding() {
   onboardOverlay.classList.remove('open');
-  try { window.pywebview.api.onboarding_done(); } catch (e) {}
+  try {
+    window.pywebview.api.onboarding_done();
+    /* 최초 실행(온보딩)에서는 현재 버전 변경내용을 본 것으로 처리 → 같은 버전 재실행 시 중복 방지 */
+    window.pywebview.api.update_mark_seen(false);
+  } catch (e) {}
 }
 
 document.getElementById('ob-x').addEventListener('click', closeOnboarding);
@@ -5245,18 +5515,34 @@ const updateOverlay = document.getElementById('update-overlay');
 const whatsnewOverlay = document.getElementById('whatsnew-overlay');
 let pendingUpdate = null;   // update_check 결과 (whatsnew 닫힌 뒤 표시)
 
-/* 새 버전 첫 실행이면 '추가/개선 내용'(릴리스 메시지) 표시 */
+/* 현재 버전의 변경내용을 로컬 버전 기록(VERSION_MD)의 해당 <details> 블록에서 추출 */
+function extractVersionNotes(version) {
+  const md = (lang === 'en') ? VERSION_MD_EN : VERSION_MD_KO;
+  const needle = 'v' + version;
+  for (const b of md.split('<details')) {
+    const sEnd = b.indexOf('</summary>');
+    if (sEnd < 0) continue;
+    if (!b.slice(0, sEnd).includes(needle)) continue;   // 이 블록의 summary에 해당 버전?
+    const rest = b.slice(sEnd + '</summary>'.length);
+    const dEnd = rest.indexOf('</details>');
+    return (dEnd >= 0 ? rest.slice(0, dEnd) : rest).trim();
+  }
+  return '';
+}
+
+/* 새 버전 첫 실행이면 변경내용 표시 (릴리스 없이도 로컬 기록으로 항상 표시) */
 async function showWhatsNewIfAny() {
   try {
-    const r = await window.pywebview.api.update_whatsnew();
-    if (r && r.notes) {
-      document.getElementById('wn-ver').textContent = L().wnVer(r.version);
-      const h = await window.pywebview.api.render(r.notes);
-      document.getElementById('wn-notes').innerHTML = h.html;
-      document.getElementById('wn-dontshow').checked = false;
-      whatsnewOverlay.classList.add('open');
-      return true;
-    }
+    const r = await window.pywebview.api.whatsnew_state();
+    if (!r || !r.show) return false;
+    const notes = extractVersionNotes(r.version);
+    if (!notes) { try { window.pywebview.api.update_mark_seen(false); } catch (e) {} return false; }
+    document.getElementById('wn-ver').textContent = L().wnVer(r.version);
+    const h = await window.pywebview.api.render(notes);
+    document.getElementById('wn-notes').innerHTML = h.html;
+    document.getElementById('wn-dontshow').checked = false;
+    whatsnewOverlay.classList.add('open');
+    return true;
   } catch (e) {}
   return false;
 }

@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.9.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.10.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -724,68 +724,69 @@ body {{ margin: 0; background: #f0f2f5; }}
 
     def conf_children(self, parent_id=None, kind=None, cfg=None):
         """직계 자식 '한 단계'만 조회 (지연 로딩용).
-        parent_id 미지정 시 설정 링크의 폴더/페이지가 루트가 된다."""
+        - 하위 페이지: v1 child/page (등록일/수정일 + 하위존재 childTypes 포함)
+        - 하위 폴더: v2 folders/{id}/direct-children (folder 타입만)
+        v2 direct-children 응답엔 날짜/childTypes가 없어 v1을 함께 쓴다."""
         cfg = cfg or self.conf_load_config()
         if not parent_id:
             info = self._conf_parse_work(cfg.get("work", ""))
             parent_id = info["folder_id"] or info["page_id"]
             kind = "folder" if info["folder_id"] else "page"
             if not parent_id:
-                # 폴더 링크가 없으면 스페이스 페이지 목록(플랫)
-                r = self.conf_list(cfg)
+                r = self.conf_list(cfg)  # 폴더 링크가 없으면 스페이스 페이지 목록(플랫)
                 if r.get("error"):
                     return r
                 return {"children": [
-                    {"id": p["id"], "title": p["title"], "kind": "page", "version": p.get("version")}
+                    {"id": p["id"], "title": p["title"], "kind": "page",
+                     "version": p.get("version"), "created": "", "updated": "", "has_children": None}
                     for p in r.get("pages", [])
                 ]}
-        kind = kind or "page"
-        children, err = self._conf_v2_children(cfg, parent_id, kind)
-        if children is None and kind == "folder":
-            children, err = self._conf_v2_children(cfg, parent_id, "page")
-        if children is not None:
-            out = []
-            for c in children:
-                ctype = (c.get("type") or "").lower()
-                k = "folder" if ctype == "folder" else ("page" if ctype == "page" else ctype)
-                ver = c.get("version") or {}
-                node = {
-                    "id": str(c.get("id")), "title": c.get("title", ""), "kind": k,
-                    "version": ver.get("number"),
-                    "created": self._fmt_date(c.get("createdAt")),
-                    "updated": self._fmt_date(ver.get("createdAt") or c.get("createdAt")),
-                }
-                # 하위 존재 여부: childTypes 힌트가 있으면 사용, 없으면 폴더는 확인 필요(None)
-                ct = c.get("childTypes") or {}
-                if isinstance(ct, dict) and ct:
-                    node["has_children"] = bool(
-                        (ct.get("page") or {}).get("value") or (ct.get("folder") or {}).get("value")
-                    )
-                else:
-                    node["has_children"] = None  # 미상 → 프런트에서 필요 시 조회
-                out.append(node)
-            out.sort(key=lambda n: (n["kind"] != "folder", n["title"].lower()))
-            return {"children": out}
-        # v1 폴백: 페이지 자식만 조회 가능 (하위 존재 여부/날짜 함께)
-        data, verr = self._conf_request(
+
+        out, seen = [], set()
+
+        # 1) 하위 페이지 (v1: 날짜 + 하위존재 힌트)
+        pdata, perr = self._conf_request(
             cfg, "GET",
             f"/rest/api/content/{parent_id}/child/page?limit=100&expand=version,history,childTypes.page",
         )
-        if verr:
-            return {"error": err or verr}
-        out = []
-        for r in data.get("results", []):
-            ct = r.get("childTypes") or {}
-            has = None
-            if isinstance(ct, dict) and ct:
-                has = bool((ct.get("page") or {}).get("value"))
-            out.append({
-                "id": str(r["id"]), "title": r["title"], "kind": "page",
-                "version": r.get("version", {}).get("number", 1), "has_children": has,
-                "created": self._fmt_date((r.get("history") or {}).get("createdDate")),
-                "updated": self._fmt_date((r.get("version") or {}).get("when")),
-            })
-        out.sort(key=lambda n: n["title"].lower())
+        if perr is None and isinstance(pdata, dict):
+            for r in pdata.get("results", []):
+                ct = r.get("childTypes") or {}
+                has = None
+                if isinstance(ct, dict) and ct:
+                    has = bool((ct.get("page") or {}).get("value"))
+                pid = str(r["id"])
+                seen.add(pid)
+                out.append({
+                    "id": pid, "title": r["title"], "kind": "page",
+                    "version": r.get("version", {}).get("number", 1), "has_children": has,
+                    "created": self._fmt_date((r.get("history") or {}).get("createdDate")),
+                    "updated": self._fmt_date((r.get("version") or {}).get("when")),
+                })
+
+        # 2) 하위 폴더(및 v1이 못 준 페이지) — v2 folders direct-children
+        fdata, ferr = self._conf_request(
+            cfg, "GET", f"/wiki/api/v2/folders/{parent_id}/direct-children?limit=100"
+        )
+        if ferr is None and isinstance(fdata, dict):
+            for c in fdata.get("results", []):
+                cid = str(c.get("id"))
+                ctype = (c.get("type") or "").lower()
+                if ctype == "folder":
+                    out.append({
+                        "id": cid, "title": c.get("title", ""), "kind": "folder",
+                        "version": None, "created": "", "updated": "", "has_children": None,
+                    })
+                elif ctype == "page" and cid not in seen:
+                    seen.add(cid)
+                    out.append({
+                        "id": cid, "title": c.get("title", ""), "kind": "page",
+                        "version": None, "created": "", "updated": "", "has_children": None,
+                    })
+
+        if perr and ferr:
+            return {"error": perr}
+        out.sort(key=lambda n: (n["kind"] != "folder", n["title"].lower()))
         return {"children": out}
 
     def conf_tree(self, cfg=None):
@@ -1095,6 +1096,13 @@ body {{ margin: 0; background: #f0f2f5; }}
             self.update_mark_seen(False)  # 보여줄 내용이 없으면 재시도하지 않도록 처리
             return None
         return {"version": APP_VERSION, "notes": notes}
+
+    def whatsnew_state(self):
+        """이 버전의 변경내용을 보여줄지 여부. 새 버전(미확인) + '다시 보지 않기' 미체크면 표시.
+        내용은 프런트의 로컬 버전 기록(VERSION_MD)에서 가져오므로 릴리스가 없어도 항상 표시됨."""
+        st = self._update_state()
+        show = (not st.get("dont_show")) and (st.get("last_seen_version") != APP_VERSION)
+        return {"show": bool(show), "version": APP_VERSION}
 
     def update_mark_seen(self, dont_show=False):
         st = self._update_state()
