@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.10.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.12.1"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -723,15 +723,16 @@ body {{ margin: 0; background: #f0f2f5; }}
         return m.group(1) if m else ""
 
     def conf_children(self, parent_id=None, kind=None, cfg=None):
-        """직계 자식 '한 단계'만 조회 (지연 로딩용).
-        - 하위 페이지: v1 child/page (등록일/수정일 + 하위존재 childTypes 포함)
-        - 하위 폴더: v2 folders/{id}/direct-children (folder 타입만)
-        v2 direct-children 응답엔 날짜/childTypes가 없어 v1을 함께 쓴다."""
+        """직계 자식 '한 단계'만 조회 (지연 로딩용). 폴더/페이지 구성에 상관없이
+        누락 없이 보이도록 여러 엔드포인트를 모두 조회해 합친다:
+          A) v2 folders/{id}/direct-children  (폴더/페이지 혼합)
+          B) v2 pages/{id}/direct-children    (페이지/폴더 혼합)
+          C) v1 content/{id}/child/page       (등록일/수정일/하위존재 보강)
+        """
         cfg = cfg or self.conf_load_config()
         if not parent_id:
             info = self._conf_parse_work(cfg.get("work", ""))
             parent_id = info["folder_id"] or info["page_id"]
-            kind = "folder" if info["folder_id"] else "page"
             if not parent_id:
                 r = self.conf_list(cfg)  # 폴더 링크가 없으면 스페이스 페이지 목록(플랫)
                 if r.get("error"):
@@ -742,51 +743,59 @@ body {{ margin: 0; background: #f0f2f5; }}
                     for p in r.get("pages", [])
                 ]}
 
-        out, seen = [], set()
+        items, errs, any_ok = {}, [], False
 
-        # 1) 하위 페이지 (v1: 날짜 + 하위존재 힌트)
+        def add(cid, title, k, extra=None):
+            cid = str(cid)
+            n = items.get(cid) or {"id": cid, "title": title or "", "kind": k,
+                                   "version": None, "created": "", "updated": "", "has_children": None}
+            if title:
+                n["title"] = title
+            if k:
+                n["kind"] = k
+            if extra:
+                for key, val in extra.items():
+                    if val not in (None, ""):
+                        n[key] = val
+            items[cid] = n
+
+        # A/B) v2 direct-children — 폴더/페이지 어느 쪽이든 자식 확보
+        for ep in (
+            f"/wiki/api/v2/folders/{parent_id}/direct-children?limit=100",
+            f"/wiki/api/v2/pages/{parent_id}/direct-children?limit=100",
+        ):
+            data, err = self._conf_request(cfg, "GET", ep)
+            if err is None and isinstance(data, dict):
+                any_ok = True
+                for c in data.get("results", []):
+                    ct = (c.get("type") or "").lower()
+                    add(c.get("id"), c.get("title", ""), "folder" if ct == "folder" else "page")
+            else:
+                errs.append(err)
+
+        # C) v1 child/page — 날짜/하위존재 보강 (페이지)
         pdata, perr = self._conf_request(
             cfg, "GET",
             f"/rest/api/content/{parent_id}/child/page?limit=100&expand=version,history,childTypes.page",
         )
         if perr is None and isinstance(pdata, dict):
+            any_ok = True
             for r in pdata.get("results", []):
-                ct = r.get("childTypes") or {}
-                has = None
-                if isinstance(ct, dict) and ct:
-                    has = bool((ct.get("page") or {}).get("value"))
-                pid = str(r["id"])
-                seen.add(pid)
-                out.append({
-                    "id": pid, "title": r["title"], "kind": "page",
-                    "version": r.get("version", {}).get("number", 1), "has_children": has,
+                ctp = (r.get("childTypes") or {}).get("page")
+                hc = bool(ctp.get("value")) if isinstance(ctp, dict) else None
+                add(r.get("id"), r.get("title", ""), "page", {
+                    "version": r.get("version", {}).get("number"),
                     "created": self._fmt_date((r.get("history") or {}).get("createdDate")),
                     "updated": self._fmt_date((r.get("version") or {}).get("when")),
+                    "has_children": hc,
                 })
+        else:
+            errs.append(perr)
 
-        # 2) 하위 폴더(및 v1이 못 준 페이지) — v2 folders direct-children
-        fdata, ferr = self._conf_request(
-            cfg, "GET", f"/wiki/api/v2/folders/{parent_id}/direct-children?limit=100"
-        )
-        if ferr is None and isinstance(fdata, dict):
-            for c in fdata.get("results", []):
-                cid = str(c.get("id"))
-                ctype = (c.get("type") or "").lower()
-                if ctype == "folder":
-                    out.append({
-                        "id": cid, "title": c.get("title", ""), "kind": "folder",
-                        "version": None, "created": "", "updated": "", "has_children": None,
-                    })
-                elif ctype == "page" and cid not in seen:
-                    seen.add(cid)
-                    out.append({
-                        "id": cid, "title": c.get("title", ""), "kind": "page",
-                        "version": None, "created": "", "updated": "", "has_children": None,
-                    })
-
-        if perr and ferr:
-            return {"error": perr}
-        out.sort(key=lambda n: (n["kind"] != "folder", n["title"].lower()))
+        out = list(items.values())
+        out.sort(key=lambda n: (n["kind"] != "folder", (n["title"] or "").lower()))
+        if not out and not any_ok:
+            return {"error": next((e for e in errs if e), "조회 실패")}
         return {"children": out}
 
     def conf_tree(self, cfg=None):

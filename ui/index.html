@@ -20,6 +20,13 @@
   }
   /* 유리 재질 공통 변수감 (참고): rgba 배경 + backdrop blur + 옅은 흰 테두리 */
 
+  /* ---------- 전역 글자 크기 (메뉴/설명/버튼 +5%, 에디터·프리뷰 본문 제외) ---------- */
+  #toolbar, #tabbar, #sidebar, .pane-label, #statusbar, #ctx-menu, #search-bar,
+  #help-overlay, #settings-overlay, #confluence-overlay,
+  #update-overlay, #whatsnew-overlay, #onboard-overlay { zoom: 1.05; }
+  /* 컨플 저장 모달은 조금 더 크게(+10%) */
+  #conf-save-overlay .app-modal { zoom: 1.10; }
+
   /* ---------- 상단 툴바 ---------- */
   #toolbar {
     display: flex;
@@ -420,6 +427,29 @@
   }
   #web-toolbar button:hover { background: #6366f1; color: #fff; border-color: #6366f1; }
   #web-toolbar .wt-sep { width: 1px; align-self: stretch; margin: 3px 4px; background: #d9dde6; }
+  #web-toolbar select {
+    font-family: inherit; font-size: 12.5px; color: #2b3040; background: #ffffff;
+    border: 1px solid #d9dde6; border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  }
+  #web-toolbar .wt-color { position: relative; overflow: hidden; }
+  #web-toolbar .wt-color input[type=color] {
+    position: absolute; left: 0; bottom: -2px; width: 100%; height: 4px;
+    border: none; padding: 0; background: none; cursor: pointer;
+  }
+  /* 표 크기 선택 그리드 */
+  #table-grid {
+    position: fixed; z-index: 40; display: none;
+    background: #ffffff; border: 1px solid #d9dde6; border-radius: 10px;
+    padding: 10px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  }
+  #table-grid .tg-cells {
+    display: grid; grid-template-columns: repeat(10, 20px); grid-auto-rows: 20px; gap: 3px;
+  }
+  #table-grid .tg-cell {
+    width: 20px; height: 20px; border: 1px solid #cdd2db; border-radius: 3px; background: #f5f6f9; cursor: pointer;
+  }
+  #table-grid .tg-cell.on { background: #6366f1; border-color: #6366f1; }
+  #table-grid .tg-label { margin-top: 8px; text-align: center; font-size: 12px; color: #2b3040; font-weight: 600; }
   #web-editor {
     flex: 1; overflow-y: auto; padding: 22px 30px 40vh; outline: none;
     background: #ffffff; color: #24292f;
@@ -610,6 +640,7 @@
 
   #preview-scroll {
     flex: 1;
+    position: relative;   /* 위치 마커(#preview-marker) 기준 */
     overflow-y: auto;
     overflow-x: auto;   /* 표/코드 등 넓은 내용은 가로 스크롤 */
     /* 프리뷰는 가독성을 위해 밝은 반투명 유리 카드 */
@@ -1029,6 +1060,34 @@
     border-radius: 3px; padding: 1px 4px; margin-right: 5px; letter-spacing: 0.03em;
   }
 
+  /* ---------- 프리뷰 위치 마커 (편집기 클릭 위치 표시) ---------- */
+  #preview-marker {
+    position: absolute; left: 0; right: 0; height: 0; z-index: 4;
+    pointer-events: none; opacity: 0;
+  }
+  #preview-marker.show { animation: pm-flash 2s ease forwards; }
+  #preview-marker::before {
+    content: ''; position: absolute; left: 8px; right: 8px; top: -1.5px; height: 3px; border-radius: 3px;
+    background: linear-gradient(90deg, transparent, #6366f1 18%, #a5b4fc 50%, #6366f1 82%, transparent);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.65);
+  }
+  #preview-marker .pm-badge {
+    position: absolute; right: 16px; top: -13px;
+    background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff;
+    font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 11px;
+    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.5); white-space: nowrap;
+  }
+  #preview-marker .pm-dot {
+    position: absolute; left: -3px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
+    background: #6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
+  }
+  @keyframes pm-flash {
+    0% { opacity: 0; transform: translateY(3px); }
+    12% { opacity: 1; transform: translateY(0); }
+    75% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
   /* ---------- 하단 상태바 ---------- */
   #statusbar {
     flex-shrink: 0;
@@ -1090,7 +1149,7 @@
   </div>
   <div id="sb-divider"></div>
   <div id="editor-pane">
-    <div class="pane-label"><span>Markdown<span id="file-times"></span></span> <span class="pl-btns"><button class="btn-full" id="btn-web-editor" title="웹에디터로 편집 (서식 편집)">🖊 웹편집</button><button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></span></div>
+    <div class="pane-label"><span>Markdown<span id="file-times"></span></span> <span class="pl-btns"><button class="btn-full" id="btn-web-editor" title="웹에디터로 편집 (서식 편집)">🖊 웹에디터</button><button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></span></div>
     <div id="search-bar">
       <input id="search-input" type="text" placeholder="검색..." spellcheck="false">
       <span id="search-count"></span>
@@ -1105,21 +1164,51 @@
       <!-- 웹에디터(WYSIWYG): 켜면 렌더링된 문서를 직접 편집 -->
       <div id="web-editor-wrap">
         <div id="web-toolbar">
+          <select id="wt-format" title="문단 서식">
+            <option value="p">본문</option>
+            <option value="h1">제목 1</option>
+            <option value="h2">제목 2</option>
+            <option value="h3">제목 3</option>
+            <option value="h4">제목 4</option>
+            <option value="h5">제목 5</option>
+            <option value="h6">제목 6</option>
+          </select>
+          <select id="wt-fontsize" title="글자 크기">
+            <option value="">크기</option>
+            <option value="12px">작게 (12)</option>
+            <option value="14px">기본 (14)</option>
+            <option value="16px">보통 (16)</option>
+            <option value="20px">크게 (20)</option>
+            <option value="24px">더 크게 (24)</option>
+            <option value="32px">아주 크게 (32)</option>
+          </select>
+          <span class="wt-sep"></span>
           <button data-cmd="bold" title="굵게"><b>B</b></button>
           <button data-cmd="italic" title="기울임"><i>I</i></button>
+          <button data-cmd="underline" title="밑줄"><u>U</u></button>
           <button data-cmd="strike" title="취소선"><s>S</s></button>
+          <button data-cmd="forecolor" title="글자 색" class="wt-color">🎨<input type="color" id="wt-fore" value="#e11d48"></button>
+          <button data-cmd="hilite" title="형광펜" class="wt-color">🖍<input type="color" id="wt-hilite" value="#fff59d"></button>
           <span class="wt-sep"></span>
-          <button data-cmd="h1" title="제목 1">H1</button>
-          <button data-cmd="h2" title="제목 2">H2</button>
-          <button data-cmd="h3" title="제목 3">H3</button>
-          <button data-cmd="p" title="본문">¶</button>
-          <span class="wt-sep"></span>
-          <button data-cmd="ul" title="글머리 목록">• 목록</button>
-          <button data-cmd="ol" title="번호 목록">1. 목록</button>
+          <button data-cmd="ul" title="글머리 목록">•≣</button>
+          <button data-cmd="ol" title="번호 목록">1≣</button>
+          <button data-cmd="check" title="체크리스트">☑</button>
           <button data-cmd="quote" title="인용">❝</button>
+          <span class="wt-sep"></span>
           <button data-cmd="code" title="인라인 코드">&lt;/&gt;</button>
+          <button data-cmd="codeblock" title="코드 블록">▤</button>
           <button data-cmd="link" title="링크">🔗</button>
+          <button data-cmd="image" title="이미지">🖼</button>
+          <button data-cmd="table" title="표 삽입">▦</button>
           <button data-cmd="hr" title="구분선">―</button>
+          <span class="wt-sep"></span>
+          <button data-cmd="alignleft" title="왼쪽 정렬">⬅</button>
+          <button data-cmd="aligncenter" title="가운데 정렬">↔</button>
+          <button data-cmd="alignright" title="오른쪽 정렬">➡</button>
+          <span class="wt-sep"></span>
+          <button data-cmd="removeformat" title="서식 지우기">✕서식</button>
+          <button data-cmd="undo" title="실행 취소">↶</button>
+          <button data-cmd="redo" title="다시 실행">↷</button>
         </div>
         <div id="web-editor" class="markdown-body" contenteditable="true" spellcheck="false"></div>
       </div>
@@ -1131,6 +1220,7 @@
     <div class="pane-label">Preview <button class="btn-full" id="btn-full-preview" title="미리보기 전체보기 전환">⛶ 전체보기</button></div>
     <div id="preview-scroll">
       <article id="preview" class="markdown-body"></article>
+      <div id="preview-marker"><span class="pm-dot"></span><span class="pm-badge">📍 여기</span></div>
     </div>
     <button id="preview-top" class="scroll-top" title="맨 위로">▲</button>
   </div>
@@ -1299,12 +1389,9 @@
       </span>
     </div>
     <div class="app-modal-body">
-      <div class="section-title" id="conf-list-title">내 문서 목록</div>
+      <div class="section-title" id="conf-list-title">폴더 및 페이지 목록</div>
       <input id="conf-filter" type="text" spellcheck="false" placeholder="제목으로 검색...">
       <div id="conf-list"></div>
-    </div>
-    <div class="app-modal-footer">
-      <button id="conf-save-new" class="primary">📄 현재 내용을 새 페이지로 저장</button>
     </div>
   </div>
 </div>
@@ -1360,8 +1447,9 @@ const I18N = {
     sbUp_t: '상위 폴더로', sbClose_t: '디렉토리 닫기',
     fullEditor_t: '에디터 전체보기 전환', fullPreview_t: '미리보기 전체보기 전환',
     viewFull: '⛶ 전체보기', viewSplit: '◫ 분할보기',
-    webEdit: '🖊 웹편집', webEdit_t: '웹에디터로 서식 편집', srcEdit: '📝 소스편집', srcEdit_t: '마크다운 소스 편집으로',
-    linkPrompt: '링크 주소(URL)를 입력하세요:',
+    webEdit: '🖊 웹에디터', webEdit_t: '웹에디터로 서식 편집', srcEdit: '📝 소스편집', srcEdit_t: '마크다운 소스 편집으로',
+    linkPrompt: '링크 주소(URL)를 입력하세요:', imgPrompt: '이미지 주소(URL)를 입력하세요:',
+    pmHere: '📍 여기',
     editorPlaceholder: '여기에 마크다운을 입력하세요...',
     searchPlaceholder: '검색...', searchCase_t: '대소문자 구분',
     searchPrev_t: '이전 결과 (Shift+Enter)', searchNext_t: '다음 결과 (Enter)', searchClose_t: '닫기 (Esc)',
@@ -1414,7 +1502,7 @@ const I18N = {
     setChooseFolder: '폴더 선택', setClear: '지우기', setBackupSaved: '백업 경로가 저장되었습니다',
     backupTag: ' (백업됨)',
     confTitle: '🔗 Confluence', confReload: '🔄 새로고침', confReload_t: '목록 새로고침', confClose_t: '닫기 (Esc)',
-    confListTitle: '내 문서 목록', confLoading: '불러오는 중...', confEmpty: '표시할 페이지가 없습니다',
+    confListTitle: '폴더 및 페이지 목록', confLoading: '불러오는 중...', confEmpty: '표시할 페이지가 없습니다',
     confSaveNew: '📄 현재 내용을 새 페이지로 저장', confTitlePrompt: '새 Confluence 페이지 제목:',
     confNeedSetup: '먼저 설정에서 Confluence 연동을 완료하세요',
     confErr: 'Confluence 오류: ', confOpened: 'Confluence 페이지 열기: ',
@@ -1471,7 +1559,8 @@ const I18N = {
     fullEditor_t: 'Toggle editor full view', fullPreview_t: 'Toggle preview full view',
     viewFull: '⛶ Full view', viewSplit: '◫ Split view',
     webEdit: '🖊 Web editor', webEdit_t: 'Edit visually with the web editor', srcEdit: '📝 Source', srcEdit_t: 'Back to Markdown source',
-    linkPrompt: 'Enter the link URL:',
+    linkPrompt: 'Enter the link URL:', imgPrompt: 'Enter the image URL:',
+    pmHere: '📍 here',
     editorPlaceholder: 'Type your Markdown here...',
     searchPlaceholder: 'Search...', searchCase_t: 'Match case',
     searchPrev_t: 'Previous match (Shift+Enter)', searchNext_t: 'Next match (Enter)', searchClose_t: 'Close (Esc)',
@@ -1524,7 +1613,7 @@ const I18N = {
     setChooseFolder: 'Choose folder', setClear: 'Clear', setBackupSaved: 'Backup location saved',
     backupTag: ' (backed up)',
     confTitle: '🔗 Confluence', confReload: '🔄 Refresh', confReload_t: 'Refresh list', confClose_t: 'Close (Esc)',
-    confListTitle: 'My documents', confLoading: 'Loading...', confEmpty: 'No pages to show',
+    confListTitle: 'Folders & pages', confLoading: 'Loading...', confEmpty: 'No pages to show',
     confSaveNew: '📄 Save current content as a new page', confTitlePrompt: 'New Confluence page title:',
     confNeedSetup: 'Complete Confluence setup in Settings first',
     confErr: 'Confluence error: ', confOpened: 'Opened Confluence page: ',
@@ -1632,7 +1721,7 @@ function applyLang() {
   /* Confluence 모달 */
   setTxt('conf-title', d.confTitle); setTxt('conf-reload', d.confReload);
   setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
-  setTxt('conf-list-title', d.confListTitle); setTxt('conf-save-new', d.confSaveNew);
+  setTxt('conf-list-title', d.confListTitle);
   document.getElementById('conf-filter').placeholder = d.confFilterPh;
   document.getElementById('lang-ko').classList.toggle('active', lang === 'ko');
   document.getElementById('lang-en').classList.toggle('active', lang === 'en');
@@ -1790,18 +1879,82 @@ function setDirty(d) {
 let scrollSource = null;
 let scrollResetTimer = null;
 
+/* 요소의 하단 빈 여백(60vh/40vh 등)을 제외한 '실제 콘텐츠' 스크롤 범위 */
+function contentScrollMax(el) {
+  const padB = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+  return el.scrollHeight - padB - el.clientHeight;
+}
 function syncScroll(src, dst) {
   if (scrollSource && scrollSource !== src) return;
   scrollSource = src;
-  const srcMax = src.scrollHeight - src.clientHeight;
-  const dstMax = dst.scrollHeight - dst.clientHeight;
-  if (srcMax > 0) dst.scrollTop = (src.scrollTop / srcMax) * dstMax;
+  /* 하단 빈 여백을 제외하고 콘텐츠 기준으로 비율을 맞춰 같은 라인이 정렬되게 함
+     (에디터 60vh, 웹에디터 40vh 등 서로 달라 각 요소의 실제 패딩을 사용) */
+  const srcMax = Math.max(1, contentScrollMax(src));
+  const dstMax = Math.max(0, contentScrollMax(dst));
+  const frac = Math.min(1, Math.max(0, src.scrollTop / srcMax));
+  dst.scrollTop = frac * dstMax;
   clearTimeout(scrollResetTimer);
   scrollResetTimer = setTimeout(() => scrollSource = null, 120);
 }
 
 editor.addEventListener('scroll', () => syncScroll(editor, previewScroll));
-previewScroll.addEventListener('scroll', () => syncScroll(previewScroll, editor));
+previewScroll.addEventListener('scroll', () => syncScroll(previewScroll,
+  (typeof webEditorOn !== 'undefined' && webEditorOn) ? webEditorEl : editor));
+
+/* ---------- 편집기 클릭 위치 → 프리뷰에 위치 마커 표시 ---------- */
+const previewMarker = document.getElementById('preview-marker');
+let pmHideTimer = null;
+
+/* 콘텐츠 비율(0~1) 위치에 마커를 놓고 중앙으로 스크롤 후 잠깐 반짝 */
+function markPreviewAt(frac) {
+  frac = Math.min(1, Math.max(0, frac));
+  const padB = parseFloat(getComputedStyle(previewScroll).paddingBottom) || 0;
+  const padT = parseFloat(getComputedStyle(previewScroll).paddingTop) || 0;
+  const contentH = Math.max(1, previewScroll.scrollHeight - padB - padT);
+  const y = padT + frac * contentH;
+  previewMarker.style.top = y + 'px';
+  const badge = previewMarker.querySelector('.pm-badge');
+  if (badge) badge.textContent = L().pmHere;
+  /* 마커가 화면에 보이도록 스크롤 (동기 스크롤과 충돌 방지 위해 잠시 잠금) */
+  scrollSource = 'marker';
+  previewScroll.scrollTop = Math.max(0, y - previewScroll.clientHeight / 2);
+  clearTimeout(scrollResetTimer);
+  scrollResetTimer = setTimeout(() => scrollSource = null, 180);
+  /* 반짝 애니메이션 재시작 */
+  previewMarker.classList.remove('show');
+  void previewMarker.offsetWidth;
+  previewMarker.classList.add('show');
+  clearTimeout(pmHideTimer);
+  pmHideTimer = setTimeout(() => previewMarker.classList.remove('show'), 2100);
+}
+
+/* 소스 편집기 캐럿의 라인 비율 */
+function editorCaretFrac() {
+  const pos = editor.selectionStart;
+  const line = (editor.value.slice(0, pos).match(/\n/g) || []).length;
+  const total = Math.max(1, (editor.value.match(/\n/g) || []).length);
+  return line / total;
+}
+
+/* 웹에디터 캐럿이 속한 블록의 콘텐츠 비율 */
+function webCaretFrac() {
+  const sel = getSelection();
+  if (!sel || !sel.rangeCount) return 0;
+  let el = sel.getRangeAt(0).startContainer;
+  if (el.nodeType === 3) el = el.parentElement;
+  while (el && el.parentElement && el.parentElement !== webEditorEl && el !== webEditorEl) el = el.parentElement;
+  if (!el || el === webEditorEl) return webEditorEl.scrollTop / Math.max(1, webEditorEl.scrollHeight);
+  const r = el.getBoundingClientRect();
+  const w = webEditorEl.getBoundingClientRect();
+  const padB = parseFloat(getComputedStyle(webEditorEl).paddingBottom) || 0;
+  const padT = parseFloat(getComputedStyle(webEditorEl).paddingTop) || 0;
+  const top = r.top - w.top + webEditorEl.scrollTop - padT;
+  const contentH = Math.max(1, webEditorEl.scrollHeight - padB - padT);
+  return top / contentH;
+}
+
+/* 소스 편집기 클릭 → 위치 표시 */
+editor.addEventListener('click', () => markPreviewAt(editorCaretFrac()));
 
 /* ---------- 에디터 입력 ---------- */
 editor.addEventListener('input', () => {
@@ -2262,8 +2415,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.10.0** |
-| 최종 업데이트 | 2026-07-09 |
+| **최신 버전** | **v1.12.1** |
+| 최종 업데이트 | 2026-07-10 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2274,6 +2427,55 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.1</b> &nbsp;·&nbsp; 2026-07-10 &nbsp;·&nbsp; 웹에디터 색상/표 개선</summary>
+
+### 🖊 웹에디터
+
+- 버튼 명칭 **웹편집 → 웹에디터** 로 변경
+- **글자색/형광펜 색상표가 안 뜨던 문제 수정** — 아이콘 클릭 시 색상 선택창이 뜨고, 선택 영역에 정확히 적용(선택 영역 저장/복원)
+- **표 삽입을 그리드 선택 방식으로 개선** — 아이콘 클릭 시 **최대 10×10 격자에서 마우스로 자유롭게 크기 선택**(예: 3×4)해 표 생성
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.12.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 편집 위치 → 프리뷰 표시</summary>
+
+### 📍 편집 위치 표시 (신규)
+
+- **소스 편집기 / 웹에디터에서 클릭하면** 그 위치에 해당하는 지점을 **프리뷰 화면에 예쁜 마커(빛나는 라인 + "📍 여기" 배지)로 표시**하고 해당 위치로 스크롤
+- 편집 중인 부분이 미리보기의 어디인지 바로 확인 가능
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.11.1</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 웹편집 스크롤 · Confluence 자식 조회 수정</summary>
+
+### 🐞 수정
+
+- **웹에디터에서 스크롤 시 프리뷰가 안 따라오던 문제 수정** — 웹에디터에 동기 스크롤 리스너 추가, 각 영역의 실제 하단 여백 기준으로 같은 라인 정렬
+- **Confluence 하위 문서/페이지가 누락되던 문제 수정** — v2 folders/pages 및 v1 child/page **세 경로를 모두 조회해 병합**(중복 제거), 어떤 폴더/페이지 구성이든 누락 없이 표시
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.11.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 동기 스크롤/Confluence UX 다듬기</summary>
+
+### 🖊 웹에디터 기능 대폭 확장
+
+- **글자 크기 드롭다운** + **문단 서식 드롭다운(본문/제목1~6)** 추가
+- **밑줄 · 글자색 · 형광펜 · 체크리스트 · 코드블록 · 이미지 · 표 삽입 · 정렬(좌/가운데/우) · 서식 지우기 · 실행취소/다시실행** 등 자주 쓰는 기능 추가
+- 마크다운에 없는 서식(밑줄·색·글자크기·정렬)은 **인라인 HTML로 보존**되어 미리보기·Confluence에도 반영
+
+### 🔧 개선
+
+- **동기 스크롤 정확도 개선**: 하단 빈 여백(60vh)을 제외한 실제 콘텐츠 기준으로 맞춰 같은 라인이 정렬되도록 수정
+- **Confluence: 하위 페이지가 안 보이던 문제 수정** — 하위 존재가 불명확한(폴더로 가져온) 페이지도 펼치기 아이콘을 표시해 클릭 시 하위 로딩(없으면 아이콘 사라짐)
+- Confluence 조회 창 정리: **"현재 내용을 새 페이지로 저장" 버튼 제거**, **삭제 버튼 제거**, 목록 제목을 **"폴더 및 페이지 목록"** 으로 변경
+- 글자 크기 조정: **메뉴/설명/버튼 폰트 +5%**, **컨플 저장 모달 +10%** (에디터·프리뷰 본문 제외)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.10.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 웹에디터 · UI 개선</summary>
 
 ### 🖊 웹에디터 (WYSIWYG, 신규)
@@ -3249,8 +3451,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.10.0** |
-| Last updated | 2026-07-09 |
+| **Latest version** | **v1.12.1** |
+| Last updated | 2026-07-10 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -3261,6 +3463,55 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.1</b> &nbsp;·&nbsp; 2026-07-10 &nbsp;·&nbsp; Web editor color/table</summary>
+
+### 🖊 Web editor
+
+- Renamed the button **Web edit → Web editor**
+- **Fixed the text/highlight color picker not opening** — clicking the icon now opens the color dialog and applies to the exact selection (selection save/restore)
+- **Table insertion now uses a size-picker grid** — click the icon and **freely choose up to 10×10 with the mouse** (e.g. 3×4)
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.12.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Edit position → preview marker</summary>
+
+### 📍 Edit-position indicator (new)
+
+- **Clicking in the source editor / web editor** shows a **pretty marker (glowing line + "📍 here" badge) in the preview** at the matching spot and scrolls there
+- Instantly see where your current edit is in the preview
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.11.1</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Web-edit scroll · Confluence children fix</summary>
+
+### 🐞 Fixes
+
+- **Fixed preview not following when scrolling the web editor** — added a sync-scroll listener to the web editor, aligning lines using each pane's actual bottom padding
+- **Fixed missing Confluence sub-documents/pages** — now queries and merges **three sources** (v2 folders/pages + v1 child/page, deduped) so nothing is missed regardless of folder/page structure
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.11.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Sync-scroll / Confluence UX polish</summary>
+
+### 🖊 Web editor greatly expanded
+
+- Added a **font-size dropdown** and a **paragraph-format dropdown (Body/H1–H6)**
+- Added common actions: **underline, text color, highlighter, checklist, code block, image, table, alignment (L/C/R), clear formatting, undo/redo**
+- Formatting not expressible in Markdown (underline/color/size/align) is **preserved as inline HTML**, reflected in preview and Confluence
+
+### 🔧 Improvements
+
+- **More accurate synchronized scrolling** — aligns by actual content (excluding the 60vh bottom padding) so lines match
+- **Fixed sub-pages not showing in Confluence** — pages with unknown child state (fetched under a folder) now show an expand icon and load children on click (icon disappears if none)
+- Confluence browse cleanup: **removed "Save as new page"**, **removed delete button**, list title changed to **"Folders & pages"**
+- Font sizes: **menu/description/button fonts +5%**, **Save-to-Confluence modal +10%** (editor/preview content unchanged)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.10.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Web editor · UI polish</summary>
 
 ### 🖊 Web editor (WYSIWYG, new)
@@ -4845,6 +5096,10 @@ let webSyncTimer = null;
 /* 렌더링된 HTML을 마크다운으로 되돌리는 변환기 (일반 문서 요소 커버) */
 function htmlToMarkdown(root) {
   const esc = (s) => s.replace(/([\\`*_[\]])/g, '\\$1');
+  function styleAttr(n) {
+    const s = n.getAttribute && n.getAttribute('style');
+    return s ? ' style="' + s.replace(/"/g, "'") + '"' : '';
+  }
   function inline(node) {
     let out = '';
     node.childNodes.forEach((n) => {
@@ -4859,7 +5114,14 @@ function htmlToMarkdown(root) {
       else if (t === 'code') out += '`' + n.textContent + '`';
       else if (t === 'a') out += '[' + inline(n).trim() + '](' + (n.getAttribute('href') || '') + ')';
       else if (t === 'img') out += '![' + (n.getAttribute('alt') || '') + '](' + (n.getAttribute('src') || '') + ')';
-      else out += inline(n);
+      /* 마크다운에 없는 서식(밑줄/색/글자크기/첨자)은 인라인 HTML로 보존 — 렌더러/Confluence 모두 지원 */
+      else if (t === 'u') out += '<u>' + inline(n) + '</u>';
+      else if (t === 'sub') out += '<sub>' + inline(n) + '</sub>';
+      else if (t === 'sup') out += '<sup>' + inline(n) + '</sup>';
+      else if (t === 'span' || t === 'font') {
+        const st = styleAttr(n);
+        out += st ? '<span' + st + '>' + inline(n) + '</span>' : inline(n);
+      } else out += inline(n);
     });
     return out;
   }
@@ -4869,7 +5131,12 @@ function htmlToMarkdown(root) {
       if (n.nodeType === 3) { const s = n.nodeValue.trim(); if (s) md += s + '\n\n'; return; }
       if (n.nodeType !== 1) return;
       const t = n.tagName.toLowerCase();
-      if (/^h[1-6]$/.test(t)) md += '#'.repeat(+t[1]) + ' ' + inline(n).trim() + '\n\n';
+      const align = (n.style && n.style.textAlign) || '';
+      if (align && (/^h[1-6]$/.test(t) || t === 'p')) {
+        /* 정렬은 마크다운에 없으므로 raw HTML로 보존 */
+        md += '<' + t + ' style="text-align:' + align + '">' + inline(n).trim() + '</' + t + '>\n\n';
+      }
+      else if (/^h[1-6]$/.test(t)) md += '#'.repeat(+t[1]) + ' ' + inline(n).trim() + '\n\n';
       else if (t === 'p') { const s = inline(n).trim(); md += (s ? s : '') + '\n\n'; }
       else if (t === 'hr') md += '---\n\n';
       else if (t === 'blockquote') md += block(n, '').trim().split('\n').map(l => '> ' + l).join('\n') + '\n\n';
@@ -4961,29 +5228,170 @@ webEditorEl.addEventListener('input', () => {
   clearTimeout(webSyncTimer);
   webSyncTimer = setTimeout(syncWebToSource, 250);   // 편집 → 소스 동기화
 });
+/* 웹에디터 스크롤 → 프리뷰도 같은 라인으로 동기 스크롤 */
+webEditorEl.addEventListener('scroll', () => syncScroll(webEditorEl, previewScroll));
+/* 웹에디터 클릭 → 프리뷰에 위치 마커 표시 */
+webEditorEl.addEventListener('click', () => markPreviewAt(webCaretFrac()));
 
-/* 툴바 명령 */
+/* 선택 영역을 span 등으로 감싸기 (글자 크기 등 인라인 스타일용) */
+function wrapSelectionStyle(styleName, value) {
+  const sel = getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return;
+  const range = sel.getRangeAt(0);
+  const span = document.createElement('span');
+  span.style[styleName] = value;
+  try { span.appendChild(range.extractContents()); range.insertNode(span); } catch (e) { return; }
+  sel.removeAllRanges();
+  const r = document.createRange(); r.selectNodeContents(span); sel.addRange(r);
+}
+
+/* 웹에디터 선택 영역 저장/복원 (색상 피커/표 삽입은 포커스가 잠시 이동하므로) */
+let webSavedRange = null;
+function saveWebSelection() {
+  const s = getSelection();
+  if (s && s.rangeCount && webEditorEl.contains(s.getRangeAt(0).startContainer)) {
+    webSavedRange = s.getRangeAt(0).cloneRange();
+  }
+}
+function restoreWebSelection() {
+  webEditorEl.focus();
+  if (!webSavedRange) return;
+  const s = getSelection();
+  s.removeAllRanges();
+  s.addRange(webSavedRange);
+}
+/* 편집 중 선택이 바뀌면 저장 */
+webEditorEl.addEventListener('mouseup', saveWebSelection);
+webEditorEl.addEventListener('keyup', saveWebSelection);
+/* 툴바를 누르기 직전(포커스 이동 전)에도 저장 */
+document.getElementById('web-toolbar').addEventListener('mousedown', saveWebSelection);
+
+/* 툴바 버튼 명령 */
 document.getElementById('web-toolbar').addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
+  if (e.target.tagName === 'INPUT') return;   // 컬러 피커 input 클릭은 별도 처리
   const cmd = btn.dataset.cmd;
   webEditorEl.focus();
+  document.execCommand('styleWithCSS', false, true);
   const exec = (c, v) => document.execCommand(c, false, v);
   if (cmd === 'bold') exec('bold');
   else if (cmd === 'italic') exec('italic');
+  else if (cmd === 'underline') exec('underline');
   else if (cmd === 'strike') exec('strikeThrough');
-  else if (cmd === 'h1') exec('formatBlock', 'H1');
-  else if (cmd === 'h2') exec('formatBlock', 'H2');
-  else if (cmd === 'h3') exec('formatBlock', 'H3');
-  else if (cmd === 'p') exec('formatBlock', 'P');
+  else if (cmd === 'forecolor') { saveWebSelection(); document.getElementById('wt-fore').click(); return; }
+  else if (cmd === 'hilite') { saveWebSelection(); document.getElementById('wt-hilite').click(); return; }
   else if (cmd === 'ul') exec('insertUnorderedList');
   else if (cmd === 'ol') exec('insertOrderedList');
+  else if (cmd === 'check') exec('insertHTML', '<ul class="task-list"><li><input type="checkbox"> 할 일</li></ul>');
   else if (cmd === 'quote') exec('formatBlock', 'BLOCKQUOTE');
-  else if (cmd === 'code') { const s = getSelection().toString(); if (s) exec('insertHTML', '<code>' + s.replace(/</g,'&lt;') + '</code>'); }
+  else if (cmd === 'code') { const s = getSelection().toString(); exec('insertHTML', '<code>' + (s || 'code').replace(/</g, '&lt;') + '</code>'); }
+  else if (cmd === 'codeblock') { const s = getSelection().toString(); exec('insertHTML', '<pre><code>' + (s || 'code').replace(/</g, '&lt;') + '</code></pre><p><br></p>'); }
   else if (cmd === 'link') { const u = prompt(L().linkPrompt, 'https://'); if (u) exec('createLink', u); }
+  else if (cmd === 'image') { const u = prompt(L().imgPrompt, 'https://'); if (u) exec('insertHTML', '<img src="' + u.replace(/"/g, '&quot;') + '" alt="">'); }
+  else if (cmd === 'table') { saveWebSelection(); openTableGrid(btn); return; }
   else if (cmd === 'hr') exec('insertHorizontalRule');
+  else if (cmd === 'alignleft') exec('justifyLeft');
+  else if (cmd === 'aligncenter') exec('justifyCenter');
+  else if (cmd === 'alignright') exec('justifyRight');
+  else if (cmd === 'removeformat') { exec('removeFormat'); exec('formatBlock', 'P'); }
+  else if (cmd === 'undo') exec('undo');
+  else if (cmd === 'redo') exec('redo');
   clearTimeout(webSyncTimer);
   webSyncTimer = setTimeout(syncWebToSource, 100);
+});
+
+/* ---------- 표 크기 선택 그리드 (2x2 ~ 10x10, 마우스로 자유 선택) ---------- */
+const TABLE_MAX = 10;
+let tableGridEl = null;
+function buildTableGrid() {
+  const wrap = document.createElement('div');
+  wrap.id = 'table-grid';
+  const cells = document.createElement('div');
+  cells.className = 'tg-cells';
+  for (let r = 1; r <= TABLE_MAX; r++) {
+    for (let c = 1; c <= TABLE_MAX; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'tg-cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      cell.addEventListener('mouseenter', () => hiliteGrid(r, c));
+      cell.addEventListener('click', () => { insertTable(r, c); closeTableGrid(); });
+      cells.appendChild(cell);
+    }
+  }
+  const label = document.createElement('div');
+  label.className = 'tg-label';
+  label.textContent = '표 크기 선택';
+  wrap.append(cells, label);
+  document.body.appendChild(wrap);
+  wrap.addEventListener('mouseleave', () => hiliteGrid(0, 0));
+  return wrap;
+}
+function hiliteGrid(r, c) {
+  if (!tableGridEl) return;
+  tableGridEl.querySelectorAll('.tg-cell').forEach((el) => {
+    const er = +el.dataset.r, ec = +el.dataset.c;
+    el.classList.toggle('on', er <= r && ec <= c);
+  });
+  const label = tableGridEl.querySelector('.tg-label');
+  label.textContent = (r && c) ? (c + ' × ' + r + '  (열 × 행)') : '표 크기 선택';
+}
+function openTableGrid(btn) {
+  if (!tableGridEl) tableGridEl = buildTableGrid();
+  const b = btn.getBoundingClientRect();
+  tableGridEl.style.display = 'block';
+  tableGridEl.style.left = Math.min(b.left, innerWidth - tableGridEl.offsetWidth - 8) + 'px';
+  tableGridEl.style.top = (b.bottom + 4) + 'px';
+  hiliteGrid(2, 2);
+}
+function closeTableGrid() { if (tableGridEl) tableGridEl.style.display = 'none'; }
+function insertTable(rows, cols) {
+  let html = '<table><thead><tr>';
+  for (let c = 0; c < cols; c++) html += '<th>제목' + (c + 1) + '</th>';
+  html += '</tr></thead><tbody>';
+  for (let r = 1; r < rows; r++) {
+    html += '<tr>';
+    for (let c = 0; c < cols; c++) html += '<td>　</td>';
+    html += '</tr>';
+  }
+  html += '</tbody></table><p><br></p>';
+  restoreWebSelection();
+  document.execCommand('insertHTML', false, html);
+  clearTimeout(webSyncTimer);
+  webSyncTimer = setTimeout(syncWebToSource, 100);
+}
+/* 바깥 클릭 시 그리드 닫기 */
+document.addEventListener('mousedown', (e) => {
+  if (tableGridEl && tableGridEl.style.display === 'block'
+      && !tableGridEl.contains(e.target) && !e.target.closest('[data-cmd="table"]')) {
+    closeTableGrid();
+  }
+});
+
+/* 문단 서식 드롭다운 */
+document.getElementById('wt-format').addEventListener('change', (e) => {
+  webEditorEl.focus();
+  document.execCommand('formatBlock', false, e.target.value.toUpperCase());
+  e.target.selectedIndex = 0;
+  clearTimeout(webSyncTimer); webSyncTimer = setTimeout(syncWebToSource, 100);
+});
+/* 글자 크기 드롭다운 */
+document.getElementById('wt-fontsize').addEventListener('change', (e) => {
+  webEditorEl.focus();
+  if (e.target.value) wrapSelectionStyle('fontSize', e.target.value);
+  e.target.selectedIndex = 0;
+  clearTimeout(webSyncTimer); webSyncTimer = setTimeout(syncWebToSource, 100);
+});
+/* 글자색 / 형광펜 (색상 선택 후 저장해둔 영역에 적용) */
+document.getElementById('wt-fore').addEventListener('input', (e) => {
+  restoreWebSelection(); document.execCommand('styleWithCSS', false, true);
+  document.execCommand('foreColor', false, e.target.value);
+  clearTimeout(webSyncTimer); webSyncTimer = setTimeout(syncWebToSource, 100);
+});
+document.getElementById('wt-hilite').addEventListener('input', (e) => {
+  restoreWebSelection(); document.execCommand('styleWithCSS', false, true);
+  document.execCommand('hiliteColor', false, e.target.value);
+  clearTimeout(webSyncTimer); webSyncTimer = setTimeout(syncWebToSource, 100);
 });
 
 /* 탭 전환/새 문서 시 웹에디터는 닫아 소스와 어긋나지 않게 */
@@ -5180,7 +5588,7 @@ function renderConfNode(node) {
   if (loaded) canExpand = src.children.length > 0;
   else if (src.has_children === true) canExpand = true;
   else if (src.has_children === false) canExpand = false;
-  else canExpand = isFolder;   // 미상: 폴더는 있을 수 있음, 페이지는 없다고 간주
+  else canExpand = true;   // 미상(v2로 온 페이지/폴더): 일단 펼침 가능 → 클릭 시 로딩, 하위 없으면 아이콘 사라짐
 
   const twisty = document.createElement('span');
   twisty.className = 'conf-twisty';
@@ -5217,15 +5625,6 @@ function renderConfNode(node) {
   updated.className = 'conf-updated';
   updated.textContent = node.updated || '-';
   row.append(twisty, nameWrap, created, updated);
-  if (!isFolder) {
-    /* 삭제는 문서에만 제공 */
-    const del = document.createElement('button');
-    del.className = 'conf-del';
-    del.textContent = '🗑️';
-    del.title = L().confDelete_t;
-    del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
-    row.append(del);
-  }
   wrap.appendChild(row);
 
   /* 펼치기: 처음 클릭이면 그 시점에 하위 목록 로딩 */
@@ -5455,7 +5854,6 @@ btnConfluence.addEventListener('click', openConfluence);
 document.getElementById('btn-conf-save').addEventListener('click', openConfSave);
 document.getElementById('conf-x').addEventListener('click', closeConfluence);
 document.getElementById('conf-reload').addEventListener('click', loadConfList);
-document.getElementById('conf-save-new').addEventListener('click', () => { closeConfluence(); openConfSave(); });
 document.getElementById('conf-save-x').addEventListener('click', closeConfSave);
 document.getElementById('conf-save-cancel').addEventListener('click', closeConfSave);
 document.getElementById('conf-save-do').addEventListener('click', doConfSave);
