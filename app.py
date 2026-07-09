@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.6.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.6.2"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -660,42 +660,147 @@ body {{ margin: 0; background: #f0f2f5; }}
         ]
         return {"pages": pages, "space": space_key, "folder_id": folder_id}
 
+    @staticmethod
+    def _sort_tree(nodes):
+        """폴더 먼저, 그다음 제목순 (탐색기와 동일한 정렬)"""
+        nodes.sort(key=lambda n: (n.get("kind") != "folder", n["title"].lower()))
+        for n in nodes:
+            Api._sort_tree(n["children"])
+
+    def _conf_v2_children(self, cfg, node_id, kind):
+        """v2 direct-children 조회 (폴더/페이지 공용, cursor 페이징 follow)"""
+        paths = {
+            "folder": f"/wiki/api/v2/folders/{node_id}/direct-children",
+            "page": f"/wiki/api/v2/pages/{node_id}/direct-children",
+        }
+        base = paths.get(kind)
+        if not base:
+            return [], None
+        out, cursor = [], None
+        for _ in range(5):  # 안전장치: 최대 5페이지(500개)
+            path = base + "?limit=100" + (("&cursor=" + urllib.parse.quote(cursor)) if cursor else "")
+            data, err = self._conf_request(cfg, "GET", path)
+            if err:
+                return None, err
+            out += data.get("results", [])
+            nxt = (data.get("_links") or {}).get("next") or ""
+            m = re.search(r"[?&]cursor=([^&]+)", nxt)
+            cursor = urllib.parse.unquote(m.group(1)) if m else None
+            if not cursor:
+                break
+        return out, None
+
+    def _conf_tree_v2(self, cfg, root_id, root_kind, depth=0, budget=None):
+        """v2 API로 폴더/페이지 계층을 재귀 조회 (하위 폴더 구조 그대로 보존)"""
+        if budget is None:
+            budget = {"n": 0}
+        if depth > 6 or budget["n"] > 400:  # 깊이/개수 안전장치
+            return [], None
+        children, err = self._conf_v2_children(cfg, root_id, root_kind)
+        if children is None:
+            return None, err
+        nodes = []
+        for c in children:
+            ctype = (c.get("type") or "").lower()
+            kind = "folder" if ctype == "folder" else ("page" if ctype == "page" else ctype)
+            node = {"id": str(c.get("id")), "title": c.get("title", ""), "kind": kind, "children": []}
+            budget["n"] += 1
+            if kind in ("folder", "page"):
+                sub, _serr = self._conf_tree_v2(cfg, node["id"], kind, depth + 1, budget)
+                if sub is not None:
+                    node["children"] = sub
+            nodes.append(node)
+        return nodes, None
+
+    def conf_children(self, parent_id=None, kind=None, cfg=None):
+        """직계 자식 '한 단계'만 조회 (지연 로딩용).
+        parent_id 미지정 시 설정 링크의 폴더/페이지가 루트가 된다."""
+        cfg = cfg or self.conf_load_config()
+        if not parent_id:
+            info = self._conf_parse_work(cfg.get("work", ""))
+            parent_id = info["folder_id"] or info["page_id"]
+            kind = "folder" if info["folder_id"] else "page"
+            if not parent_id:
+                # 폴더 링크가 없으면 스페이스 페이지 목록(플랫)
+                r = self.conf_list(cfg)
+                if r.get("error"):
+                    return r
+                return {"children": [
+                    {"id": p["id"], "title": p["title"], "kind": "page", "version": p.get("version")}
+                    for p in r.get("pages", [])
+                ]}
+        kind = kind or "page"
+        children, err = self._conf_v2_children(cfg, parent_id, kind)
+        if children is None and kind == "folder":
+            children, err = self._conf_v2_children(cfg, parent_id, "page")
+        if children is not None:
+            out = []
+            for c in children:
+                ctype = (c.get("type") or "").lower()
+                k = "folder" if ctype == "folder" else ("page" if ctype == "page" else ctype)
+                out.append({"id": str(c.get("id")), "title": c.get("title", ""), "kind": k})
+            out.sort(key=lambda n: (n["kind"] != "folder", n["title"].lower()))
+            return {"children": out}
+        # v1 폴백: 페이지 자식만 조회 가능
+        data, verr = self._conf_request(
+            cfg, "GET", f"/rest/api/content/{parent_id}/child/page?limit=100&expand=version"
+        )
+        if verr:
+            return {"error": err or verr}
+        out = [
+            {"id": str(r["id"]), "title": r["title"], "kind": "page",
+             "version": r.get("version", {}).get("number", 1)}
+            for r in data.get("results", [])
+        ]
+        out.sort(key=lambda n: n["title"].lower())
+        return {"children": out}
+
     def conf_tree(self, cfg=None):
-        """폴더 하위 문서를 '계층 구조(트리)'로 반환. (CQL ancestor로 전체 후손 페이지 조회)"""
+        """폴더 하위 문서를 하위 폴더 구조까지 포함한 '계층(트리)'로 반환.
+        1순위: v2 direct-children 재귀(폴더 타입 보존) → 실패 시 CQL ancestor 폴백."""
         cfg = cfg or self.conf_load_config()
         info = self._conf_parse_work(cfg.get("work", ""))
         folder_id = info["folder_id"] or info["page_id"]
         space_key = info["space_key"]
         if not folder_id:
             return self.conf_list(cfg)  # 폴더가 없으면 스페이스 전체(플랫)
-        q = urllib.parse.urlencode(
-            {"cql": f"ancestor={folder_id} and type=page", "limit": 200, "expand": "ancestors,version"}
-        )
-        data, err = self._conf_request(cfg, "GET", "/rest/api/content/search?" + q)
-        if err or not isinstance(data, dict):
-            return self.conf_list(cfg)  # 폴백: 직계 자식만
-        results = data.get("results", [])
+
+        root_kind = "folder" if info["folder_id"] else "page"
+        tree, _err = self._conf_tree_v2(cfg, folder_id, root_kind)
+        if tree is None and root_kind == "folder":
+            tree, _err = self._conf_tree_v2(cfg, folder_id, "page")  # 폴더 ID가 실은 페이지인 경우
+        if tree is not None:
+            self._sort_tree(tree)
+            return {"tree": tree, "space": space_key, "folder_id": folder_id}
+
+        # ---- 폴백: CQL ancestor (페이지 + 폴더 함께 조회해 계층 복원) ----
+        results = []
+        for cql_type in ("page", "folder"):
+            q = urllib.parse.urlencode(
+                {"cql": f"ancestor={folder_id} and type={cql_type}", "limit": 200,
+                 "expand": "ancestors,version"}
+            )
+            data, err = self._conf_request(cfg, "GET", "/rest/api/content/search?" + q)
+            if err is None and isinstance(data, dict):
+                results += data.get("results", [])
+            elif cql_type == "page":
+                return self.conf_list(cfg)  # 페이지 검색도 안 되면 직계 자식 폴백
         nodes = {}
         for r in results:
-            nodes[r["id"]] = {
-                "id": r["id"], "title": r["title"],
+            nodes[str(r["id"])] = {
+                "id": str(r["id"]), "title": r["title"],
+                "kind": (r.get("type") or "page").lower(),
                 "version": r.get("version", {}).get("number", 1), "children": [],
             }
         roots = []
         for r in results:
             anc = r.get("ancestors", []) or []
-            pid = anc[-1]["id"] if anc else None  # 직속 부모 = ancestors의 마지막
-            if pid and pid != folder_id and pid in nodes:
-                nodes[pid]["children"].append(nodes[r["id"]])
+            pid = str(anc[-1]["id"]) if anc else None  # 직속 부모 = ancestors의 마지막
+            if pid and pid != str(folder_id) and pid in nodes:
+                nodes[pid]["children"].append(nodes[str(r["id"])])
             else:
-                roots.append(nodes[r["id"]])
-
-        def _sort(ns):
-            ns.sort(key=lambda n: n["title"].lower())
-            for n in ns:
-                _sort(n["children"])
-
-        _sort(roots)
+                roots.append(nodes[str(r["id"])])
+        self._sort_tree(roots)
         return {"tree": roots, "space": space_key, "folder_id": folder_id, "count": len(results)}
 
     # 스토리지 XHTML은 엄격 → void(빈) 요소를 반드시 self-close 해야 파싱 오류가 없음

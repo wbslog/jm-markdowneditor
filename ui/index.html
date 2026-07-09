@@ -810,6 +810,7 @@
   .conf-row:hover { background: rgba(255, 255, 255, 0.10); }
   .conf-row.selected { background: rgba(99, 102, 241, 0.35); box-shadow: inset 0 0 0 1px rgba(129,140,248,0.6); }
   #conf-save-tree { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
+  #conf-reload { font-size: 12px; white-space: nowrap; }
   /* Confluence 목록 검색 필터 */
   #conf-filter {
     width: 100%; font-family: inherit; font-size: 13px; color: #e9e9f6;
@@ -1117,7 +1118,7 @@
     <div class="app-modal-header">
       <span id="conf-title">🔗 Confluence</span>
       <span>
-        <button class="x" id="conf-reload" title="목록 새로고침">🔄</button>
+        <button class="x" id="conf-reload" title="목록 새로고침">🔄 새로고침</button>
         <button class="x" id="conf-x" title="닫기 (Esc)">✕</button>
       </span>
     </div>
@@ -1234,7 +1235,7 @@ const I18N = {
     setBackupLabel: '백업 폴더', setBackupPlaceholder: '(설정 안 함 — 백업하지 않음)',
     setChooseFolder: '폴더 선택', setClear: '지우기', setBackupSaved: '백업 경로가 저장되었습니다',
     backupTag: ' (백업됨)',
-    confTitle: '🔗 Confluence', confReload_t: '목록 새로고침', confClose_t: '닫기 (Esc)',
+    confTitle: '🔗 Confluence', confReload: '🔄 새로고침', confReload_t: '목록 새로고침', confClose_t: '닫기 (Esc)',
     confListTitle: '내 문서 목록', confLoading: '불러오는 중...', confEmpty: '표시할 페이지가 없습니다',
     confSaveNew: '📄 현재 내용을 새 페이지로 저장', confTitlePrompt: '새 Confluence 페이지 제목:',
     confNeedSetup: '먼저 설정에서 Confluence 연동을 완료하세요',
@@ -1320,7 +1321,7 @@ const I18N = {
     setBackupLabel: 'Backup folder', setBackupPlaceholder: '(not set — no backup)',
     setChooseFolder: 'Choose folder', setClear: 'Clear', setBackupSaved: 'Backup location saved',
     backupTag: ' (backed up)',
-    confTitle: '🔗 Confluence', confReload_t: 'Refresh list', confClose_t: 'Close (Esc)',
+    confTitle: '🔗 Confluence', confReload: '🔄 Refresh', confReload_t: 'Refresh list', confClose_t: 'Close (Esc)',
     confListTitle: 'My documents', confLoading: 'Loading...', confEmpty: 'No pages to show',
     confSaveNew: '📄 Save current content as a new page', confTitlePrompt: 'New Confluence page title:',
     confNeedSetup: 'Complete Confluence setup in Settings first',
@@ -1398,7 +1399,8 @@ function applyLang() {
   setTxt('set-cloudid-l', d.setCloudId); setTxt('set-cloudid-hint', d.setCloudIdHint);
   setTxt('set-test', d.setTest); setTxt('set-cancel', d.setCancel); setTxt('set-save', d.setSave);
   /* Confluence 모달 */
-  setTxt('conf-title', d.confTitle); setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
+  setTxt('conf-title', d.confTitle); setTxt('conf-reload', d.confReload);
+  setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
   setTxt('conf-list-title', d.confListTitle); setTxt('conf-save-new', d.confSaveNew);
   document.getElementById('conf-filter').placeholder = d.confFilterPh;
   document.getElementById('lang-ko').classList.toggle('active', lang === 'ko');
@@ -2027,8 +2029,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.6.0** |
-| 최종 업데이트 | 2026-07-08 |
+| **최신 버전** | **v1.6.2** |
+| 최종 업데이트 | 2026-07-09 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2039,6 +2041,32 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.6.2</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence 지연 로딩</summary>
+
+### ⚡ 성능/UX 개선
+
+- 문서 목록을 **지연 로딩(lazy loading)** 방식으로 변경
+    - 열 때는 링크 위치에서 보이는 **직계 폴더/문서만 조회** (전체 하위 문서를 미리 로딩하지 않음)
+    - 항목의 **▶ 또는 폴더 클릭 시 그 시점에 하위 목록을 로딩**해 계층으로 표시 (로딩 중 ⏳ 표시)
+    - 저장 위치 탐색도 동일하게 진입 시점에 하위 로딩
+- 상단 **🔄 새로고침** 버튼을 텍스트 버튼으로 변경 (ENG 전환 시 Refresh로 표시)
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.6.1</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence 하위 폴더 계층 수정</summary>
+
+### 🐞 수정
+
+- 링크한 폴더 아래 **하위 폴더 안의 문서들이 최상단에 표시되던 문제 수정**
+    - v2 API(direct-children)로 **폴더 타입까지 포함해 재귀 조회** → 폴더/문서의 논리적 단계를 그대로 표시
+    - v2 미지원 환경은 CQL 폴백에서도 폴더를 함께 조회해 계층 복원
+- 목록에서 **폴더(📁)는 클릭 시 접기/펼치기**, 문서(📄)만 열림 · 삭제 버튼은 문서에만 표시
+- 탐색기처럼 **폴더 우선 정렬** 적용 (저장 위치 탐색 UI에도 동일 반영)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.6.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence 검색 필터 · 위치 탐색 UI</summary>
 
 ### 🔗 Confluence 목록/저장 개선
@@ -2927,8 +2955,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.6.0** |
-| Last updated | 2026-07-08 |
+| **Latest version** | **v1.6.2** |
+| Last updated | 2026-07-09 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2939,6 +2967,32 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.6.2</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence lazy loading</summary>
+
+### ⚡ Performance/UX
+
+- Document list now uses **lazy loading**
+    - Opening the menu fetches only the **direct folders/documents visible at the linked location** (no full-subtree preload)
+    - Clicking an item's **▶ or a folder loads its children at that moment**, shown hierarchically (⏳ while loading)
+    - The save-location navigator loads children on entry the same way
+- The **🔄 Refresh** button is now a text button (shows "Refresh" in English mode)
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.6.1</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence sub-folder hierarchy fix</summary>
+
+### 🐞 Fixes
+
+- Fixed documents inside **sub-folders appearing at the top level** of the list
+    - Recursively fetches via the v2 API (direct-children) **including folder types**, so folder/document levels display logically
+    - The CQL fallback also queries folders to restore the hierarchy on environments without v2
+- **Folders (📁) toggle expand/collapse on click**; only documents (📄) open · delete button shown for documents only
+- **Folders-first sorting** like a file explorer (also applied to the save-location navigator)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.6.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence filter · location navigator</summary>
 
 ### 🔗 Confluence list/save improvements
@@ -4600,64 +4654,92 @@ function closeConfluence() { confluenceOverlay.classList.remove('open'); }
 
 /* 트리의 한 노드(및 하위) 렌더링 */
 function renderConfNode(node) {
+  const src = node._ref || node;   // 펼침/로딩 상태는 원본 노드에 저장 (필터 시 복사본 대응)
   const wrap = document.createElement('div');
   wrap.className = 'conf-node';
   const row = document.createElement('div');
   row.className = 'conf-row';
-  const hasChildren = node.children && node.children.length;
+  const isFolder = node.kind === 'folder';
+  const loaded = Array.isArray(src.children);
+  const canExpand = !loaded || src.children.length > 0;  // 미로딩 = 하위가 있을 수 있음
 
   const twisty = document.createElement('span');
   twisty.className = 'conf-twisty';
-  twisty.textContent = hasChildren ? '▼' : '';
+  twisty.textContent = canExpand ? ((src.expanded || confFilterActive) ? '▼' : '▶') : '';
   const title = document.createElement('span');
   title.className = 'conf-title';
-  title.textContent = (hasChildren ? '📁 ' : '📄 ') + node.title;
-  title.title = L().confOpen_t + ' (id=' + node.id + ')';
+  /* 폴더는 📁, 문서는 📄 — 계층(들여쓰기)과 함께 논리적 단계가 드러나도록 */
+  title.textContent = (isFolder ? '📁 ' : '📄 ') + node.title;
+  title.title = (isFolder ? node.title : (L().confOpen_t + ' (id=' + node.id + ')'));
   const ver = document.createElement('span');
   ver.className = 'conf-ver';
   ver.textContent = node.version ? 'v' + node.version : '';
-  const del = document.createElement('button');
-  del.className = 'conf-del';
-  del.textContent = '🗑️';
-  del.title = L().confDelete_t;
-  del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
-
-  row.append(twisty, title, ver, del);
-  /* 제목 클릭 = 문서 열기 */
-  title.addEventListener('click', () => openConfPage(node.id));
+  row.append(twisty, title, ver);
+  if (!isFolder) {
+    /* 삭제는 문서에만 제공 */
+    const del = document.createElement('button');
+    del.className = 'conf-del';
+    del.textContent = '🗑️';
+    del.title = L().confDelete_t;
+    del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
+    row.append(del);
+  }
   wrap.appendChild(row);
 
-  if (hasChildren) {
+  /* 펼치기: 처음 클릭이면 그 시점에 하위 목록 로딩 */
+  async function toggle() {
+    if (!Array.isArray(src.children)) {
+      twisty.textContent = '⏳';
+      await loadChildrenFor(src);
+      src.expanded = true;
+    } else {
+      src.expanded = !src.expanded;
+    }
+    renderConfList();
+  }
+  if (canExpand) twisty.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+  /* 제목 클릭: 문서 = 열기, 폴더 = 펼치기/접기 */
+  title.addEventListener('click', () => { if (isFolder) toggle(); else openConfPage(node.id); });
+
+  const showKids = (src.expanded || confFilterActive) && node.children && node.children.length;
+  if (showKids) {
     const kids = document.createElement('div');
     kids.className = 'conf-children';
     for (const c of node.children) kids.appendChild(renderConfNode(c));
     wrap.appendChild(kids);
-    /* 삼각형 클릭 = 접기/펼치기 */
-    twisty.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const collapsed = kids.classList.toggle('collapsed');
-      twisty.textContent = collapsed ? '▶' : '▼';
-    });
   }
   return wrap;
 }
 
-let confTreeData = [];   // 마지막으로 가져온 계층 데이터 (필터링용)
+let confTreeData = [];      // 지연 로딩 트리: children === null 이면 아직 미로딩
+let confFilterActive = false;
 const confFilterEl = document.getElementById('conf-filter');
 
-/* 제목 필터: 자신 또는 하위가 매칭되면 유지 (계층 구조 보존) */
+function newConfNode(c) { return { ...c, children: null, expanded: false }; }
+
+/* 노드의 직계 자식을 클릭 시점에 로딩 (지연 로딩) */
+async function loadChildrenFor(node) {
+  try {
+    const r = await window.pywebview.api.conf_children(node.id, node.kind || 'page');
+    if (r && r.error) { flash(L().confErr + r.error); node.children = []; return; }
+    node.children = ((r && r.children) || []).map(newConfNode);
+  } catch (e) { node.children = []; }
+}
+
+/* 제목 필터: 자신 또는 (로딩된) 하위가 매칭되면 유지 (계층 구조 보존) */
 function filterConfTree(nodes, q) {
   if (!q) return nodes;
   const out = [];
   for (const n of nodes) {
     const kids = filterConfTree(n.children || [], q);
-    if (n.title.toLowerCase().includes(q) || kids.length) out.push({ ...n, children: kids });
+    if (n.title.toLowerCase().includes(q) || kids.length) out.push({ ...n, children: kids, _ref: n._ref || n });
   }
   return out;
 }
 
 function renderConfList() {
   const q = confFilterEl.value.trim().toLowerCase();
+  confFilterActive = !!q;
   const tree = filterConfTree(confTreeData, q);
   confListEl.innerHTML = '';
   if (!tree.length) {
@@ -4667,16 +4749,14 @@ function renderConfList() {
   for (const node of tree) confListEl.appendChild(renderConfNode(node));
 }
 
-/* 메뉴를 열 때마다 컨플에서 새로 가져와(새로고침) 계층 구조로 표시 */
+/* 메뉴를 열 때마다 링크 위치에서 보이는 직계 목록만 새로 조회
+   (하위 목록은 항목 클릭 시 그때그때 로딩) */
 async function loadConfList() {
   confListEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
   try {
-    const r = await window.pywebview.api.conf_tree();
+    const r = await window.pywebview.api.conf_children();
     if (r && r.error) { confListEl.innerHTML = '<div class="conf-note">' + L().confErr + r.error + '</div>'; return; }
-    /* conf_tree는 계층(tree), 폴더 없을 땐 conf_list의 평면(pages)을 반환 */
-    let tree = (r && r.tree) || null;
-    if (!tree && r && r.pages) tree = r.pages.map(p => ({ ...p, children: [] }));
-    confTreeData = tree || [];
+    confTreeData = ((r && r.children) || []).map(newConfNode);
     renderConfList();
   } catch (e) {
     confListEl.innerHTML = '<div class="conf-note">' + L().confErr + e + '</div>';
@@ -4766,8 +4846,18 @@ function renderConfPickLevel() {
     return;
   }
   for (const n of kids) {
-    const row = confPickItem((n.children && n.children.length) ? '📁' : '📄', n.title);
-    row.addEventListener('click', () => { confPickStack.push(n); renderConfPickLevel(); });
+    const row = confPickItem(n.kind === 'folder' ? '📁' : '📄', n.title);
+    row.addEventListener('click', async () => {
+      /* 진입 시점에 하위 목록 지연 로딩 */
+      if (!Array.isArray(n.children)) {
+        try {
+          const r = await window.pywebview.api.conf_children(n.id, n.kind || 'page');
+          n.children = ((r && r.children) || []).map(c => ({ ...c, children: null }));
+        } catch (e) { n.children = []; }
+      }
+      confPickStack.push(n);
+      renderConfPickLevel();
+    });
     confSaveTreeEl.appendChild(row);
   }
 }
@@ -4786,8 +4876,8 @@ async function openConfSave() {
   confSaveTreeEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
   confSavePathEl.textContent = '';
   try {
-    const r = await window.pywebview.api.conf_tree();
-    confPickTree = (r && r.tree) || (r && r.pages ? r.pages.map(p => ({ ...p, children: [] })) : []);
+    const r = await window.pywebview.api.conf_children();  // 루트 직계만 (하위는 진입 시 로딩)
+    confPickTree = ((r && r.children) || []).map(c => ({ ...c, children: null }));
   } catch (e) { confPickTree = []; }
   renderConfPickLevel();
 }
