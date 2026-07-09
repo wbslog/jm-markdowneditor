@@ -666,21 +666,30 @@
     border-radius: 5px;
   }
   #help-x:hover { background: #46466a; color: #fff; }
-  /* 설명서 내 검색 */
+  /* 설명서 내 검색 (밝은 입력창 + 돋보기 아이콘으로 눈에 잘 띄게) */
   #help-search { display: flex; align-items: center; gap: 4px; cursor: default; }
+  #help-search .search-box { position: relative; display: inline-flex; align-items: center; }
+  #help-search .search-ic {
+    position: absolute;
+    left: 9px;
+    font-size: 12px;
+    pointer-events: none;
+    opacity: 0.8;
+  }
   #help-search input {
-    width: 150px;
+    width: 170px;
     font-family: inherit;
     font-size: 12.5px;
     font-weight: 400;
-    color: #e4e4f0;
-    background: #1e1e2e;
-    border: 1px solid #4a4a6a;
-    border-radius: 5px;
-    padding: 3px 8px;
+    color: #1f2328;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 7px;
+    padding: 4px 9px 4px 29px;
     outline: none;
   }
-  #help-search input:focus { border-color: #6366f1; }
+  #help-search input::placeholder { color: #6b7280; }
+  #help-search input:focus { border-color: #818cf8; background: #ffffff; box-shadow: 0 0 0 2px rgba(129, 140, 248, 0.35); }
   #help-search-count {
     font-size: 11px;
     font-weight: 400;
@@ -800,7 +809,26 @@
   }
   .conf-row:hover { background: rgba(255, 255, 255, 0.10); }
   .conf-row.selected { background: rgba(99, 102, 241, 0.35); box-shadow: inset 0 0 0 1px rgba(129,140,248,0.6); }
-  #conf-save-tree { max-height: 46vh; overflow-y: auto; margin-top: 6px; }
+  #conf-save-tree { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
+  /* Confluence 목록 검색 필터 */
+  #conf-filter {
+    width: 100%; font-family: inherit; font-size: 13px; color: #e9e9f6;
+    background: rgba(0, 0, 0, 0.22); border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 9px; padding: 8px 11px; outline: none; margin: 0 0 10px;
+  }
+  #conf-filter:focus { border-color: #818cf8; }
+  /* 저장 위치 선택: 디렉토리 패널과 유사한 목록형 UI */
+  #conf-save-path {
+    font-size: 12px; color: #9a9ab8; margin: 2px 0 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .confpick-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 14px; font-size: 13px; color: #e0e0f0;
+    border-radius: 8px; cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .confpick-item:hover { background: rgba(255, 255, 255, 0.10); }
+  .confpick-item > span:last-child { overflow: hidden; text-overflow: ellipsis; }
   .conf-twisty {
     flex-shrink: 0; width: 16px; text-align: center; color: #8a8ab0; font-size: 10px;
     cursor: pointer; user-select: none;
@@ -1000,7 +1028,10 @@
         <button class="help-tab" data-tab="ver">버전 기록</button>
       </div>
       <div id="help-search">
-        <input id="help-search-input" type="text" placeholder="설명서 검색... (Ctrl+F)" spellcheck="false">
+        <span class="search-box">
+          <span class="search-ic">🔍</span>
+          <input id="help-search-input" type="text" placeholder="설명서 검색... (Ctrl+F)" spellcheck="false">
+        </span>
         <span id="help-search-count"></span>
         <button id="help-search-prev" class="search-btn" title="이전 결과 (Shift+Enter)">▲</button>
         <button id="help-search-next" class="search-btn" title="다음 결과 (Enter)">▼</button>
@@ -1092,6 +1123,7 @@
     </div>
     <div class="app-modal-body">
       <div class="section-title" id="conf-list-title">내 문서 목록</div>
+      <input id="conf-filter" type="text" spellcheck="false" placeholder="제목으로 검색...">
       <div id="conf-list"></div>
     </div>
     <div class="app-modal-footer">
@@ -1112,6 +1144,7 @@
         <input id="conf-save-name" type="text" spellcheck="false">
       </div>
       <div class="section-title" id="conf-save-loc-l">저장 위치</div>
+      <div id="conf-save-path"></div>
       <div id="conf-save-tree"></div>
     </div>
     <div class="app-modal-footer">
@@ -1212,8 +1245,11 @@ const I18N = {
     confDeleted: 'Confluence에서 삭제됨: ',
     btnConfSave: '☁️ 컨플 저장', btnConfSave_t: '현재 문서를 Confluence에 저장',
     confSaveModal: '☁️ Confluence에 저장', confSaveTitleL: '제목 (파일명)',
-    confSaveLocL: '저장 위치 (선택하지 않으면 폴더 최상위)', confSaveRoot: '📁 폴더 최상위',
+    confSaveLocL: '저장 위치 (폴더를 클릭해 이동, 현재 위치에 저장됩니다)', confSaveRoot: '폴더 최상위',
     confSaveBtn: '저장', confNeedTitle: '제목을 입력하세요',
+    confFilterPh: '제목으로 검색...',
+    confNoSub: '하위 페이지 없음 — 이 위치에 저장됩니다',
+    confNoMatch: '검색 결과가 없습니다',
   },
   en: {
     btnNew: '📄 New', btnNew_t: 'New document (Ctrl+N)',
@@ -1295,16 +1331,19 @@ const I18N = {
     confDeleted: 'Deleted from Confluence: ',
     btnConfSave: '☁️ Save to Confluence', btnConfSave_t: 'Save current document to Confluence',
     confSaveModal: '☁️ Save to Confluence', confSaveTitleL: 'Title (file name)',
-    confSaveLocL: 'Location (defaults to folder root if none selected)', confSaveRoot: '📁 Folder root',
+    confSaveLocL: 'Location (click folders to navigate; saves to the current location)', confSaveRoot: 'Folder root',
     confSaveBtn: 'Save', confNeedTitle: 'Enter a title',
+    confFilterPh: 'Filter by title...',
+    confNoSub: 'No sub-pages — will be saved here',
+    confNoMatch: 'No matching pages',
   },
 };
 let lang = 'ko';
 function L() { return I18N[lang]; }
 
-/* 플랫폼: macOS는 단축키 표기를 Ctrl → Cmd(⌘)로 바꾼다 */
+/* 플랫폼: macOS는 단축키 표기를 Ctrl → Command로 바꾼다 (동작은 ⌘ 키) */
 const IS_MAC = /mac|iphone|ipad|ipod/i.test((navigator.platform || '') + ' ' + (navigator.userAgent || ''));
-function modKey(s) { return IS_MAC ? String(s).replace(/Ctrl/g, 'Cmd') : s; }
+function modKey(s) { return IS_MAC ? String(s).replace(/Ctrl/g, 'Command') : s; }
 
 function setTxt(id, s) { const el = document.getElementById(id); if (el) el.textContent = s; }
 function setTitle(id, s) { const el = document.getElementById(id); if (el) el.title = modKey(s); }
@@ -1361,6 +1400,7 @@ function applyLang() {
   /* Confluence 모달 */
   setTxt('conf-title', d.confTitle); setTitle('conf-reload', d.confReload_t); setTitle('conf-x', d.confClose_t);
   setTxt('conf-list-title', d.confListTitle); setTxt('conf-save-new', d.confSaveNew);
+  document.getElementById('conf-filter').placeholder = d.confFilterPh;
   document.getElementById('lang-ko').classList.toggle('active', lang === 'ko');
   document.getElementById('lang-en').classList.toggle('active', lang === 'en');
   updateFullButtons();
@@ -1987,7 +2027,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.5.0** |
+| **최신 버전** | **v1.6.0** |
 | 최종 업데이트 | 2026-07-08 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -1999,6 +2039,25 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.6.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence 검색 필터 · 위치 탐색 UI</summary>
+
+### 🔗 Confluence 목록/저장 개선
+
+- 목록 상단에 **제목 검색 필터** 추가 — 입력 즉시 계층 구조를 유지한 채 필터링(하위 매칭 시 상위도 표시)
+- **🔗 Confluence 메뉴를 열 때마다 새로고침**해 최신 폴더/페이지 계층을 가져옴 (필터도 초기화)
+- **☁️ 컨플 저장**의 위치 선택을 **디렉토리 패널과 유사한 탐색 UI**로 변경
+    - 폴더를 **클릭해 한 단계씩 이동**, \`..\`으로 상위 이동, 상단에 현재 경로 표시
+    - **현재 탐색 중인 위치에 저장** (최상위 = 폴더 루트)
+- 컨플에서 연 문서는 기존대로 저장(\`Ctrl+S\`/\`⌘+S\`) 시 **즉시 해당 페이지 업데이트**
+
+### 🎨 기타
+
+- 설명서 검색 입력창을 **밝은 배경 + 🔍 돋보기 아이콘**으로 개선 (가독성 향상)
+- macOS 단축키 안내 표기를 \`Command+F\` 형식으로 변경
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.5.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence 계층/저장 UX</summary>
 
 ### 🔗 Confluence 사용성 개선
@@ -2868,7 +2927,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.5.0** |
+| **Latest version** | **v1.6.0** |
 | Last updated | 2026-07-08 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2880,6 +2939,25 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.6.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence filter · location navigator</summary>
+
+### 🔗 Confluence list/save improvements
+
+- Added a **title filter** above the list — filters instantly while keeping the hierarchy (parents stay visible when a child matches)
+- The **🔗 Confluence menu refreshes on every open**, fetching the latest folder/page hierarchy (filter resets too)
+- **☁️ Save to Confluence** location picker redesigned to a **directory-panel-like navigator**
+    - **Click folders to descend one level**, \`..\` to go up, current path shown at the top
+    - Saves to the **currently navigated location** (top = folder root)
+- Docs opened from Confluence still **update the page immediately** on save (\`Ctrl+S\`/\`⌘+S\`)
+
+### 🎨 Misc
+
+- Help search box now has a **light background + 🔍 magnifier icon** for visibility
+- macOS shortcut hints now read \`Command+F\` style
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.5.0</b> &nbsp;·&nbsp; 2026-07-08 &nbsp;·&nbsp; Confluence hierarchy & save UX</summary>
 
 ### 🔗 Confluence usability
@@ -4514,7 +4592,9 @@ const confListEl = document.getElementById('conf-list');
 
 async function openConfluence() {
   confluenceOverlay.classList.add('open');
+  confFilterEl.value = '';   // 열 때마다 필터 초기화 + 목록 새로고침
   await loadConfList();
+  confFilterEl.focus();
 }
 function closeConfluence() { confluenceOverlay.classList.remove('open'); }
 
@@ -4562,6 +4642,32 @@ function renderConfNode(node) {
   return wrap;
 }
 
+let confTreeData = [];   // 마지막으로 가져온 계층 데이터 (필터링용)
+const confFilterEl = document.getElementById('conf-filter');
+
+/* 제목 필터: 자신 또는 하위가 매칭되면 유지 (계층 구조 보존) */
+function filterConfTree(nodes, q) {
+  if (!q) return nodes;
+  const out = [];
+  for (const n of nodes) {
+    const kids = filterConfTree(n.children || [], q);
+    if (n.title.toLowerCase().includes(q) || kids.length) out.push({ ...n, children: kids });
+  }
+  return out;
+}
+
+function renderConfList() {
+  const q = confFilterEl.value.trim().toLowerCase();
+  const tree = filterConfTree(confTreeData, q);
+  confListEl.innerHTML = '';
+  if (!tree.length) {
+    confListEl.innerHTML = '<div class="conf-note">' + (q ? L().confNoMatch : L().confEmpty) + '</div>';
+    return;
+  }
+  for (const node of tree) confListEl.appendChild(renderConfNode(node));
+}
+
+/* 메뉴를 열 때마다 컨플에서 새로 가져와(새로고침) 계층 구조로 표시 */
 async function loadConfList() {
   confListEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
   try {
@@ -4570,14 +4676,14 @@ async function loadConfList() {
     /* conf_tree는 계층(tree), 폴더 없을 땐 conf_list의 평면(pages)을 반환 */
     let tree = (r && r.tree) || null;
     if (!tree && r && r.pages) tree = r.pages.map(p => ({ ...p, children: [] }));
-    tree = tree || [];
-    if (!tree.length) { confListEl.innerHTML = '<div class="conf-note">' + L().confEmpty + '</div>'; return; }
-    confListEl.innerHTML = '';
-    for (const node of tree) confListEl.appendChild(renderConfNode(node));
+    confTreeData = tree || [];
+    renderConfList();
   } catch (e) {
     confListEl.innerHTML = '<div class="conf-note">' + L().confErr + e + '</div>';
   }
 }
+
+confFilterEl.addEventListener('input', renderConfList);
 
 /* Confluence 페이지 삭제(휴지통 이동) */
 async function deleteConfPage(p) {
@@ -4621,46 +4727,49 @@ async function confUpdateCurrent() {
   flash(L().confUpdated + c.title);
 }
 
-/* ---------- 현재 문서를 Confluence에 저장(위치 선택 + 제목 입력) ---------- */
+/* ---------- 현재 문서를 Confluence에 저장 (디렉토리 패널식 위치 탐색 + 제목 입력) ---------- */
 const confSaveOverlay = document.getElementById('conf-save-overlay');
 const confSaveName = document.getElementById('conf-save-name');
 const confSaveTreeEl = document.getElementById('conf-save-tree');
-let confSaveParent = null;   // 선택된 저장 위치(parent page id). null = 폴더 최상위
+const confSavePathEl = document.getElementById('conf-save-path');
+let confPickTree = [];    // 전체 계층 데이터
+let confPickStack = [];   // 현재 탐색 경로(노드 배열). 비어있으면 폴더 최상위
 
-/* 선택(위치 지정) 모드 트리 노드 렌더링 */
-function renderConfPick(node) {
-  const wrap = document.createElement('div');
-  wrap.className = 'conf-node';
-  const row = document.createElement('div');
-  row.className = 'conf-row';
-  row.dataset.id = node.id;
-  const hasChildren = node.children && node.children.length;
-  const twisty = document.createElement('span');
-  twisty.className = 'conf-twisty';
-  twisty.textContent = hasChildren ? '▼' : '';
-  const title = document.createElement('span');
-  title.className = 'conf-title';
-  title.textContent = (hasChildren ? '📁 ' : '📄 ') + node.title;
-  row.append(twisty, title);
-  row.addEventListener('click', (e) => {
-    if (e.target === twisty) return;
-    confSaveParent = node.id;
-    confSaveTreeEl.querySelectorAll('.conf-row.selected').forEach(x => x.classList.remove('selected'));
-    row.classList.add('selected');
-  });
-  wrap.appendChild(row);
-  if (hasChildren) {
-    const kids = document.createElement('div');
-    kids.className = 'conf-children';
-    for (const c of node.children) kids.appendChild(renderConfPick(c));
-    wrap.appendChild(kids);
-    twisty.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const collapsed = kids.classList.toggle('collapsed');
-      twisty.textContent = collapsed ? '▶' : '▼';
-    });
+function confPickItem(icon, name) {
+  const el = document.createElement('div');
+  el.className = 'confpick-item';
+  const i = document.createElement('span'); i.textContent = icon;
+  const n = document.createElement('span'); n.textContent = name; n.title = name;
+  el.append(i, n);
+  return el;
+}
+
+/* 디렉토리 패널처럼 한 단계씩 표시: 클릭 = 폴더 진입, .. = 상위로 */
+function renderConfPickLevel() {
+  confSavePathEl.textContent = '📁 ' + L().confSaveRoot
+    + (confPickStack.length ? ' / ' + confPickStack.map(n => n.title).join(' / ') : '');
+  confSaveTreeEl.innerHTML = '';
+  if (confPickStack.length) {
+    const up = confPickItem('📁', '..');
+    up.addEventListener('click', () => { confPickStack.pop(); renderConfPickLevel(); });
+    confSaveTreeEl.appendChild(up);
   }
-  return wrap;
+  const kids = confPickStack.length
+    ? (confPickStack[confPickStack.length - 1].children || [])
+    : confPickTree;
+  if (!kids.length) {
+    const note = document.createElement('div');
+    note.className = 'conf-note';
+    note.style.padding = '8px 14px';
+    note.textContent = L().confNoSub;
+    confSaveTreeEl.appendChild(note);
+    return;
+  }
+  for (const n of kids) {
+    const row = confPickItem((n.children && n.children.length) ? '📁' : '📄', n.title);
+    row.addEventListener('click', () => { confPickStack.push(n); renderConfPickLevel(); });
+    confSaveTreeEl.appendChild(row);
+  }
 }
 
 async function openConfSave() {
@@ -4670,38 +4779,27 @@ async function openConfSave() {
   let def = activeTab.conf ? activeTab.conf.title
     : (activeTab.path ? baseName(activeTab.path).replace(/\.[^.]+$/, '') : activeTab.name);
   confSaveName.value = def || '';
-  confSaveParent = null;
+  confPickStack = [];
   confSaveOverlay.classList.add('open');
   confSaveName.focus();
   confSaveName.select();
-  /* 위치 트리 로드 (최상위 '폴더 루트' + 계층) */
   confSaveTreeEl.innerHTML = '<div class="conf-note">' + L().confLoading + '</div>';
-  const root = document.createElement('div');
-  root.className = 'conf-row selected';   // 기본 선택 = 폴더 최상위
-  root.textContent = L().confSaveRoot;
-  root.addEventListener('click', () => {
-    confSaveParent = null;
-    confSaveTreeEl.querySelectorAll('.conf-row.selected').forEach(x => x.classList.remove('selected'));
-    root.classList.add('selected');
-  });
+  confSavePathEl.textContent = '';
   try {
     const r = await window.pywebview.api.conf_tree();
-    confSaveTreeEl.innerHTML = '';
-    confSaveTreeEl.appendChild(root);
-    let tree = (r && r.tree) || (r && r.pages ? r.pages.map(p => ({ ...p, children: [] })) : []);
-    for (const node of (tree || [])) confSaveTreeEl.appendChild(renderConfPick(node));
-  } catch (e) {
-    confSaveTreeEl.innerHTML = '';
-    confSaveTreeEl.appendChild(root);
-  }
+    confPickTree = (r && r.tree) || (r && r.pages ? r.pages.map(p => ({ ...p, children: [] })) : []);
+  } catch (e) { confPickTree = []; }
+  renderConfPickLevel();
 }
 function closeConfSave() { confSaveOverlay.classList.remove('open'); }
 
 async function doConfSave() {
   const title = confSaveName.value.trim();
   if (!title) { confSaveName.focus(); flash(L().confNeedTitle); return; }
+  /* 저장 위치 = 현재 탐색 중인 위치 (최상위면 폴더 루트) */
+  const parent = confPickStack.length ? confPickStack[confPickStack.length - 1].id : null;
   syncEditorToTab();
-  const r = await window.pywebview.api.conf_create(title, editor.value, confSaveParent);
+  const r = await window.pywebview.api.conf_create(title, editor.value, parent);
   if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
   if (activeTab) {
     activeTab.conf = { id: r.id, version: r.version, title: title };
