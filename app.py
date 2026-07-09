@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.6.2"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.9.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -60,7 +60,9 @@ MD_CONFIGS = {
 
 PYGMENTS_CSS = HtmlFormatter(style="default").get_style_defs(".highlight")
 
+GITHUB_REPO = "wbslog/jm-markdowneditor"  # 자동 업데이트 확인 대상 저장소
 SESSION_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-session.json")
+UPDATE_STATE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-update.json")
 CONFLUENCE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-confluence.json")
 SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-settings.json")
 # 편집 왕복(round-trip)을 위해 페이지에 원본 마크다운을 저장하는 content property 키
@@ -712,6 +714,14 @@ body {{ margin: 0; background: #f0f2f5; }}
             nodes.append(node)
         return nodes, None
 
+    @staticmethod
+    def _fmt_date(iso):
+        """ISO 날짜문자열(2026-07-09T06:11:40.973Z) → 'YYYY-MM-DD' (없으면 빈 문자열)"""
+        if not iso or not isinstance(iso, str):
+            return ""
+        m = re.match(r"(\d{4}-\d{2}-\d{2})", iso)
+        return m.group(1) if m else ""
+
     def conf_children(self, parent_id=None, kind=None, cfg=None):
         """직계 자식 '한 단계'만 조회 (지연 로딩용).
         parent_id 미지정 시 설정 링크의 폴더/페이지가 루트가 된다."""
@@ -738,20 +748,43 @@ body {{ margin: 0; background: #f0f2f5; }}
             for c in children:
                 ctype = (c.get("type") or "").lower()
                 k = "folder" if ctype == "folder" else ("page" if ctype == "page" else ctype)
-                out.append({"id": str(c.get("id")), "title": c.get("title", ""), "kind": k})
+                ver = c.get("version") or {}
+                node = {
+                    "id": str(c.get("id")), "title": c.get("title", ""), "kind": k,
+                    "version": ver.get("number"),
+                    "created": self._fmt_date(c.get("createdAt")),
+                    "updated": self._fmt_date(ver.get("createdAt") or c.get("createdAt")),
+                }
+                # 하위 존재 여부: childTypes 힌트가 있으면 사용, 없으면 폴더는 확인 필요(None)
+                ct = c.get("childTypes") or {}
+                if isinstance(ct, dict) and ct:
+                    node["has_children"] = bool(
+                        (ct.get("page") or {}).get("value") or (ct.get("folder") or {}).get("value")
+                    )
+                else:
+                    node["has_children"] = None  # 미상 → 프런트에서 필요 시 조회
+                out.append(node)
             out.sort(key=lambda n: (n["kind"] != "folder", n["title"].lower()))
             return {"children": out}
-        # v1 폴백: 페이지 자식만 조회 가능
+        # v1 폴백: 페이지 자식만 조회 가능 (하위 존재 여부/날짜 함께)
         data, verr = self._conf_request(
-            cfg, "GET", f"/rest/api/content/{parent_id}/child/page?limit=100&expand=version"
+            cfg, "GET",
+            f"/rest/api/content/{parent_id}/child/page?limit=100&expand=version,history,childTypes.page",
         )
         if verr:
             return {"error": err or verr}
-        out = [
-            {"id": str(r["id"]), "title": r["title"], "kind": "page",
-             "version": r.get("version", {}).get("number", 1)}
-            for r in data.get("results", [])
-        ]
+        out = []
+        for r in data.get("results", []):
+            ct = r.get("childTypes") or {}
+            has = None
+            if isinstance(ct, dict) and ct:
+                has = bool((ct.get("page") or {}).get("value"))
+            out.append({
+                "id": str(r["id"]), "title": r["title"], "kind": "page",
+                "version": r.get("version", {}).get("number", 1), "has_children": has,
+                "created": self._fmt_date((r.get("history") or {}).get("createdDate")),
+                "updated": self._fmt_date((r.get("version") or {}).get("when")),
+            })
         out.sort(key=lambda n: n["title"].lower())
         return {"children": out}
 
@@ -914,6 +947,166 @@ body {{ margin: 0; background: #f0f2f5; }}
                 cfg, "POST", f"/rest/api/content/{page_id}/property",
                 body={"key": MD_PROP_KEY, "value": markdown_text},
             )
+
+    # ================= 자동 업데이트 (GitHub Releases) =================
+    def _github_json(self, path):
+        """GitHub REST 호출 (인증 불필요한 공개 저장소)"""
+        req = urllib.request.Request(
+            "https://api.github.com" + path,
+            headers={"Accept": "application/vnd.github+json", "User-Agent": "jm-mdv-updater"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=15, context=_CONF_SSL_CTX) as r:
+                return json.loads(r.read().decode("utf-8", "replace")), None
+        except Exception as e:  # noqa: BLE001
+            return None, str(e)
+
+    @staticmethod
+    def _ver_tuple(v):
+        nums = re.findall(r"\d+", v or "")
+        return tuple(int(n) for n in (nums + ["0", "0", "0"])[:3])
+
+    def update_check(self):
+        """최신 릴리스 확인. 새 버전이면 버전/변경내용/OS별 다운로드 자산 반환."""
+        data, err = self._github_json(f"/repos/{GITHUB_REPO}/releases/latest")
+        if err or not isinstance(data, dict) or not data.get("tag_name"):
+            return {"available": False, "error": err or "no release"}
+        tag = data.get("tag_name") or ""
+        if self._ver_tuple(tag) <= self._ver_tuple(APP_VERSION):
+            return {"available": False, "latest": tag}
+        assets = data.get("assets") or []
+        asset = None
+        if sys.platform == "darwin":
+            # macOS: 'mac' 포함 zip 우선, 없으면 아무 zip
+            for a in assets:
+                n = (a.get("name") or "").lower()
+                if "mac" in n and n.endswith(".zip"):
+                    asset = a
+                    break
+            if not asset:
+                for a in assets:
+                    if (a.get("name") or "").lower().endswith(".zip"):
+                        asset = a
+                        break
+        else:
+            for a in assets:
+                if (a.get("name") or "").lower().endswith(".exe"):
+                    asset = a
+                    break
+        return {
+            "available": True,
+            "current": APP_VERSION,
+            "version": tag.lstrip("vV"),
+            "notes": data.get("body") or "",
+            "asset_name": asset.get("name") if asset else None,
+            "asset_url": asset.get("browser_download_url") if asset else None,
+            "page_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases",
+        }
+
+    def update_download_and_restart(self, asset_url, asset_name, version, notes=""):
+        """릴리스 파일을 기존 프로그램 위치에 내려받고, 새 파일을 실행한 뒤 현재 앱 종료."""
+        try:
+            app_dir = (os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+                       else os.path.dirname(os.path.abspath(__file__)))
+            target = os.path.join(app_dir, asset_name)
+            tmp = target + ".part"
+            req = urllib.request.Request(asset_url, headers={"User-Agent": "jm-mdv-updater"})
+            with urllib.request.urlopen(req, timeout=300, context=_CONF_SSL_CTX) as r, open(tmp, "wb") as f:
+                shutil.copyfileobj(r, f)
+            if os.path.exists(target):
+                os.remove(target)
+            os.rename(tmp, target)
+            # 새 버전 첫 실행 때 보여줄 '추가/개선 내용'(릴리스 메시지) 보관
+            try:
+                st = self._update_state()
+                st["pending_notes"] = {"version": str(version).lstrip("vV"), "notes": notes or ""}
+                with open(UPDATE_STATE_FILE, "w", encoding="utf-8") as f:
+                    json.dump(st, f, ensure_ascii=False)
+            except OSError:
+                pass
+            # 새로 받은 파일 실행
+            if sys.platform == "darwin" and asset_name.lower().endswith(".zip"):
+                subprocess.run(["ditto", "-x", "-k", target, app_dir], check=False)
+                bundle = None
+                base = re.sub(r"\.zip$", "", asset_name, flags=re.I)
+                cand = os.path.join(app_dir, base + ".app")
+                if os.path.isdir(cand):
+                    bundle = cand
+                else:
+                    for nme in sorted(os.listdir(app_dir)):
+                        if nme.endswith(".app") and str(version).lstrip("vV") in nme:
+                            bundle = os.path.join(app_dir, nme)
+                            break
+                subprocess.Popen(["open", bundle or app_dir])
+            elif os.name == "nt":
+                subprocess.Popen([target], cwd=app_dir, creationflags=0x00000008)  # DETACHED_PROCESS
+            else:
+                subprocess.Popen([target], cwd=app_dir)
+            # 기존 프로그램 종료 (새 프로세스가 뜰 시간을 잠깐 준 뒤)
+            threading.Timer(0.8, lambda: os._exit(0)).start()
+            try:
+                self._window.destroy()
+            except Exception:
+                pass
+            return {"ok": True}
+        except Exception as e:  # noqa: BLE001
+            return {"error": str(e)}
+
+    @staticmethod
+    def _update_state():
+        try:
+            with open(UPDATE_STATE_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return {}
+
+    def onboarding_needed(self):
+        """최초 실행 여부 반환 (온보딩 모달을 1회만 표시)."""
+        return {"show": not self._update_state().get("onboarded", False)}
+
+    def onboarding_done(self):
+        """온보딩 완료 표시 (이후 다시 표시하지 않음)."""
+        st = self._update_state()
+        st["onboarded"] = True
+        try:
+            with open(UPDATE_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False)
+            return {"ok": True}
+        except OSError as e:
+            return {"error": str(e)}
+
+    def update_whatsnew(self):
+        """새 버전 첫 실행 시 보여줄 '추가/개선 내용' 반환 (없으면 None).
+        '다시 보지 않기' 체크 시 이후 버전에서도 표시하지 않음."""
+        st = self._update_state()
+        if st.get("dont_show"):
+            return None
+        if st.get("last_seen_version") == APP_VERSION:
+            return None
+        notes = None
+        pn = st.get("pending_notes") or {}
+        if str(pn.get("version", "")).lstrip("vV") == APP_VERSION and pn.get("notes"):
+            notes = pn["notes"]
+        else:
+            data, err = self._github_json(f"/repos/{GITHUB_REPO}/releases/tags/v{APP_VERSION}")
+            if err is None and isinstance(data, dict):
+                notes = data.get("body") or None
+        if not notes:
+            self.update_mark_seen(False)  # 보여줄 내용이 없으면 재시도하지 않도록 처리
+            return None
+        return {"version": APP_VERSION, "notes": notes}
+
+    def update_mark_seen(self, dont_show=False):
+        st = self._update_state()
+        st["last_seen_version"] = APP_VERSION
+        st["dont_show"] = bool(dont_show)
+        st.pop("pending_notes", None)
+        try:
+            with open(UPDATE_STATE_FILE, "w", encoding="utf-8") as f:
+                json.dump(st, f, ensure_ascii=False)
+            return {"ok": True}
+        except OSError as e:
+            return {"error": str(e)}
 
     def on_files_dropped(self, event):
         """OS 탐색기/Finder에서 드롭한 파일들의 실제 경로로 편집기에서 열기.

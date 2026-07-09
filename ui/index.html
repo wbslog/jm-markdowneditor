@@ -811,6 +811,30 @@
   .conf-row.selected { background: rgba(99, 102, 241, 0.35); box-shadow: inset 0 0 0 1px rgba(129,140,248,0.6); }
   #conf-save-tree { max-height: 46vh; overflow-y: auto; margin-top: 4px; }
   #conf-reload { font-size: 12px; white-space: nowrap; }
+  /* 업데이트/새 기능 모달의 변경내용 카드 (마크다운 렌더링용 밝은 배경) */
+  .notes-card {
+    background: #ffffff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    max-height: 38vh;
+    overflow: auto;
+    font-size: 14px;
+  }
+  .footer-check {
+    display: flex; align-items: center; gap: 7px;
+    margin-right: auto; font-size: 12.5px; color: #c3c3dc; cursor: pointer; user-select: none;
+  }
+  .footer-check input { accent-color: #6366f1; }
+  /* 최초 실행 온보딩 (대표 기능 5가지) */
+  .ob-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .ob-list li {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 14px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.09);
+  }
+  .ob-ic { font-size: 22px; line-height: 1.2; flex-shrink: 0; }
+  .ob-txt b { display: block; font-size: 14px; color: #ececf8; margin-bottom: 2px; }
+  .ob-txt span { font-size: 12.5px; color: #a9a9c6; line-height: 1.5; }
   /* Confluence 목록 검색 필터 */
   #conf-filter {
     width: 100%; font-family: inherit; font-size: 13px; color: #e9e9f6;
@@ -838,6 +862,52 @@
   .conf-ver { flex-shrink: 0; font-size: 11px; color: #8a8ab0; }
   .conf-children { margin-left: 18px; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 4px; }
   .conf-children.collapsed { display: none; }
+
+  /* ===== Confluence 조회: 밝은 게시판(목록) 톤 ===== */
+  #conf-list {
+    display: block; margin: 6px 0 4px; gap: 0;
+    background: #ffffff; border: 1px solid #e3e6ec; border-radius: 12px; overflow: hidden;
+  }
+  #conf-list .conf-head {
+    display: flex; align-items: center; gap: 6px;
+    padding: 9px 14px; background: #eef1f6; color: #5b6172;
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.02em;
+    border-bottom: 1px solid #e3e6ec;
+  }
+  #conf-list .conf-head .h-name { flex: 1; }
+  #conf-list .conf-head .h-date { width: 92px; text-align: center; flex-shrink: 0; }
+  #conf-list .conf-node { border-bottom: 1px solid #eef0f3; }
+  #conf-list .conf-node:last-child { border-bottom: none; }
+  #conf-list .conf-row {
+    background: #ffffff; color: #1f2328; border-radius: 0; gap: 7px; padding: 10px 14px;
+  }
+  #conf-list .conf-row:hover { background: #f2f5ff; }
+  #conf-list .conf-twisty { color: #8a90a0; font-size: 11px; }
+  #conf-list .conf-title { color: #1f2328; font-weight: 500; }
+  #conf-list .conf-ver { color: #8a90a0; }
+  #conf-list .conf-created, #conf-list .conf-updated {
+    width: 92px; flex-shrink: 0; text-align: center;
+    font-size: 11.5px; color: #6b7280; white-space: nowrap;
+  }
+  #conf-list .conf-children {
+    margin-left: 0; border-left: none; padding-left: 22px;
+    background: #fafbfd; border-top: 1px solid #eef0f3;
+  }
+  #conf-list .conf-del { color: #9aa0ae; }
+  #conf-list .conf-del:hover { background: rgba(239, 68, 68, 0.14); color: #dc2626; }
+  /* 노드(폴더/하위 있는 페이지) 우측 끝 새로고침 버튼 */
+  .conf-reload-node {
+    flex-shrink: 0; background: #eef1f6; border: 1px solid #dfe3ea; color: #5b6172;
+    font-size: 12px; cursor: pointer; padding: 3px 7px; border-radius: 6px;
+  }
+  .conf-reload-node:hover { background: #6366f1; border-color: #6366f1; color: #fff; }
+  /* 상단 새로고침 버튼 강조 */
+  #conf-reload {
+    font-size: 12.5px; font-weight: 600; white-space: nowrap;
+    background: rgba(99, 102, 241, 0.9) !important; color: #fff !important;
+    border-radius: 8px; padding: 5px 12px;
+  }
+  #conf-reload:hover { background: #7477f5 !important; }
   .app-modal-header {
     flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
     padding: 12px 16px; background: rgba(255, 255, 255, 0.05);
@@ -1018,6 +1088,57 @@
 </div>
 
 <div id="ctx-menu"></div>
+
+<div id="onboard-overlay" class="app-overlay">
+  <div class="app-modal">
+    <div class="app-modal-header">
+      <span id="ob-title">👋 jm-mdv에 오신 것을 환영합니다</span>
+      <button class="x" id="ob-x" title="닫기">✕</button>
+    </div>
+    <div class="app-modal-body">
+      <p id="ob-sub" style="margin:0 0 14px; font-size:13.5px; color:#c3c3dc"></p>
+      <ul id="ob-list" class="ob-list"></ul>
+    </div>
+    <div class="app-modal-footer">
+      <button id="ob-start" class="primary">시작하기</button>
+    </div>
+  </div>
+</div>
+
+<div id="update-overlay" class="app-overlay">
+  <div class="app-modal">
+    <div class="app-modal-header">
+      <span id="upd-title">🚀 새 버전 알림</span>
+      <button class="x" id="upd-x" title="닫기">✕</button>
+    </div>
+    <div class="app-modal-body">
+      <p id="upd-info" style="margin:0 0 12px; font-size:13.5px"></p>
+      <div class="section-title" id="upd-notes-l">변경 내용</div>
+      <article id="upd-notes" class="markdown-body notes-card"></article>
+    </div>
+    <div class="app-modal-footer">
+      <button id="upd-later">나중에</button>
+      <button id="upd-go" class="primary">⬇️ 다운로드 및 재시작</button>
+    </div>
+  </div>
+</div>
+
+<div id="whatsnew-overlay" class="app-overlay">
+  <div class="app-modal">
+    <div class="app-modal-header">
+      <span id="wn-title">✨ 새로운 기능</span>
+      <button class="x" id="wn-x" title="닫기">✕</button>
+    </div>
+    <div class="app-modal-body">
+      <p id="wn-ver" style="margin:0 0 12px; font-size:13.5px"></p>
+      <article id="wn-notes" class="markdown-body notes-card"></article>
+    </div>
+    <div class="app-modal-footer">
+      <label class="footer-check"><input type="checkbox" id="wn-dontshow"><span id="wn-dontshow-l">다시 보지 않기</span></label>
+      <button id="wn-close" class="primary">닫기</button>
+    </div>
+  </div>
+</div>
 
 <div id="help-overlay">
   <div id="help-modal">
@@ -1241,12 +1362,34 @@ const I18N = {
     confNeedSetup: '먼저 설정에서 Confluence 연동을 완료하세요',
     confErr: 'Confluence 오류: ', confOpened: 'Confluence 페이지 열기: ',
     confSaved: 'Confluence에 저장됨: ', confUpdated: 'Confluence 업데이트됨: ',
-    confBadge: 'Confluence', confOpen_t: '열기', confDelete_t: '삭제(휴지통)',
+    confBadge: 'Confluence', confOpen_t: '열기', confDelete_t: '삭제(휴지통)', confReloadNode_t: '하위 목록 새로고침',
+    colName: '제목', colCreated: '등록일', colUpdated: '수정일',
     confDeleteConfirm: (t) => '"' + t + '" 페이지를 삭제할까요?\n(휴지통으로 이동, 나중에 복구 가능)',
     confDeleted: 'Confluence에서 삭제됨: ',
+    // 최초 실행 온보딩 (대표 기능 5가지)
+    obTitle: '👋 jm-mdv에 오신 것을 환영합니다',
+    obSub: '실시간 미리보기 마크다운 에디터의 대표 기능 5가지를 소개합니다.',
+    obStart: '시작하기',
+    obFeatures: [
+      ['✍️', '실시간 미리보기 편집', '좌측에 마크다운을 입력하면 우측에 바로 반영되고, 좌우가 동기 스크롤됩니다.'],
+      ['🗂️', '탭 · 디렉토리 · 드래그 열기', '여러 파일을 탭으로 편집하고, 폴더 탐색이나 파일을 창에 끌어다 놓아 바로 엽니다.'],
+      ['🔍', '검색 · 🌐 HTML 내보내기', 'Ctrl+F로 에디터·미리보기를 동시 검색하고, 미리보기 그대로 HTML로 저장합니다.'],
+      ['🔗', 'Confluence 연동', '설정에서 연동하면 Confluence 문서를 열고 편집·저장할 수 있습니다.'],
+      ['🚀', '자동 업데이트 · 백업', '새 버전을 자동 확인해 업데이트하고, 저장 시 백업 폴더에 사본을 남길 수 있습니다.'],
+    ],
+    // 자동 업데이트 / 새 기능 안내
+    updTitle: '🚀 새 버전 알림',
+    updInfo: (cur, nw) => '새 버전 v' + nw + ' 이(가) 있습니다. (현재 v' + cur + ')',
+    updNotesL: '변경 내용', updLater: '나중에', updGo: '⬇️ 다운로드 및 재시작',
+    updNoAsset: '이 OS용 파일이 릴리스에 없습니다. GitHub 릴리스 페이지를 확인하세요.',
+    updDownloading: '다운로드 중... 완료되면 자동으로 재시작됩니다',
+    updFail: '업데이트 실패: ',
+    wnTitle: '✨ 새로운 기능',
+    wnVer: (v) => '버전 v' + v + ' 의 추가/개선 내용입니다.',
+    wnDontShow: '다시 보지 않기', wnClose: '닫기',
     btnConfSave: '☁️ 컨플 저장', btnConfSave_t: '현재 문서를 Confluence에 저장',
-    confSaveModal: '☁️ Confluence에 저장', confSaveTitleL: '제목 (파일명)',
-    confSaveLocL: '저장 위치 (폴더를 클릭해 이동, 현재 위치에 저장됩니다)', confSaveRoot: '폴더 최상위',
+    confSaveModal: '☁️ Confluence에 저장', confSaveTitleL: '저장할 문서 제목(파일명)',
+    confSaveLocL: '저장할 위치 선택', confSaveRoot: '폴더 최상위',
     confSaveBtn: '저장', confNeedTitle: '제목을 입력하세요',
     confFilterPh: '제목으로 검색...',
     confNoSub: '하위 페이지 없음 — 이 위치에 저장됩니다',
@@ -1327,12 +1470,34 @@ const I18N = {
     confNeedSetup: 'Complete Confluence setup in Settings first',
     confErr: 'Confluence error: ', confOpened: 'Opened Confluence page: ',
     confSaved: 'Saved to Confluence: ', confUpdated: 'Updated on Confluence: ',
-    confBadge: 'Confluence', confOpen_t: 'Open', confDelete_t: 'Delete (trash)',
+    confBadge: 'Confluence', confOpen_t: 'Open', confDelete_t: 'Delete (trash)', confReloadNode_t: 'Refresh sub-items',
+    colName: 'Title', colCreated: 'Created', colUpdated: 'Updated',
     confDeleteConfirm: (t) => 'Delete "' + t + '"?\n(Moved to trash, recoverable later)',
     confDeleted: 'Deleted from Confluence: ',
+    // First-run onboarding (5 key features)
+    obTitle: '👋 Welcome to jm-mdv',
+    obSub: 'Here are the 5 key features of this real-time Markdown editor.',
+    obStart: 'Get started',
+    obFeatures: [
+      ['✍️', 'Live preview editing', 'Type Markdown on the left and see it instantly on the right, with synchronized scrolling.'],
+      ['🗂️', 'Tabs · directory · drag-open', 'Edit multiple files as tabs, browse folders, or drop files onto the window to open them.'],
+      ['🔍', 'Search · 🌐 HTML export', 'Search editor & preview together with Ctrl+F, and export the preview as a standalone HTML file.'],
+      ['🔗', 'Confluence integration', 'Once configured in Settings, open, edit and save Confluence documents.'],
+      ['🚀', 'Auto-update · backup', 'Checks for new versions automatically, and can keep timestamped backups on save.'],
+    ],
+    // Auto update / what's new
+    updTitle: '🚀 Update available',
+    updInfo: (cur, nw) => 'Version v' + nw + ' is available. (current v' + cur + ')',
+    updNotesL: "What's changed", updLater: 'Later', updGo: '⬇️ Download & restart',
+    updNoAsset: 'No file for this OS in the release. Check the GitHub releases page.',
+    updDownloading: 'Downloading... the app will restart automatically',
+    updFail: 'Update failed: ',
+    wnTitle: "✨ What's new",
+    wnVer: (v) => 'Additions and improvements in v' + v + '.',
+    wnDontShow: "Don't show again", wnClose: 'Close',
     btnConfSave: '☁️ Save to Confluence', btnConfSave_t: 'Save current document to Confluence',
-    confSaveModal: '☁️ Save to Confluence', confSaveTitleL: 'Title (file name)',
-    confSaveLocL: 'Location (click folders to navigate; saves to the current location)', confSaveRoot: 'Folder root',
+    confSaveModal: '☁️ Save to Confluence', confSaveTitleL: 'Document title (file name)',
+    confSaveLocL: 'Select where to save', confSaveRoot: 'Folder root',
     confSaveBtn: 'Save', confNeedTitle: 'Enter a title',
     confFilterPh: 'Filter by title...',
     confNoSub: 'No sub-pages — will be saved here',
@@ -1366,6 +1531,10 @@ function applyLang() {
   setTxt('btn-settings', d.btnSettings); setTitle('btn-settings', d.btnSettings_t);
   setTxt('btn-confluence', d.btnConfluence); setTitle('btn-confluence', d.btnConfluence_t);
   setTxt('btn-conf-save', d.btnConfSave); setTitle('btn-conf-save', d.btnConfSave_t);
+  /* 업데이트/새 기능 모달 */
+  setTxt('upd-title', d.updTitle); setTxt('upd-notes-l', d.updNotesL);
+  setTxt('upd-later', d.updLater); setTxt('upd-go', d.updGo);
+  setTxt('wn-title', d.wnTitle); setTxt('wn-dontshow-l', d.wnDontShow); setTxt('wn-close', d.wnClose);
   setTxt('conf-save-title', d.confSaveModal); setTxt('conf-save-title-l', d.confSaveTitleL);
   setTxt('conf-save-loc-l', d.confSaveLocL); setTxt('conf-save-do', d.confSaveBtn);
   setTxt('btn-help', d.btnHelp); setTitle('btn-help', d.btnHelp_t);
@@ -2029,7 +2198,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.6.2** |
+| **최신 버전** | **v1.9.0** |
 | 최종 업데이트 | 2026-07-09 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2041,6 +2210,45 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.9.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence 게시판형 목록</summary>
+
+### 🔗 Confluence 조회 화면 개편
+
+- 폴더/페이지 목록을 **밝은 게시판(목록) UI**로 재디자인 (헤더: 제목 / 등록일 / 수정일)
+- 각 항목 **우측에 등록일·수정일** 표시
+- **하위가 있을 때만** 좌측 펼치기 아이콘 표시, 말단이면 아이콘 제거
+- 폴더/하위 있는 페이지의 **우측 끝에 하위 새로고침 버튼** 추가
+- 상단 **🔄 새로고침 버튼을 더 잘 보이게** 강조
+- ☁️ 저장 창의 입력 라벨 정리: "저장할 문서 제목(파일명)" / "저장할 위치 선택"
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.8.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 최초 실행 온보딩</summary>
+
+### 👋 온보딩 (신규)
+
+- **프로그램 최초 실행 시** 대표 기능 5가지를 **모달 창으로 1회만** 안내
+    - 실시간 미리보기 편집 / 탭·디렉토리·드래그 열기 / 검색·HTML 내보내기 / Confluence 연동 / 자동 업데이트·백업
+- **닫으면 다시 표시되지 않음** (상태를 로컬에 저장)
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.7.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; 자동 업데이트</summary>
+
+### 🚀 자동 업데이트 (신규)
+
+- 프로그램 시작 시 **GitHub 릴리스에서 새 버전을 자동 확인** → 있으면 안내창 표시
+- **다운로드 및 재시작**을 누르면:
+    - 릴리스에서 **OS에 맞는 파일**(Windows \`.exe\` / macOS \`mac zip\`)을 **기존 프로그램 위치에 다운로드**
+    - 기존 프로그램을 종료하고 **새로 받은 파일을 자동 실행**
+- 새 버전 첫 실행 시 **추가/개선 내용**(릴리스 작성 메시지)을 안내창으로 표시
+    - **다시 보지 않기** 체크 시 이후 버전에서도 표시하지 않음
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.6.2</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence 지연 로딩</summary>
 
 ### ⚡ 성능/UX 개선
@@ -2955,7 +3163,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.6.2** |
+| **Latest version** | **v1.9.0** |
 | Last updated | 2026-07-09 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2967,6 +3175,45 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.9.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence board-style list</summary>
+
+### 🔗 Confluence browse screen revamp
+
+- Redesigned the folder/page list into a **bright board (list) UI** (header: Title / Created / Updated)
+- Shows **Created & Updated dates** on the right of each item
+- Expand icon shown **only when there are children**; removed for leaf items
+- Added a **refresh button at the right end** of folders / pages that have children
+- Made the top **🔄 Refresh button more visible**
+- Cleaned up save dialog labels: "Document title (file name)" / "Select where to save"
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.8.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; First-run onboarding</summary>
+
+### 👋 Onboarding (new)
+
+- On the **very first launch**, a modal introduces the **5 key features, shown only once**
+    - Live preview editing / tabs·directory·drag-open / search·HTML export / Confluence integration / auto-update·backup
+- **Never shown again once closed** (state saved locally)
+
+</details>
+
+<details markdown="1">
+<summary>💠 <b>v1.7.0</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Auto-update</summary>
+
+### 🚀 Auto-update (new)
+
+- On launch, the app **checks GitHub Releases for a newer version** and shows a notice if found
+- Clicking **Download & restart**:
+    - Downloads the **OS-appropriate file** (Windows \`.exe\` / macOS \`mac zip\`) **into the current program's folder**
+    - Exits the running program and **launches the newly downloaded file automatically**
+- On the first run of a new version, an **additions/improvements** dialog shows the release notes
+    - Checking **Don't show again** suppresses it for future versions too
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.6.2</b> &nbsp;·&nbsp; 2026-07-09 &nbsp;·&nbsp; Confluence lazy loading</summary>
 
 ### ⚡ Performance/UX
@@ -4428,6 +4675,9 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && ctxMenu.style.display === 'block') { hideCtxMenu(); return; }
   /* 설정창은 Esc로 닫지 않음 (X/닫기 버튼 전용) */
   if (e.key === 'Escape' && settingsOverlay.classList.contains('open')) { return; }
+  if (e.key === 'Escape' && onboardOverlay.classList.contains('open')) { closeOnboarding(); return; }
+  if (e.key === 'Escape' && whatsnewOverlay.classList.contains('open')) { closeWhatsNew(); return; }
+  if (e.key === 'Escape' && updateOverlay.classList.contains('open')) { closeUpdate(); return; }
   if (e.key === 'Escape' && confSaveOverlay.classList.contains('open')) { closeConfSave(); return; }
   if (e.key === 'Escape' && confluenceOverlay.classList.contains('open')) { closeConfluence(); return; }
   if (e.key === 'Escape' && helpOverlay.classList.contains('open')) { closeHelp(); return; }
@@ -4661,20 +4911,31 @@ function renderConfNode(node) {
   row.className = 'conf-row';
   const isFolder = node.kind === 'folder';
   const loaded = Array.isArray(src.children);
-  const canExpand = !loaded || src.children.length > 0;  // 미로딩 = 하위가 있을 수 있음
+  /* 하위 존재 여부:
+     - 로딩됨 → 실제 자식 수로 판단
+     - 미로딩 → has_children 힌트(true/false)면 그대로, 미상(null/undefined)이면 폴더만 후보 */
+  let canExpand;
+  if (loaded) canExpand = src.children.length > 0;
+  else if (src.has_children === true) canExpand = true;
+  else if (src.has_children === false) canExpand = false;
+  else canExpand = isFolder;   // 미상: 폴더는 있을 수 있음, 페이지는 없다고 간주
 
   const twisty = document.createElement('span');
   twisty.className = 'conf-twisty';
+  /* 하위가 있을 때만 펼치기 아이콘 표시, 말단이면 제거 */
   twisty.textContent = canExpand ? ((src.expanded || confFilterActive) ? '▼' : '▶') : '';
   const title = document.createElement('span');
   title.className = 'conf-title';
   /* 폴더는 📁, 문서는 📄 — 계층(들여쓰기)과 함께 논리적 단계가 드러나도록 */
   title.textContent = (isFolder ? '📁 ' : '📄 ') + node.title;
   title.title = (isFolder ? node.title : (L().confOpen_t + ' (id=' + node.id + ')'));
-  const ver = document.createElement('span');
-  ver.className = 'conf-ver';
-  ver.textContent = node.version ? 'v' + node.version : '';
-  row.append(twisty, title, ver);
+  const created = document.createElement('span');
+  created.className = 'conf-created';
+  created.textContent = node.created || '-';
+  const updated = document.createElement('span');
+  updated.className = 'conf-updated';
+  updated.textContent = node.updated || '-';
+  row.append(twisty, title, created, updated);
   if (!isFolder) {
     /* 삭제는 문서에만 제공 */
     const del = document.createElement('button');
@@ -4683,6 +4944,21 @@ function renderConfNode(node) {
     del.title = L().confDelete_t;
     del.addEventListener('click', (e) => { e.stopPropagation(); deleteConfPage(node); });
     row.append(del);
+  }
+  if (canExpand) {
+    /* 폴더/하위 있는 페이지: 우측 끝에 하위 새로고침 버튼 (잘 보이게) */
+    const rl = document.createElement('button');
+    rl.className = 'conf-reload-node';
+    rl.textContent = '🔄';
+    rl.title = L().confReloadNode_t;
+    rl.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      rl.textContent = '⏳';
+      await loadChildrenFor(src);   // 하위를 다시 조회
+      src.expanded = true;
+      renderConfList();
+    });
+    row.append(rl);
   }
   wrap.appendChild(row);
 
@@ -4698,7 +4974,7 @@ function renderConfNode(node) {
     renderConfList();
   }
   if (canExpand) twisty.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
-  /* 제목 클릭: 문서 = 열기, 폴더 = 펼치기/접기 */
+  /* 제목 클릭: 폴더 = 펼치기/접기, 문서 = 열기 (하위가 있어도 문서는 열림, 펼치기는 화살표로) */
   title.addEventListener('click', () => { if (isFolder) toggle(); else openConfPage(node.id); });
 
   const showKids = (src.expanded || confFilterActive) && node.children && node.children.length;
@@ -4743,9 +5019,16 @@ function renderConfList() {
   const tree = filterConfTree(confTreeData, q);
   confListEl.innerHTML = '';
   if (!tree.length) {
-    confListEl.innerHTML = '<div class="conf-note">' + (q ? L().confNoMatch : L().confEmpty) + '</div>';
+    confListEl.innerHTML = '<div class="conf-note" style="padding:14px">' + (q ? L().confNoMatch : L().confEmpty) + '</div>';
     return;
   }
+  /* 게시판 헤더 (제목 / 등록일 / 수정일) */
+  const head = document.createElement('div');
+  head.className = 'conf-head';
+  head.innerHTML = '<span class="h-name">' + L().colName + '</span>'
+    + '<span class="h-date">' + L().colCreated + '</span>'
+    + '<span class="h-date">' + L().colUpdated + '</span>';
+  confListEl.appendChild(head);
   for (const node of tree) confListEl.appendChild(renderConfNode(node));
 }
 
@@ -4913,6 +5196,137 @@ document.getElementById('conf-save-do').addEventListener('click', doConfSave);
 confluenceOverlay.addEventListener('click', (e) => { if (e.target === confluenceOverlay) closeConfluence(); });
 confSaveOverlay.addEventListener('click', (e) => { if (e.target === confSaveOverlay) closeConfSave(); });
 
+/* ================= 최초 실행 온보딩 (대표 기능 5가지, 1회만) ================= */
+const onboardOverlay = document.getElementById('onboard-overlay');
+
+function renderOnboarding() {
+  const d = L();
+  setTxt('ob-title', d.obTitle);
+  setTxt('ob-sub', d.obSub);
+  setTxt('ob-start', d.obStart);
+  const ul = document.getElementById('ob-list');
+  ul.innerHTML = '';
+  for (const [ic, title, desc] of d.obFeatures) {
+    const li = document.createElement('li');
+    const i = document.createElement('span'); i.className = 'ob-ic'; i.textContent = ic;
+    const t = document.createElement('span'); t.className = 'ob-txt';
+    const b = document.createElement('b'); b.textContent = title;
+    const s = document.createElement('span'); s.textContent = desc;
+    t.append(b, s);
+    li.append(i, t);
+    ul.appendChild(li);
+  }
+}
+
+/* 최초 1회만 표시. 닫으면 다시 뜨지 않음 → 반환값으로 온보딩을 실제 띄웠는지 알림 */
+async function showOnboardingIfFirstRun() {
+  try {
+    const r = await window.pywebview.api.onboarding_needed();
+    if (r && r.show) {
+      renderOnboarding();
+      onboardOverlay.classList.add('open');
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function closeOnboarding() {
+  onboardOverlay.classList.remove('open');
+  try { window.pywebview.api.onboarding_done(); } catch (e) {}
+}
+
+document.getElementById('ob-x').addEventListener('click', closeOnboarding);
+document.getElementById('ob-start').addEventListener('click', closeOnboarding);
+onboardOverlay.addEventListener('click', (e) => { if (e.target === onboardOverlay) closeOnboarding(); });
+
+/* ================= 자동 업데이트 / 새 기능 안내 ================= */
+const updateOverlay = document.getElementById('update-overlay');
+const whatsnewOverlay = document.getElementById('whatsnew-overlay');
+let pendingUpdate = null;   // update_check 결과 (whatsnew 닫힌 뒤 표시)
+
+/* 새 버전 첫 실행이면 '추가/개선 내용'(릴리스 메시지) 표시 */
+async function showWhatsNewIfAny() {
+  try {
+    const r = await window.pywebview.api.update_whatsnew();
+    if (r && r.notes) {
+      document.getElementById('wn-ver').textContent = L().wnVer(r.version);
+      const h = await window.pywebview.api.render(r.notes);
+      document.getElementById('wn-notes').innerHTML = h.html;
+      document.getElementById('wn-dontshow').checked = false;
+      whatsnewOverlay.classList.add('open');
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+function closeWhatsNew() {
+  whatsnewOverlay.classList.remove('open');
+  try {
+    window.pywebview.api.update_mark_seen(document.getElementById('wn-dontshow').checked);
+  } catch (e) {}
+  maybeShowUpdate();   // 새 버전 알림이 대기 중이면 이어서 표시
+}
+
+/* 시작 시 백그라운드로 최신 릴리스 확인 */
+async function checkUpdates() {
+  try {
+    const r = await window.pywebview.api.update_check();
+    if (r && r.available) {
+      pendingUpdate = r;
+      if (!whatsnewOverlay.classList.contains('open')) maybeShowUpdate();
+    }
+  } catch (e) {}
+}
+
+function maybeShowUpdate() {
+  if (!pendingUpdate) return;
+  const u = pendingUpdate;
+  document.getElementById('upd-info').textContent = L().updInfo(u.current, u.version);
+  window.pywebview.api.render(u.notes || '')
+    .then(h => { document.getElementById('upd-notes').innerHTML = h.html; })
+    .catch(() => {});
+  const btn = document.getElementById('upd-go');
+  btn.disabled = false;
+  btn.textContent = L().updGo;
+  updateOverlay.classList.add('open');
+}
+
+function closeUpdate() { updateOverlay.classList.remove('open'); }
+
+/* 다운로드 → 기존 프로그램 위치에 저장 → 새 파일 실행 → 현재 앱 종료 */
+async function doUpdate() {
+  const u = pendingUpdate;
+  if (!u) return;
+  if (!u.asset_url) { flash(L().updNoAsset); return; }
+  const btn = document.getElementById('upd-go');
+  btn.disabled = true;
+  btn.textContent = '⏳ ' + L().updDownloading;
+  try {
+    const r = await window.pywebview.api.update_download_and_restart(
+      u.asset_url, u.asset_name, u.version, u.notes || '');
+    if (r && r.error) {
+      flash(L().updFail + r.error);
+      btn.disabled = false;
+      btn.textContent = L().updGo;
+    }
+    /* 성공 시 앱이 스스로 새 버전을 실행하고 종료됨 */
+  } catch (e) {
+    flash(L().updFail + e);
+    btn.disabled = false;
+    btn.textContent = L().updGo;
+  }
+}
+
+document.getElementById('upd-x').addEventListener('click', closeUpdate);
+document.getElementById('upd-later').addEventListener('click', closeUpdate);
+document.getElementById('upd-go').addEventListener('click', doUpdate);
+document.getElementById('wn-x').addEventListener('click', closeWhatsNew);
+document.getElementById('wn-close').addEventListener('click', closeWhatsNew);
+updateOverlay.addEventListener('click', (e) => { if (e.target === updateOverlay) closeUpdate(); });
+whatsnewOverlay.addEventListener('click', (e) => { if (e.target === whatsnewOverlay) closeWhatsNew(); });
+
 /* ---------- 언어 토글 버튼 ---------- */
 document.getElementById('lang-ko').addEventListener('click', () => setLang('ko'));
 document.getElementById('lang-en').addEventListener('click', () => setLang('en'));
@@ -4959,6 +5373,11 @@ window.addEventListener('pywebviewready', async () => {
     activeTab = first;
   }
   showActiveTab();
+
+  // 최초 실행이면 대표 기능 온보딩 (1회만) → 아니면 새 버전 첫 실행 안내
+  const shownOnboard = await showOnboardingIfFirstRun();
+  if (!shownOnboard) await showWhatsNewIfAny();
+  checkUpdates();
 });
 </script>
 </body>
