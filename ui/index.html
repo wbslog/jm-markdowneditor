@@ -553,16 +553,19 @@
     color: transparent;
   }
   #editor-highlights mark { background: rgba(250, 204, 21, 0.3); color: transparent; border-radius: 2px; }
-  /* 현재 검색 위치: 은은한 주황 + 연한 펄스 애니메이션 */
+  /* 현재 검색 위치: 진한 주황 + 아주 연하고 느린 하트비트 애니메이션 */
   #editor-highlights mark.current {
-    background: rgba(249, 115, 22, 0.5);
+    background: rgba(249, 115, 22, 0.62);
     border-radius: 2px;
-    animation: hl-pulse-soft 1.5s ease-in-out infinite;
+    animation: hl-pulse-soft 2.4s ease-in-out infinite;
   }
-  /* 연한 펄스: 옅은 글로우가 부드럽게 커졌다 작아짐 (에디터/프리뷰/설명서 검색 공통) */
+  /* 하트비트: 두 번 콩닥이고 쉬는 리듬, 아주 연한 글로우 (에디터/프리뷰/설명서 검색 공통) */
   @keyframes hl-pulse-soft {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.4); }
-    50%      { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16); }
+    0%, 100% { box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.5); }
+    10%      { box-shadow: 0 0 0 5px rgba(249, 115, 22, 0.30); }
+    20%      { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.42); }
+    32%      { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0.24); }
+    55%      { box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.5); }
   }
   /* 프리뷰 쪽 검색 하이라이트 (pymdownx.mark의 ==하이라이트==와 구분되는 클래스) */
   #preview mark.search-hl {
@@ -572,12 +575,12 @@
     border-radius: 2px;
     box-shadow: 0 0 0 1px rgba(202, 138, 4, 0.45);
   }
-  /* 프리뷰의 현재 검색 위치도 동일하게 은은히 + 연한 펄스 */
+  /* 프리뷰의 현재 검색 위치: 더 진하게 + 느린 하트비트 */
   #preview mark.search-hl.current {
-    background: #fdba74;
+    background: #fb923c;
     color: inherit;
     border-radius: 2px;
-    animation: hl-pulse-soft 1.5s ease-in-out infinite;
+    animation: hl-pulse-soft 2.4s ease-in-out infinite;
   }
 
   /* ---------- 검색 바 ---------- */
@@ -795,7 +798,7 @@
   #help-body details > *:not(summary) { padding-left: 16px; padding-right: 16px; }
   #help-body details > *:last-child { padding-bottom: 10px; }
   #help-body mark.help-hl { background: #fde047; color: inherit; padding: 0 1px; border-radius: 2px; }
-  #help-body mark.help-hl.current { background: #fdba74; animation: hl-pulse-soft 1.5s ease-in-out infinite; }
+  #help-body mark.help-hl.current { background: #fb923c; animation: hl-pulse-soft 2.4s ease-in-out infinite; }
   /* 모달 안 '맨 위로' 버튼 (스크롤 내리면 표시) */
   #help-top {
     position: absolute;
@@ -1065,7 +1068,7 @@
     position: absolute; left: 0; right: 0; height: 0; z-index: 4;
     pointer-events: none; opacity: 0;
   }
-  #preview-marker.show { animation: pm-flash 2s ease forwards; }
+  #preview-marker.show { opacity: 1; animation: pm-in 0.25s ease; }  /* 지속 표시 (자동으로 사라지지 않음) */
   #preview-marker::before {
     content: ''; position: absolute; left: 8px; right: 8px; top: -1.5px; height: 3px; border-radius: 3px;
     background: linear-gradient(90deg, transparent, #6366f1 18%, #a5b4fc 50%, #6366f1 82%, transparent);
@@ -1081,11 +1084,9 @@
     position: absolute; left: -3px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
     background: #6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
   }
-  @keyframes pm-flash {
-    0% { opacity: 0; transform: translateY(3px); }
-    12% { opacity: 1; transform: translateY(0); }
-    75% { opacity: 1; }
-    100% { opacity: 0; }
+  @keyframes pm-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 
   /* ---------- 하단 상태바 ---------- */
@@ -1903,15 +1904,9 @@ previewScroll.addEventListener('scroll', () => syncScroll(previewScroll,
 
 /* ---------- 편집기 클릭 위치 → 프리뷰에 위치 마커 표시 ---------- */
 const previewMarker = document.getElementById('preview-marker');
-let pmHideTimer = null;
 
-/* 콘텐츠 비율(0~1) 위치에 마커를 놓고 중앙으로 스크롤 후 잠깐 반짝 */
-function markPreviewAt(frac) {
-  frac = Math.min(1, Math.max(0, frac));
-  const padB = parseFloat(getComputedStyle(previewScroll).paddingBottom) || 0;
-  const padT = parseFloat(getComputedStyle(previewScroll).paddingTop) || 0;
-  const contentH = Math.max(1, previewScroll.scrollHeight - padB - padT);
-  const y = padT + frac * contentH;
+/* 프리뷰의 세로 좌표(y)에 마커를 놓고 중앙으로 스크롤 (지속 표시 — 다음 클릭 때 위치만 이동) */
+function markPreviewAtY(y) {
   previewMarker.style.top = y + 'px';
   const badge = previewMarker.querySelector('.pm-badge');
   if (badge) badge.textContent = L().pmHere;
@@ -1920,20 +1915,70 @@ function markPreviewAt(frac) {
   previewScroll.scrollTop = Math.max(0, y - previewScroll.clientHeight / 2);
   clearTimeout(scrollResetTimer);
   scrollResetTimer = setTimeout(() => scrollSource = null, 180);
-  /* 반짝 애니메이션 재시작 */
+  /* 등장 애니메이션 재시작 후 계속 표시 */
   previewMarker.classList.remove('show');
   void previewMarker.offsetWidth;
   previewMarker.classList.add('show');
-  clearTimeout(pmHideTimer);
-  pmHideTimer = setTimeout(() => previewMarker.classList.remove('show'), 2100);
 }
 
-/* 소스 편집기 캐럿의 라인 비율 */
-function editorCaretFrac() {
+/* 콘텐츠 비율(0~1) → y 좌표 (블록 매핑 실패 시 폴백) */
+function markPreviewAt(frac) {
+  frac = Math.min(1, Math.max(0, frac));
+  const padB = parseFloat(getComputedStyle(previewScroll).paddingBottom) || 0;
+  const padT = parseFloat(getComputedStyle(previewScroll).paddingTop) || 0;
+  const contentH = Math.max(1, previewScroll.scrollHeight - padB - padT);
+  markPreviewAtY(padT + frac * contentH);
+}
+
+/* ---- 정확한 매핑: 소스를 '블록'(빈 줄 구분, 코드펜스=한 블록)으로 나눠
+       프리뷰의 최상위 요소와 대응시킴 ---- */
+function sourceBlocks() {
+  const lines = editor.value.split('\n');
+  const blocks = [];
+  let cur = null, inFence = false;
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    const fence = /^(```|~~~)/.test(t);
+    if (inFence) {
+      cur.end = i;
+      if (fence) inFence = false;
+      continue;
+    }
+    if (fence) {
+      if (!cur) cur = { start: i, end: i }; else cur.end = i;
+      inFence = true;
+      continue;
+    }
+    if (t === '') {
+      if (cur) { blocks.push(cur); cur = null; }
+    } else {
+      if (!cur) cur = { start: i, end: i }; else cur.end = i;
+    }
+  }
+  if (cur) blocks.push(cur);
+  return blocks;
+}
+
+/* 소스 캐럿 위치 → 프리뷰 y 좌표 (블록 단위 매핑, 실패 시 null) */
+function editorPreviewY() {
   const pos = editor.selectionStart;
   const line = (editor.value.slice(0, pos).match(/\n/g) || []).length;
-  const total = Math.max(1, (editor.value.match(/\n/g) || []).length);
-  return line / total;
+  const blocks = sourceBlocks();
+  const kids = [...preview.children];
+  if (!blocks.length || !kids.length) return null;
+  let bi = 0;
+  for (let i = 0; i < blocks.length; i++) {
+    if (line >= blocks[i].start) bi = i;
+    else break;
+  }
+  const blk = blocks[bi];
+  const innerFrac = blk.end > blk.start
+    ? Math.min(1, Math.max(0, (line - blk.start) / (blk.end - blk.start + 1))) : 0;
+  /* 블록 수와 프리뷰 최상위 요소 수가 같으면 1:1, 다르면 비례 매핑 */
+  const el = (kids.length === blocks.length)
+    ? kids[bi]
+    : kids[Math.min(kids.length - 1, Math.round(bi / Math.max(1, blocks.length - 1) * (kids.length - 1)))];
+  return el.offsetTop + innerFrac * el.offsetHeight;
 }
 
 /* 웹에디터 캐럿이 속한 블록의 콘텐츠 비율 */
@@ -1953,8 +1998,17 @@ function webCaretFrac() {
   return top / contentH;
 }
 
-/* 소스 편집기 클릭 → 위치 표시 */
-editor.addEventListener('click', () => markPreviewAt(editorCaretFrac()));
+/* 소스 편집기 클릭 → 위치 표시 (블록 매핑 우선, 실패 시 라인 비율 폴백) */
+editor.addEventListener('click', () => {
+  const y = editorPreviewY();
+  if (y != null) markPreviewAtY(y);
+  else {
+    const pos = editor.selectionStart;
+    const line = (editor.value.slice(0, pos).match(/\n/g) || []).length;
+    const total = Math.max(1, (editor.value.match(/\n/g) || []).length);
+    markPreviewAt(line / total);
+  }
+});
 
 /* ---------- 에디터 입력 ---------- */
 editor.addEventListener('input', () => {
@@ -2415,8 +2469,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.12.1** |
-| 최종 업데이트 | 2026-07-10 |
+| **최신 버전** | **v1.12.2** |
+| 최종 업데이트 | 2026-07-13 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2427,6 +2481,18 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.2</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 정확도 · 검색 포커싱 개선</summary>
+
+### 🐞 수정/개선
+
+- **편집기 클릭 → 프리뷰 위치 표시 정확도 개선** — 소스를 블록 단위(빈 줄 구분, 코드펜스=한 블록)로 나눠 프리뷰 요소와 대응시키는 방식으로 변경. 웹에디터는 블록 1:1 매핑
+- 위치 마커가 **시간이 지나도 사라지지 않고 유지**됩니다 (다음 클릭 시 위치만 이동)
+- **검색 시 가로로 숨겨진 매치도 좌우 중앙으로 포커싱** — 넓은 표/코드 안의 검색어가 프리뷰 화면 중앙에 보이도록 가로 스크롤
+- 검색 현재 위치 강조를 **더 진하게 + 아주 연하고 느린 하트비트(콩닥콩닥)** 애니메이션으로 변경 (에디터/프리뷰/설명서 공통)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.1</b> &nbsp;·&nbsp; 2026-07-10 &nbsp;·&nbsp; 웹에디터 색상/표 개선</summary>
 
 ### 🖊 웹에디터
@@ -3451,8 +3517,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.12.1** |
-| Last updated | 2026-07-10 |
+| **Latest version** | **v1.12.2** |
+| Last updated | 2026-07-13 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -3463,6 +3529,18 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.2</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Marker accuracy · search focusing</summary>
+
+### 🐞 Fixes/Improvements
+
+- **More accurate editor-click → preview marker** — maps source blocks (blank-line separated, fenced code = one block) to preview elements; web editor maps blocks 1:1
+- The position marker now **stays visible** (moves on the next click instead of fading out)
+- **Horizontally hidden search matches now focus to the center** — matches inside wide tables/code scroll into the horizontal center of the preview
+- Current-match emphasis is **stronger, with a very soft slow heartbeat** animation (editor/preview/help)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.1</b> &nbsp;·&nbsp; 2026-07-10 &nbsp;·&nbsp; Web editor color/table</summary>
 
 ### 🖊 Web editor
@@ -4883,9 +4961,14 @@ function updatePreviewCurrent(scroll) {
   const cur = previewMarks[Math.min(matchIdx, previewMarks.length - 1)];
   cur.classList.add('current');
   if (scroll) {
-    const top = cur.getBoundingClientRect().top - previewScroll.getBoundingClientRect().top
-      + previewScroll.scrollTop - previewScroll.clientHeight / 2;
+    const rect = cur.getBoundingClientRect();
+    const prect = previewScroll.getBoundingClientRect();
+    const top = rect.top - prect.top + previewScroll.scrollTop - previewScroll.clientHeight / 2;
     previewScroll.scrollTop = Math.max(0, top);
+    /* 가로로 숨겨진(overflow) 위치의 매치도 보이도록 좌우 중앙으로 포커싱 */
+    const left = rect.left - prect.left + previewScroll.scrollLeft
+      - previewScroll.clientWidth / 2 + rect.width / 2;
+    previewScroll.scrollLeft = Math.max(0, left);
   }
 }
 
@@ -5230,8 +5313,24 @@ webEditorEl.addEventListener('input', () => {
 });
 /* 웹에디터 스크롤 → 프리뷰도 같은 라인으로 동기 스크롤 */
 webEditorEl.addEventListener('scroll', () => syncScroll(webEditorEl, previewScroll));
-/* 웹에디터 클릭 → 프리뷰에 위치 마커 표시 */
-webEditorEl.addEventListener('click', () => markPreviewAt(webCaretFrac()));
+/* 웹에디터 클릭 → 프리뷰에 위치 마커 표시
+   (웹에디터와 프리뷰는 같은 렌더링 HTML이므로 최상위 블록 인덱스로 1:1 매핑) */
+webEditorEl.addEventListener('click', () => {
+  const sel = getSelection();
+  let y = null;
+  if (sel && sel.rangeCount) {
+    let el = sel.getRangeAt(0).startContainer;
+    if (el.nodeType === 3) el = el.parentElement;
+    while (el && el.parentElement && el.parentElement !== webEditorEl && el !== webEditorEl) el = el.parentElement;
+    if (el && el !== webEditorEl) {
+      const idx = [...webEditorEl.children].indexOf(el);
+      const kids = [...preview.children];
+      if (idx >= 0 && kids.length) y = kids[Math.min(idx, kids.length - 1)].offsetTop;
+    }
+  }
+  if (y != null) markPreviewAtY(y);
+  else markPreviewAt(webCaretFrac());
+});
 
 /* 선택 영역을 span 등으로 감싸기 (글자 크기 등 인라인 스타일용) */
 function wrapSelectionStyle(styleName, value) {
