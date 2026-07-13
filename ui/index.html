@@ -1070,13 +1070,19 @@
   }
   #preview-marker.show { opacity: 1; animation: pm-in 0.25s ease; }  /* 지속 표시 (자동으로 사라지지 않음) */
   #preview-marker .pm-arrow {
-    position: absolute; right: 0; top: -12px;
-    font-size: 17px; line-height: 1; color: #6366f1;
-    text-shadow: 0 0 8px rgba(99, 102, 241, 0.75);
+    position: absolute; right: 0; top: -15px;
+    font-size: 23px; line-height: 1; color: #4f46e5;
+    text-shadow: 0 0 6px rgba(99, 102, 241, 0.9), 0 0 16px rgba(99, 102, 241, 0.55);
+    transform-origin: right center;
+    animation: pm-heartbeat 2.8s ease-in-out infinite;  /* 아주 느린 일정한 템포의 하트비트 */
   }
   @keyframes pm-in {
     from { opacity: 0; transform: translateX(6px); }
     to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes pm-heartbeat {
+    0%, 100% { transform: scale(1);    opacity: 0.9; }
+    50%      { transform: scale(1.28); opacity: 1; }
   }
 
   /* ---------- 하단 상태바 ---------- */
@@ -2534,7 +2540,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.12.4** |
+| **최신 버전** | **v1.12.5** |
 | 최종 업데이트 | 2026-07-13 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2546,6 +2552,16 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.5</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 화살표 강조 + 하트비트</summary>
+
+### 🎨 변경
+
+- 위치 표시 **◀ 화살표를 더 크고 진하게**(글로우 강화) 개선
+- **아주 느린 일정한 템포(2.8초)의 하트비트** 효과 적용 — 은은하게 커졌다 작아지며 위치를 알려줌
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.4</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 디자인 변경 (우측 화살표)</summary>
 
 ### 🎨 변경
@@ -3604,7 +3620,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.12.4** |
+| **Latest version** | **v1.12.5** |
 | Last updated | 2026-07-13 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3616,6 +3632,16 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.5</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Arrow emphasis + heartbeat</summary>
+
+### 🎨 Changed
+
+- The position **◀ arrow is bigger and bolder** (stronger glow)
+- Added a **very slow, steady heartbeat** (2.8s) — gently scales in and out to draw the eye
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.4</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Position marker redesign (right arrow)</summary>
 
 ### 🎨 Changed
