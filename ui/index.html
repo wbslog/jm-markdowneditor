@@ -1063,30 +1063,20 @@
     border-radius: 3px; padding: 1px 4px; margin-right: 5px; letter-spacing: 0.03em;
   }
 
-  /* ---------- 프리뷰 위치 마커 (편집기 클릭 위치 표시) ---------- */
+  /* ---------- 프리뷰 위치 마커: 우측 화살표만 표시 (텍스트를 가리지 않음) ---------- */
   #preview-marker {
-    position: absolute; left: 0; right: 0; height: 0; z-index: 4;
+    position: absolute; width: 0; height: 0; z-index: 4;
     pointer-events: none; opacity: 0;
   }
   #preview-marker.show { opacity: 1; animation: pm-in 0.25s ease; }  /* 지속 표시 (자동으로 사라지지 않음) */
-  #preview-marker::before {
-    content: ''; position: absolute; left: 8px; right: 8px; top: -1.5px; height: 3px; border-radius: 3px;
-    background: linear-gradient(90deg, transparent, #6366f1 18%, #a5b4fc 50%, #6366f1 82%, transparent);
-    box-shadow: 0 0 10px rgba(99, 102, 241, 0.65);
-  }
-  #preview-marker .pm-badge {
-    position: absolute; right: 16px; top: -13px;
-    background: linear-gradient(135deg, #6366f1, #818cf8); color: #fff;
-    font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 11px;
-    box-shadow: 0 3px 10px rgba(99, 102, 241, 0.5); white-space: nowrap;
-  }
-  #preview-marker .pm-dot {
-    position: absolute; left: -3px; top: -5px; width: 10px; height: 10px; border-radius: 50%;
-    background: #6366f1; box-shadow: 0 0 8px rgba(99, 102, 241, 0.8);
+  #preview-marker .pm-arrow {
+    position: absolute; right: 0; top: -12px;
+    font-size: 17px; line-height: 1; color: #6366f1;
+    text-shadow: 0 0 8px rgba(99, 102, 241, 0.75);
   }
   @keyframes pm-in {
-    from { opacity: 0; transform: translateY(4px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateX(6px); }
+    to   { opacity: 1; transform: translateX(0); }
   }
 
   /* ---------- 하단 상태바 ---------- */
@@ -1221,7 +1211,7 @@
     <div class="pane-label">Preview <button class="btn-full" id="btn-full-preview" title="미리보기 전체보기 전환">⛶ 전체보기</button></div>
     <div id="preview-scroll">
       <article id="preview" class="markdown-body"></article>
-      <div id="preview-marker"><span class="pm-dot"></span><span class="pm-badge">📍 여기</span></div>
+      <div id="preview-marker"><span class="pm-arrow">◀</span></div>
     </div>
     <button id="preview-top" class="scroll-top" title="맨 위로">▲</button>
   </div>
@@ -1905,16 +1895,17 @@ previewScroll.addEventListener('scroll', () => syncScroll(previewScroll,
 /* ---------- 편집기 클릭 위치 → 프리뷰에 위치 마커 표시 ---------- */
 const previewMarker = document.getElementById('preview-marker');
 
-/* 프리뷰의 세로 좌표(y)에 마커를 놓고 중앙으로 스크롤 (지속 표시 — 다음 클릭 때 위치만 이동) */
+/* 프리뷰의 세로 좌표(y)에 우측 화살표 마커를 놓고 중앙으로 스크롤
+   (지속 표시 — 다음 클릭 때 위치만 이동, 텍스트를 가리지 않음) */
 function markPreviewAtY(y) {
   previewMarker.style.top = y + 'px';
-  const badge = previewMarker.querySelector('.pm-badge');
-  if (badge) badge.textContent = L().pmHere;
   /* 마커가 화면에 보이도록 스크롤 (동기 스크롤과 충돌 방지 위해 잠시 잠금) */
   scrollSource = 'marker';
   previewScroll.scrollTop = Math.max(0, y - previewScroll.clientHeight / 2);
   clearTimeout(scrollResetTimer);
   scrollResetTimer = setTimeout(() => scrollSource = null, 180);
+  /* 화살표를 현재 보이는 영역의 우측 끝에 배치 (가로 스크롤 상태 반영) */
+  previewMarker.style.left = (previewScroll.scrollLeft + previewScroll.clientWidth - 22) + 'px';
   /* 등장 애니메이션 재시작 후 계속 표시 */
   previewMarker.classList.remove('show');
   void previewMarker.offsetWidth;
@@ -2543,7 +2534,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.12.3** |
+| **최신 버전** | **v1.12.4** |
 | 최종 업데이트 | 2026-07-13 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2555,6 +2546,16 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.4</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 디자인 변경 (우측 화살표)</summary>
+
+### 🎨 변경
+
+- 프리뷰 위치 표시에서 **가로 라인을 제거** (본문 텍스트를 가리던 문제 해결)
+- 대신 **우측 끝에 ◀ 화살표만** 표시 — 텍스트를 가리지 않으면서 위치 확인 가능 (지속 표시 유지)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.3</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 앵커 정렬 (정확도 대폭 향상)</summary>
 
 ### 🐞 수정
@@ -3603,7 +3604,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.12.3** |
+| **Latest version** | **v1.12.4** |
 | Last updated | 2026-07-13 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3615,6 +3616,16 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.4</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Position marker redesign (right arrow)</summary>
+
+### 🎨 Changed
+
+- **Removed the horizontal line** from the preview position indicator (it covered body text)
+- Now shows **only a ◀ arrow at the right edge** — visible without hiding any text (still persistent)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.3</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Anchor-aligned position marker</summary>
 
 ### 🐞 Fixes
