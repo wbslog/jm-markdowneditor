@@ -1959,10 +1959,52 @@ function sourceBlocks() {
   return blocks;
 }
 
-/* 소스 캐럿 위치 → 프리뷰 y 좌표 (블록 단위 매핑, 실패 시 null) */
+/* 소스 블록의 종류 판별 (앵커 매칭용) */
+function blockTypeOf(lines, blk) {
+  const first = (lines[blk.start] || '').trim();
+  const m = first.match(/^(#{1,6})\s/);
+  if (m) return 'h' + m[1].length;
+  if (/^(```|~~~)/.test(first)) return 'code';
+  if (first.startsWith('|')) return 'table';
+  if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(first) && blk.end === blk.start) return 'hr';
+  if (/^>/.test(first)) return 'quote';
+  if (/^([-*+]\s|\d+\.\s)/.test(first)) return 'list';
+  return 'p';
+}
+
+/* 프리뷰 최상위 요소의 종류 판별 */
+function previewElemType(el) {
+  const tag = el.tagName.toLowerCase();
+  if (/^h[1-6]$/.test(tag)) return tag;
+  if (tag === 'pre' || (tag === 'div' && el.classList.contains('highlight'))) return 'code';
+  if (tag === 'table') return 'table';
+  if (tag === 'hr') return 'hr';
+  if (tag === 'blockquote') return 'quote';
+  if (tag === 'ul' || tag === 'ol') return 'list';
+  return 'p';
+}
+
+/* 강한 앵커(제목/코드/표/구분선)를 순서 유지하며 매칭 [블록인덱스, 요소인덱스][] */
+function matchAnchors(bTypes, kTypes) {
+  const strong = /^(h[1-6]|code|table|hr)$/;
+  const out = [];
+  let k = 0;
+  for (let i = 0; i < bTypes.length; i++) {
+    if (!strong.test(bTypes[i])) continue;
+    for (let j = k; j < kTypes.length; j++) {
+      if (kTypes[j] === bTypes[i]) { out.push([i, j]); k = j + 1; break; }
+    }
+  }
+  return out;
+}
+
+/* 소스 캐럿 위치 → 프리뷰 y 좌표
+   제목/표/코드/구분선을 앵커로 두 시퀀스를 정렬하고, 앵커 사이는 블록 인덱스로 보간
+   (제목 바로 아래 붙은 문단 등으로 블록·요소 수가 달라져도 정확) */
 function editorPreviewY() {
   const pos = editor.selectionStart;
   const line = (editor.value.slice(0, pos).match(/\n/g) || []).length;
+  const lines = editor.value.split('\n');
   const blocks = sourceBlocks();
   const kids = [...preview.children];
   if (!blocks.length || !kids.length) return null;
@@ -1974,11 +2016,43 @@ function editorPreviewY() {
   const blk = blocks[bi];
   const innerFrac = blk.end > blk.start
     ? Math.min(1, Math.max(0, (line - blk.start) / (blk.end - blk.start + 1))) : 0;
-  /* 블록 수와 프리뷰 최상위 요소 수가 같으면 1:1, 다르면 비례 매핑 */
-  const el = (kids.length === blocks.length)
-    ? kids[bi]
-    : kids[Math.min(kids.length - 1, Math.round(bi / Math.max(1, blocks.length - 1) * (kids.length - 1)))];
-  return el.offsetTop + innerFrac * el.offsetHeight;
+
+  const bTypes = blocks.map(b => blockTypeOf(lines, b));
+  const kTypes = kids.map(previewElemType);
+  const anchors = matchAnchors(bTypes, kTypes);
+
+  /* 캐럿이 앵커 블록 위 → 해당 요소 위치 그대로 */
+  const exact = anchors.find(a => a[0] === bi);
+  if (exact) {
+    const el = kids[exact[1]];
+    /* 표 블록: 소스의 '행'과 렌더링된 <tr>을 직접 대응 (구분선 |---| 은 렌더링에 없음) */
+    if (bTypes[bi] === 'table') {
+      const rows = el.querySelectorAll('tr');
+      if (rows.length) {
+        const li = line - blk.start;              // 블록 내 소스 라인 (0=헤더, 1=구분선, 2~=본문행)
+        const ri = Math.min(rows.length - 1, li <= 1 ? 0 : li - 1);
+        const tr = rows[ri];
+        const elTop = el.offsetTop;
+        const trTop = tr.getBoundingClientRect().top - el.getBoundingClientRect().top;
+        return elTop + trTop + tr.offsetHeight / 2;
+      }
+    }
+    return el.offsetTop + innerFrac * el.offsetHeight;
+  }
+  /* 앵커 사이 보간 */
+  let prev = null, next = null;
+  for (const a of anchors) {
+    if (a[0] < bi) prev = a;
+    else { next = a; break; }
+  }
+  const padT = parseFloat(getComputedStyle(previewScroll).paddingTop) || 0;
+  const lastEl = kids[kids.length - 1];
+  const yStart = prev ? kids[prev[1]].offsetTop + kids[prev[1]].offsetHeight : padT;
+  const yEnd = next ? kids[next[1]].offsetTop : (lastEl.offsetTop + lastEl.offsetHeight);
+  const bStart = prev ? prev[0] + 1 : 0;
+  const bEnd = next ? next[0] : blocks.length;
+  const f = Math.min(1, Math.max(0, (bi + innerFrac - bStart) / Math.max(1, bEnd - bStart)));
+  return yStart + f * Math.max(0, yEnd - yStart);
 }
 
 /* 웹에디터 캐럿이 속한 블록의 콘텐츠 비율 */
@@ -2469,7 +2543,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.12.2** |
+| **최신 버전** | **v1.12.3** |
 | 최종 업데이트 | 2026-07-13 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2481,6 +2555,18 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.3</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 앵커 정렬 (정확도 대폭 향상)</summary>
+
+### 🐞 수정
+
+- **편집기 클릭 → 프리뷰 위치가 어긋나던 문제 재수정 (앵커 정렬 방식)**
+    - 제목(#)·표(|)·코드펜스·구분선을 **앵커**로 삼아 소스 블록과 프리뷰 요소를 순서대로 정렬
+    - 제목 아래 붙은 문단처럼 블록·요소 수가 달라지는 경우에도 앵커 사이를 보간해 정확
+    - **표 안을 클릭하면 해당 행(tr) 위치에 정확히 마커 표시** (소스 행 ↔ 렌더링 행 직접 대응)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.2</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 마커 정확도 · 검색 포커싱 개선</summary>
 
 ### 🐞 수정/개선
@@ -3517,7 +3603,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.12.2** |
+| **Latest version** | **v1.12.3** |
 | Last updated | 2026-07-13 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3529,6 +3615,18 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.12.3</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Anchor-aligned position marker</summary>
+
+### 🐞 Fixes
+
+- **Re-fixed misaligned editor-click → preview marker (anchor alignment)**
+    - Headings (#), tables (|), code fences and rules act as **anchors**, aligning source blocks with preview elements in order
+    - Interpolates between anchors, staying accurate even when block/element counts diverge (e.g. paragraph attached under a heading)
+    - **Clicking inside a table places the marker exactly at that row (tr)** — source rows map directly to rendered rows
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.2</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Marker accuracy · search focusing</summary>
 
 ### 🐞 Fixes/Improvements
