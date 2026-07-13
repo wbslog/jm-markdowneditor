@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.12.5"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.13.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -1013,6 +1013,20 @@ body {{ margin: 0; background: #f0f2f5; }}
             "page_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases",
         }
 
+    def _notify_progress(self, done, total):
+        """다운로드 진행률을 UI로 통지 (1% 단위 스로틀)"""
+        try:
+            pct = int(done * 100 / total) if total else -1
+            if pct == getattr(self, "_last_pct", None) and pct >= 0:
+                return
+            self._last_pct = pct
+            mb = round(done / 1048576, 1)
+            self._window.evaluate_js(
+                f"window.__updProgress && window.__updProgress({pct}, {mb})"
+            )
+        except Exception:
+            pass
+
     def update_download_and_restart(self, asset_url, asset_name, version, notes=""):
         """릴리스 파일을 기존 프로그램 위치에 내려받고, 새 파일을 실행한 뒤 현재 앱 종료."""
         try:
@@ -1021,8 +1035,17 @@ body {{ margin: 0; background: #f0f2f5; }}
             target = os.path.join(app_dir, asset_name)
             tmp = target + ".part"
             req = urllib.request.Request(asset_url, headers={"User-Agent": "jm-mdv-updater"})
+            self._last_pct = None
             with urllib.request.urlopen(req, timeout=300, context=_CONF_SSL_CTX) as r, open(tmp, "wb") as f:
-                shutil.copyfileobj(r, f)
+                total = int(r.headers.get("Content-Length") or 0)
+                done = 0
+                while True:
+                    chunk = r.read(65536)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+                    done += len(chunk)
+                    self._notify_progress(done, total)
             if os.path.exists(target):
                 os.remove(target)
             os.rename(tmp, target)

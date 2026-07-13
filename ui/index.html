@@ -891,6 +891,27 @@
     margin-right: auto; font-size: 12.5px; color: #c3c3dc; cursor: pointer; user-select: none;
   }
   .footer-check input { accent-color: #6366f1; }
+  /* 업데이트 다운로드 진행률 */
+  #upd-progress { display: none; margin-top: 14px; }
+  #upd-progress.on { display: block; }
+  #upd-progress .bar-track {
+    height: 10px; border-radius: 6px; overflow: hidden;
+    background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+  #upd-progress .bar-fill {
+    height: 100%; width: 0%; border-radius: 6px;
+    background: linear-gradient(90deg, #6366f1, #818cf8);
+    box-shadow: 0 0 8px rgba(99, 102, 241, 0.6);
+    transition: width 0.2s ease;
+  }
+  #upd-progress .bar-txt { margin-top: 7px; font-size: 12.5px; color: #c3c3dc; text-align: center; }
+  /* 설명서 헤더의 업데이트 확인 버튼 */
+  #help-update {
+    flex-shrink: 0; background: rgba(99, 102, 241, 0.9); border: none; color: #fff;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    padding: 5px 12px; border-radius: 8px; white-space: nowrap;
+  }
+  #help-update:hover { background: #7477f5; }
   /* 최초 실행 온보딩 (대표 기능 5가지) */
   .ob-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
   .ob-list li {
@@ -1257,6 +1278,10 @@
       <p id="upd-info" style="margin:0 0 12px; font-size:13.5px"></p>
       <div class="section-title" id="upd-notes-l">변경 내용</div>
       <article id="upd-notes" class="markdown-body notes-card"></article>
+      <div id="upd-progress">
+        <div class="bar-track"><div class="bar-fill" id="upd-bar"></div></div>
+        <div class="bar-txt" id="upd-bar-txt"></div>
+      </div>
     </div>
     <div class="app-modal-footer">
       <button id="upd-later">나중에</button>
@@ -1300,6 +1325,7 @@
         <button id="help-search-prev" class="search-btn" title="이전 결과 (Shift+Enter)">▲</button>
         <button id="help-search-next" class="search-btn" title="다음 결과 (Enter)">▼</button>
       </div>
+      <button id="help-update" title="새 버전 확인">🚀 업데이트</button>
       <button id="help-x" title="닫기 (Esc)">✕</button>
     </div>
     <div id="help-body">
@@ -1526,6 +1552,8 @@ const I18N = {
     updNoAsset: '이 OS용 파일이 릴리스에 없습니다. GitHub 릴리스 페이지를 확인하세요.',
     updDownloading: '다운로드 중... 완료되면 자동으로 재시작됩니다',
     updFail: '업데이트 실패: ',
+    updLatest: '현재 최신 버전입니다.',
+    helpUpdate: '🚀 업데이트', helpUpdate_t: '새 버전 확인',
     wnTitle: '✨ 새로운 기능',
     wnVer: (v) => '버전 v' + v + ' 의 추가/개선 내용입니다.',
     wnDontShow: '다시 보지 않기', wnClose: '닫기',
@@ -1637,6 +1665,8 @@ const I18N = {
     updNoAsset: 'No file for this OS in the release. Check the GitHub releases page.',
     updDownloading: 'Downloading... the app will restart automatically',
     updFail: 'Update failed: ',
+    updLatest: 'You are on the latest version.',
+    helpUpdate: '🚀 Update', helpUpdate_t: 'Check for updates',
     wnTitle: "✨ What's new",
     wnVer: (v) => 'Additions and improvements in v' + v + '.',
     wnDontShow: "Don't show again", wnClose: 'Close',
@@ -1697,6 +1727,7 @@ function applyLang() {
   helpSearchInput.placeholder = modKey(d.helpSearchPlaceholder);
   setTitle('help-search-prev', d.searchPrev_t); setTitle('help-search-next', d.searchNext_t);
   setTitle('help-x', d.helpX_t); setTxt('help-close-btn', d.helpClose); setTitle('help-top', d.helpTop_t);
+  setTxt('help-update', d.helpUpdate); setTitle('help-update', d.helpUpdate_t);
   setTitle('lang-toggle', d.langTitle);
   const ht = document.querySelector('#help-header > span'); if (ht) ht.textContent = d.helpTitle;
   document.querySelector('.help-tab[data-tab="app"]').textContent = d.tabApp;
@@ -2540,7 +2571,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.12.5** |
+| **최신 버전** | **v1.13.0** |
 | 최종 업데이트 | 2026-07-13 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2552,6 +2583,16 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.13.0</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 업데이트 프로그레스 · 수동 확인</summary>
+
+### 🚀 자동 업데이트 개선
+
+- **다운로드 진행률 표시** — 다운로드 버튼 클릭 시 업데이트 창에 **프로그레스 바(%·MB)** 가 실시간 표시
+- **설명서 상단에 🚀 업데이트 버튼 추가** — 클릭 시 새 버전을 확인하고, 있으면 시작 시와 동일한 업데이트 창 표시 (없으면 "현재 최신 버전입니다" 안내)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.5</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 위치 화살표 강조 + 하트비트</summary>
 
 ### 🎨 변경
@@ -3620,7 +3661,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.12.5** |
+| **Latest version** | **v1.13.0** |
 | Last updated | 2026-07-13 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3632,6 +3673,16 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.13.0</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Update progress · manual check</summary>
+
+### 🚀 Auto-update improvements
+
+- **Download progress display** — a real-time **progress bar (% · MB)** appears in the update dialog while downloading
+- **Added a 🚀 Update button to the help header** — checks for a new version and shows the same update dialog as at startup (or "You are on the latest version")
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.12.5</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Arrow emphasis + heartbeat</summary>
 
 ### 🎨 Changed
@@ -6208,10 +6259,26 @@ function maybeShowUpdate() {
   const btn = document.getElementById('upd-go');
   btn.disabled = false;
   btn.textContent = L().updGo;
+  document.getElementById('upd-progress').classList.remove('on');   // 진행률 초기화
   updateOverlay.classList.add('open');
 }
 
 function closeUpdate() { updateOverlay.classList.remove('open'); }
+
+/* 백엔드가 다운로드 중 호출하는 진행률 콜백 (1% 단위) */
+window.__updProgress = function (pct, mb) {
+  const wrap = document.getElementById('upd-progress');
+  const bar = document.getElementById('upd-bar');
+  const txt = document.getElementById('upd-bar-txt');
+  wrap.classList.add('on');
+  if (pct >= 0) {
+    bar.style.width = pct + '%';
+    txt.textContent = pct + '%  ·  ' + mb + ' MB';
+  } else {
+    bar.style.width = '100%';
+    txt.textContent = mb + ' MB...';
+  }
+};
 
 /* 다운로드 → 기존 프로그램 위치에 저장 → 새 파일 실행 → 현재 앱 종료 */
 async function doUpdate() {
@@ -6219,8 +6286,13 @@ async function doUpdate() {
   if (!u) return;
   if (!u.asset_url) { flash(L().updNoAsset); return; }
   const btn = document.getElementById('upd-go');
+  const prog = document.getElementById('upd-progress');
   btn.disabled = true;
   btn.textContent = '⏳ ' + L().updDownloading;
+  /* 진행률 표시 초기화 */
+  document.getElementById('upd-bar').style.width = '0%';
+  document.getElementById('upd-bar-txt').textContent = '0%';
+  prog.classList.add('on');
   try {
     const r = await window.pywebview.api.update_download_and_restart(
       u.asset_url, u.asset_name, u.version, u.notes || '');
@@ -6228,14 +6300,37 @@ async function doUpdate() {
       flash(L().updFail + r.error);
       btn.disabled = false;
       btn.textContent = L().updGo;
+      prog.classList.remove('on');
     }
     /* 성공 시 앱이 스스로 새 버전을 실행하고 종료됨 */
   } catch (e) {
     flash(L().updFail + e);
     btn.disabled = false;
     btn.textContent = L().updGo;
+    prog.classList.remove('on');
   }
 }
+
+/* 설명서의 업데이트 버튼: 새 버전 확인 → 있으면 업데이트 창, 없으면 안내 */
+async function checkUpdatesFromHelp() {
+  const btn = document.getElementById('help-update');
+  const orig = btn.textContent;
+  btn.textContent = '⏳';
+  try {
+    const r = await window.pywebview.api.update_check();
+    if (r && r.available) {
+      pendingUpdate = r;
+      closeHelp();
+      maybeShowUpdate();
+    } else {
+      alert(L().updLatest + (r && r.error ? '\n(' + r.error + ')' : ''));
+    }
+  } catch (e) {
+    alert(L().updFail + e);
+  }
+  btn.textContent = orig;
+}
+document.getElementById('help-update').addEventListener('click', checkUpdatesFromHelp);
 
 document.getElementById('upd-x').addEventListener('click', closeUpdate);
 document.getElementById('upd-later').addEventListener('click', closeUpdate);
