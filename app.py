@@ -16,6 +16,7 @@ import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
 
 import markdown
 import webview
@@ -23,7 +24,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.16.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.17.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -1028,6 +1029,7 @@ body {{ margin: 0; background: #f0f2f5; }}
                 if (a.get("name") or "").lower().endswith(".exe"):
                     asset = a
                     break
+        platform = "mac" if sys.platform == "darwin" else ("win" if os.name == "nt" else "other")
         return {
             "available": True,
             "current": APP_VERSION,
@@ -1036,7 +1038,21 @@ body {{ margin: 0; background: #f0f2f5; }}
             "asset_name": asset.get("name") if asset else None,
             "asset_url": asset.get("browser_download_url") if asset else None,
             "page_url": data.get("html_url") or f"https://github.com/{GITHUB_REPO}/releases",
+            "platform": platform,
+            "repo_url": f"https://github.com/{GITHUB_REPO}",
+            "releases_url": f"https://github.com/{GITHUB_REPO}/releases",
+            "readme_url": f"https://github.com/{GITHUB_REPO}/blob/main/README.md",
         }
+
+    def open_external(self, url):
+        """기본 브라우저로 외부 URL 열기 (릴리스/빌드 안내 페이지용)"""
+        if not url or not str(url).lower().startswith(("http://", "https://")):
+            return {"error": "invalid url"}
+        try:
+            webbrowser.open(url)
+        except Exception as e:
+            return {"error": str(e)}
+        return {"ok": True}
 
     def _notify_progress(self, done, total):
         """다운로드 진행률을 UI로 통지 (1% 단위 스로틀)"""
