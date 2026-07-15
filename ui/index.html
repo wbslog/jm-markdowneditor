@@ -302,6 +302,17 @@
     overflow-x: hidden;
     padding: 5px 0;
     min-width: 280px;
+    position: relative;   /* 러버밴드(드래그 다중선택) 오버레이 기준 */
+  }
+  /* 파일 다중 선택 표시 (폴더는 선택 대상 아님) */
+  .sb-item.file.selected { background: #35356a; color: #fff; }
+  .sb-item.file.selected.active { background: #4048a0; }
+  /* 드래그 다중 선택 러버밴드 */
+  .sb-band {
+    position: absolute; z-index: 5; pointer-events: none;
+    background: rgba(99, 102, 241, 0.18);
+    border: 1px solid rgba(129, 140, 248, 0.8);
+    border-radius: 2px;
   }
   #sb-list::-webkit-scrollbar-track { background: #232336; }
   #sb-list::-webkit-scrollbar-thumb { background: #3f3f5c; border-radius: 6px; }
@@ -468,7 +479,9 @@
   #table-grid .tg-label { margin-top: 8px; text-align: center; font-size: 12px; color: #2b3040; font-weight: 600; }
   #web-editor {
     flex: 1; min-height: 0;   /* flex 자식 스크롤 필수: 없으면 세로 스크롤이 사라짐 */
-    overflow-y: auto; padding: 22px 30px 40vh; outline: none;
+    overflow-y: scroll;       /* 오버레이 자동숨김 대신 항상 세로 스크롤바 표시 */
+    scrollbar-gutter: stable; /* 스크롤바 자리를 항상 확보 (WebView2 오버레이 대응) */
+    padding: 22px 30px 40vh; outline: none;
     background: #ffffff; color: #24292f;
   }
   #web-editor:focus { outline: none; }
@@ -679,6 +692,10 @@
   #preview-scroll::-webkit-scrollbar-thumb:hover { background: #8b90a0; }
   #preview-scroll::-webkit-scrollbar-thumb:horizontal { background: #949aa8; }
   #preview-scroll::-webkit-scrollbar-thumb:horizontal:hover { background: #6b7180; }
+  /* 웹에디터 세로 스크롤바 (밝은 톤, 항상 보이게) */
+  #web-editor::-webkit-scrollbar-track { background: #eef0f4; }
+  #web-editor::-webkit-scrollbar-thumb { background: #b3b8c4; border-radius: 7px; border: 2px solid #eef0f4; }
+  #web-editor::-webkit-scrollbar-thumb:hover { background: #8b90a0; }
 
   /* ---------- 설명서 모달 ---------- */
   #help-overlay {
@@ -1522,7 +1539,8 @@ const I18N = {
     upDblClick: '클릭: 상위 폴더로 이동', folderDblClick: '클릭: 폴더 열기',
     fileDblClick: '더블클릭: 열기', tabClose_t: '탭 닫기',
     ctxRename: '✏️ 이름 변경', ctxDelete: '🗑️ 삭제', ctxNew: '📄 새 파일',
-    ctxNewFolder: '📁 새 폴더',
+    ctxNewFolder: '📁 새 폴더', ctxOpen: '📂 열기',
+    ctxOpenN: (n) => '📂 열기 (' + n + '개)', ctxDeleteN: (n) => '🗑️ 삭제 (' + n + '개)',
     sbEmpty: '표시할 폴더/마크다운 파일이 없습니다',
     openDone: '열기 완료',
     reloadConfirm: '내용이 수정되어 다시 로딩 하시겠습니까?',
@@ -1540,6 +1558,9 @@ const I18N = {
     folderDone: '새 폴더 생성: ',
     renameFail: '이름 변경 실패: ', renameDone: '이름 변경 완료: ',
     deleteConfirm: (name) => '"' + name + '" 파일을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
+    deleteFolderConfirm: (name) => '"' + name + '" 폴더와 그 안의 모든 내용을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
+    deleteManyConfirm: (n) => '선택한 파일 ' + n + '개를 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
+    deleteManyDone: (n) => '삭제 완료 (' + n + '개)',
     deleteFail: '삭제 실패: ', deleteDone: '삭제 완료: ',
     // 설정 / Confluence
     setTitle: '⚙️ 설정', setClose_t: '닫기 (Esc)',
@@ -1639,7 +1660,8 @@ const I18N = {
     upDblClick: 'Click: go to parent folder', folderDblClick: 'Click: open folder',
     fileDblClick: 'Double-click: open', tabClose_t: 'Close tab',
     ctxRename: '✏️ Rename', ctxDelete: '🗑️ Delete', ctxNew: '📄 New file',
-    ctxNewFolder: '📁 New folder',
+    ctxNewFolder: '📁 New folder', ctxOpen: '📂 Open',
+    ctxOpenN: (n) => '📂 Open (' + n + ')', ctxDeleteN: (n) => '🗑️ Delete (' + n + ')',
     sbEmpty: 'No folders or Markdown files to show',
     openDone: 'Opened',
     reloadConfirm: 'This file has changed on disk. Reload it?',
@@ -1657,6 +1679,9 @@ const I18N = {
     folderDone: 'Folder created: ',
     renameFail: 'Rename failed: ', renameDone: 'Renamed: ',
     deleteConfirm: (name) => 'Delete "' + name + '"?\n(This deletes immediately without using the Recycle Bin)',
+    deleteFolderConfirm: (name) => 'Delete the folder "' + name + '" and all its contents?\n(This deletes immediately without using the Recycle Bin)',
+    deleteManyConfirm: (n) => 'Delete ' + n + ' selected file(s)?\n(This deletes immediately without using the Recycle Bin)',
+    deleteManyDone: (n) => 'Deleted (' + n + ')',
     deleteFail: 'Delete failed: ', deleteDone: 'Deleted: ',
     // Settings / Confluence
     setTitle: '⚙️ Settings', setClose_t: 'Close (Esc)',
@@ -2552,16 +2577,25 @@ const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
 
 ### 파일 관리 (우클릭 메뉴)
 
-- 파일을 **우클릭**하면 메뉴가 나타납니다:
+- 파일 또는 **폴더**를 **우클릭**하면 메뉴가 나타납니다:
+    - **📂 열기**: 파일을 탭으로 엽니다 (여러 개 선택 시 **📂 열기 (N개)** 로 한 번에 모두 열림)
     - **✏️ 이름 변경**: 목록 안에서 바로 새 이름을 입력합니다 (\`Enter\` 확정, \`Esc\` 취소)
-    - **🗑️ 삭제**: 확인 후 파일을 삭제합니다 (열려 있던 탭도 함께 닫힘)
-    - **📄 새 파일**: 현재 폴더에 \`noname.md\`를 만듭니다 (이미 있으면 \`noname_1.md\`, \`noname_2.md\` … 순서로 자동 이름)
-- 파일 목록의 **빈 곳을 우클릭**해도 새 파일을 만들 수 있습니다.
+    - **🗑️ 삭제**: 확인 후 삭제합니다. **폴더도 삭제 가능**하며 폴더는 그 안의 모든 내용까지 함께 지워집니다 (열려 있던 탭도 함께 닫힘)
+    - **📄 새 파일 / 📁 새 폴더**: 현재 폴더에 \`noname.md\` / \`noname\` 을 만듭니다 (이미 있으면 \`noname_1\`, \`noname_2\` … 자동 이름). 만든 직후 바로 이름 변경이 활성화됩니다.
+- 파일 목록의 **빈 곳을 우클릭**해도 새 파일/새 폴더를 만들 수 있습니다.
+
+### 파일 다중 선택 (파일만, 폴더 제외)
+
+- **드래그(러버밴드)**: 목록의 빈 곳에서 마우스를 누른 채 끌어 지나가는 파일들을 한 번에 선택합니다.
+- **\`Ctrl\`( macOS \`⌘\` ) + 클릭**: 파일을 하나씩 추가/해제합니다.
+- **\`Shift\` + 클릭**: 먼저 클릭한 파일부터 나중에 클릭한 파일까지 **사이의 모든 파일**을 선택합니다.
+- 선택 후 **우클릭 → 📂 열기 (N개)** 로 선택한 파일을 **동시에 모두** 열 수 있고, **🗑️ 삭제 (N개)** 로 한 번에 삭제할 수 있습니다.
+- **폴더는 다중 선택 대상이 아닙니다** (폴더 클릭은 항상 이동/열기).
 
 ### 파일 이동 (드래그 앤 드롭)
 
-- 파일을 **드래그**해서 폴더, \`..\`(상위 폴더), 상단 드라이브 칩 위에 놓으면 그 위치로 이동합니다.
-- 대상 폴더에 같은 이름의 파일이 있으면 이동하지 않고 알려줍니다.
+- 파일 또는 **폴더**를 **드래그**해서 폴더, \`..\`(상위 폴더), 상단 드라이브 칩 위에 놓으면 그 위치로 이동합니다.
+- 대상 폴더에 같은 이름이 있으면 이동하지 않고 알려줍니다. (폴더를 자기 자신/하위 폴더로는 이동할 수 없습니다.)
 - 열려 있는 탭의 파일을 이동하면 탭 경로도 자동으로 갱신됩니다.
 
 ---
@@ -2663,7 +2697,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.15.1** |
+| **최신 버전** | **v1.16.0** |
 | 최종 업데이트 | 2026-07-15 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2675,6 +2709,27 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.16.0</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; 파일 다중 선택 · 폴더 삭제 · 웹에디터 스크롤 수정</summary>
+
+### 🗂️ 디렉토리 다중 선택
+
+- **파일 다중 선택 지원** (폴더는 선택 대상에서 제외)
+    - **드래그(러버밴드)** — 빈 곳에서 마우스를 끌어 지나가는 파일을 한 번에 선택
+    - **Ctrl(⌘) + 클릭** — 파일 하나씩 추가/해제
+    - **Shift + 클릭** — 먼저·나중 클릭 사이의 모든 파일 선택
+- **여러 파일 선택 후 우클릭 → 📂 열기 (N개)** 로 **동시에 모두 열기**, **🗑️ 삭제 (N개)** 로 한 번에 삭제
+
+### 🗑️ 폴더 삭제
+
+- 우클릭 메뉴에서 **폴더도 삭제 가능** (폴더 안의 모든 내용까지 함께 삭제)
+
+### 🖊 웹에디터 스크롤 수정
+
+- **웹에디터 우측 세로 스크롤바가 안 보이던 문제 수정** — 항상 보이는 스크롤바 + 스크롤 자리 고정(scrollbar-gutter)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.15.1</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; 설명서 창 폭 +20%</summary>
 
 ### 🎨 변경
@@ -3719,16 +3774,25 @@ Selecting a word in the editor and pressing \`Ctrl+F\` fills it into the search 
 
 ### File Management (right-click menu)
 
-- **Right-click** a file to open a menu:
+- **Right-click** a file or **folder** to open a menu:
+    - **📂 Open**: open the file in a tab (with multiple files selected, **📂 Open (N)** opens them all at once)
     - **✏️ Rename**: rename inline right in the list (\`Enter\` to confirm, \`Esc\` to cancel)
-    - **🗑️ Delete**: deletes the file after confirmation (an open tab for it is closed too)
-    - **📄 New file**: creates \`noname.md\` in the current folder (\`noname_1.md\`, \`noname_2.md\`, … if it exists)
-- You can also **right-click an empty area** of the list to create a new file.
+    - **🗑️ Delete**: deletes after confirmation. **Folders can be deleted too**, including all their contents (an open tab for a deleted file is closed too)
+    - **📄 New file / 📁 New folder**: creates \`noname.md\` / \`noname\` in the current folder (\`noname_1\`, \`noname_2\`, … if it exists). Rename is activated immediately after creation.
+- You can also **right-click an empty area** of the list to create a new file/folder.
+
+### Multi-selecting files (files only, folders excluded)
+
+- **Drag (rubber-band)**: press on an empty area of the list and drag across files to select them all at once.
+- **\`Ctrl\` (macOS \`⌘\`) + click**: add/remove files one by one.
+- **\`Shift\` + click**: select **every file in between** the first and the last clicked file.
+- Then **right-click → 📂 Open (N)** opens all selected files **simultaneously**, and **🗑️ Delete (N)** deletes them together.
+- **Folders are never multi-selected** (clicking a folder always navigates/opens).
 
 ### Moving files (drag & drop)
 
-- **Drag** a file onto a folder, the \`..\` (parent) entry, or a drive chip to move it there.
-- If a file with the same name exists in the target, the move is canceled with a notice.
+- **Drag** a file or **folder** onto a folder, the \`..\` (parent) entry, or a drive chip to move it there.
+- If the same name exists in the target, the move is canceled with a notice. (A folder cannot be moved into itself or its subfolder.)
 - Moving a file that is open in a tab updates the tab's path automatically.
 
 ---
@@ -3830,7 +3894,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.15.1** |
+| **Latest version** | **v1.16.0** |
 | Last updated | 2026-07-15 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -3842,6 +3906,27 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.16.0</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; Multi-select files · delete folders · web editor scroll fix</summary>
+
+### 🗂️ Directory multi-select
+
+- **Multi-select files** (folders are excluded from selection)
+    - **Drag (rubber-band)** — press on empty space and drag across files to select them
+    - **Ctrl (⌘) + click** — add/remove files one by one
+    - **Shift + click** — select every file between the first and last click
+- **Select several files, then right-click → 📂 Open (N)** to **open them all at once**, or **🗑️ Delete (N)** to delete together
+
+### 🗑️ Delete folders
+
+- The right-click menu can now **delete folders too** (including all their contents)
+
+### 🖊 Web editor scroll fix
+
+- **Fixed the missing vertical scrollbar in the web editor** — always-visible scrollbar with a reserved gutter (scrollbar-gutter)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.15.1</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; Help window +20% wider</summary>
 
 ### 🎨 Changed
@@ -5070,6 +5155,10 @@ async function loadDir(path) {
   }
 
   sbList.innerHTML = '';
+  /* 폴더 이동/새로고침 시 파일 선택 초기화 */
+  sbSelected = new Set();
+  sbFileOrder = [];
+  sbAnchorPath = null;
 
   // ".." = 상위(이전) 폴더로 이동 (원클릭)
   if (r.parent) {
@@ -5095,12 +5184,14 @@ async function loadDir(path) {
       e.dataTransfer.setData('text/plain', d.path);
     });
     el.addEventListener('dragend', () => { dragFile = null; });
-    /* 우클릭 메뉴: 이름 변경 / 새 파일 / 새 폴더 */
+    /* 우클릭 메뉴: 이름 변경 / 삭제 / 새 파일 / 새 폴더 (폴더도 삭제 가능) */
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      sbClearSelection(); // 폴더 우클릭은 파일 선택과 무관
       showCtxMenu(e.clientX, e.clientY, [
         { label: L().ctxRename, action: () => startRename(el, d) },
+        { label: L().ctxDelete, danger: true, action: () => deleteFile(d, true) },
         { label: L().ctxNew, action: createNewFile },
         { label: L().ctxNewFolder, action: createNewFolder },
       ]);
@@ -5113,6 +5204,13 @@ async function loadDir(path) {
     el.classList.add('file');
     if (f.hidden) el.classList.add('hidden-item');
     el.dataset.path = f.path;
+    sbFileOrder.push(f.path);
+    /* 단일 클릭 = 선택 (Ctrl/⌘=토글, Shift=범위), 더블클릭 = 열기 */
+    el.addEventListener('click', (e) => {
+      if (e.shiftKey) { e.preventDefault(); sbSelectRange(f.path); }
+      else if (e.ctrlKey || e.metaKey) { e.preventDefault(); sbToggle(f.path); }
+      else sbSelectOnly(f.path);
+    });
     el.addEventListener('dblclick', async () => {
       const opened = await window.pywebview.api.open_path(f.path);
       if (opened) await openFileIntoTabs(opened);
@@ -5125,16 +5223,25 @@ async function loadDir(path) {
       e.dataTransfer.setData('text/plain', f.path);
     });
     el.addEventListener('dragend', () => { dragFile = null; });
-    /* 우클릭 메뉴: 이름 변경 / 삭제 / 새 파일 */
+    /* 우클릭 메뉴: 선택 밖 파일이면 그 파일만 선택한 뒤 메뉴 구성.
+       2개 이상 선택 시 '열기(N)/삭제(N)', 단일이면 열기/이름변경/삭제 */
     el.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      showCtxMenu(e.clientX, e.clientY, [
-        { label: L().ctxRename, action: () => startRename(el, f) },
-        { label: L().ctxDelete, danger: true, action: () => deleteFile(f) },
-        { label: L().ctxNew, action: createNewFile },
-        { label: L().ctxNewFolder, action: createNewFolder },
-      ]);
+      if (!sbSelected.has(f.path)) sbSelectOnly(f.path);
+      const sel = [...sbSelected];
+      const items = [];
+      if (sel.length >= 2) {
+        items.push({ label: L().ctxOpenN(sel.length), action: () => openPaths(sel) });
+        items.push({ label: L().ctxDeleteN(sel.length), danger: true, action: () => deletePaths(sel) });
+      } else {
+        items.push({ label: L().ctxOpen, action: () => openPaths([f.path]) });
+        items.push({ label: L().ctxRename, action: () => startRename(el, f) });
+        items.push({ label: L().ctxDelete, danger: true, action: () => deleteFile(f) });
+      }
+      items.push({ label: L().ctxNew, action: createNewFile });
+      items.push({ label: L().ctxNewFolder, action: createNewFolder });
+      showCtxMenu(e.clientX, e.clientY, items);
     });
     sbList.appendChild(el);
   }
@@ -5198,11 +5305,100 @@ document.addEventListener('mousedown', (e) => {
 /* 파일 목록 빈 곳 우클릭 → 새 파일 / 새 폴더 */
 sbList.addEventListener('contextmenu', (e) => {
   e.preventDefault();
+  sbClearSelection();
   showCtxMenu(e.clientX, e.clientY, [
     { label: L().ctxNew, action: createNewFile },
     { label: L().ctxNewFolder, action: createNewFolder },
   ]);
 });
+
+/* 빈 영역에서 마우스 드래그 → 러버밴드 다중 선택 (파일만 선택, 폴더 제외) */
+sbList.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (e.target.closest('.sb-item')) return;   // 항목 위에서 시작하면 클릭/드래그 우선
+  if (!(e.ctrlKey || e.metaKey)) sbClearSelection();
+  const base = new Set(sbSelected);
+  const startX = e.clientX, startY = e.clientY;
+  const listRect = sbList.getBoundingClientRect();
+  const band = document.createElement('div');
+  band.className = 'sb-band';
+  sbList.appendChild(band);
+  let moved = false;
+  const move = (ev) => {
+    moved = true;
+    const x1 = Math.min(startX, ev.clientX), y1 = Math.min(startY, ev.clientY);
+    const x2 = Math.max(startX, ev.clientX), y2 = Math.max(startY, ev.clientY);
+    band.style.left = (x1 - listRect.left) + 'px';
+    band.style.top = (y1 - listRect.top + sbList.scrollTop) + 'px';
+    band.style.width = (x2 - x1) + 'px';
+    band.style.height = (y2 - y1) + 'px';
+    sbSelected = new Set(base);
+    sbList.querySelectorAll('.sb-item.file').forEach(el => {
+      const r = el.getBoundingClientRect();
+      const hit = !(r.right < x1 || r.left > x2 || r.bottom < y1 || r.top > y2);
+      if (hit) sbSelected.add(el.dataset.path);
+    });
+    sbApplySelectionClasses();
+  };
+  const up = () => {
+    band.remove();
+    document.removeEventListener('mousemove', move);
+    document.removeEventListener('mouseup', up);
+    if (!moved && !(e.ctrlKey || e.metaKey)) sbClearSelection(); // 빈 곳 단순 클릭 → 선택 해제
+  };
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', up);
+});
+
+/* ---------- 파일 다중 선택 (폴더는 선택 대상 아님) ---------- */
+let sbSelected = new Set();   // 선택된 '파일' 경로 집합
+let sbFileOrder = [];         // 현재 표시된 파일 경로 순서 (Shift 범위 선택용)
+let sbAnchorPath = null;      // Shift 선택 기준점
+
+function sbApplySelectionClasses() {
+  sbList.querySelectorAll('.sb-item.file').forEach(el =>
+    el.classList.toggle('selected', sbSelected.has(el.dataset.path)));
+}
+function sbClearSelection() {
+  sbSelected.clear();
+  sbList.querySelectorAll('.sb-item.file.selected').forEach(el => el.classList.remove('selected'));
+}
+function sbSelectOnly(path) { sbSelected = new Set([path]); sbAnchorPath = path; sbApplySelectionClasses(); }
+function sbToggle(path) {
+  if (sbSelected.has(path)) sbSelected.delete(path); else sbSelected.add(path);
+  sbAnchorPath = path; sbApplySelectionClasses();
+}
+function sbSelectRange(path) {
+  const a = sbFileOrder.indexOf(sbAnchorPath), b = sbFileOrder.indexOf(path);
+  if (a < 0 || b < 0) { sbSelectOnly(path); return; }
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  sbSelected = new Set(sbFileOrder.slice(lo, hi + 1));
+  sbApplySelectionClasses();
+}
+
+/* 선택된(또는 지정된) 파일들을 모두 탭으로 연다 */
+async function openPaths(paths) {
+  for (const p of paths) {
+    const opened = await window.pywebview.api.open_path(p);
+    if (opened) await openFileIntoTabs(opened);
+  }
+}
+/* 선택된 파일 여러 개를 한 번에 삭제 */
+async function deletePaths(paths) {
+  if (!paths.length) return;
+  if (!confirm(L().deleteManyConfirm(paths.length))) return;
+  let n = 0;
+  for (const p of paths) {
+    const r = await window.pywebview.api.delete_path(p);
+    if (!r || r.error) { flash(L().deleteFail + (r ? r.error : L().unknownErr)); continue; }
+    const t = tabs.find(t => t.path === p);
+    if (t) { t.dirty = false; await closeTab(t); }
+    n++;
+  }
+  sbClearSelection();
+  flash(L().deleteManyDone(n));
+  loadDir(sidebarDir);
+}
 
 /* ---------- 파일 관리 (새 파일 / 이름 변경 / 삭제 / 이동) ---------- */
 let dragFile = null; // 드래그 중인 파일 경로
@@ -5313,8 +5509,8 @@ function startRename(el, f) {
   input.addEventListener('mousedown', (e) => e.stopPropagation());
 }
 
-async function deleteFile(f) {
-  if (!confirm(L().deleteConfirm(f.name))) return;
+async function deleteFile(f, isDir) {
+  if (!confirm(isDir ? L().deleteFolderConfirm(f.name) : L().deleteConfirm(f.name))) return;
   const r = await window.pywebview.api.delete_path(f.path);
   if (!r || r.error) { flash(L().deleteFail + (r ? r.error : L().unknownErr)); return; }
   /* 열려 있는 탭이면 닫기 (버퍼도 함께 정리) */

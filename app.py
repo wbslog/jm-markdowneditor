@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.15.1"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.16.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -293,11 +293,14 @@ class Api:
         return {"path": new_path, "name": new_name}
 
     def delete_path(self, path):
-        """파일 삭제 (즉시 삭제, 휴지통 미사용)"""
-        if not os.path.isfile(path):
-            return {"error": "파일을 찾을 수 없습니다"}
+        """파일/폴더 삭제 (즉시 삭제, 휴지통 미사용). 폴더는 하위 포함 재귀 삭제"""
+        if not path or not os.path.exists(path):
+            return {"error": "파일/폴더를 찾을 수 없습니다"}
         try:
-            os.remove(path)
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
         except OSError as e:
             return {"error": str(e)}
         return {"ok": True}
