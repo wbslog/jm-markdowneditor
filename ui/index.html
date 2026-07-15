@@ -451,7 +451,8 @@
   #table-grid .tg-cell.on { background: #6366f1; border-color: #6366f1; }
   #table-grid .tg-label { margin-top: 8px; text-align: center; font-size: 12px; color: #2b3040; font-weight: 600; }
   #web-editor {
-    flex: 1; overflow-y: auto; padding: 22px 30px 40vh; outline: none;
+    flex: 1; min-height: 0;   /* flex 자식 스크롤 필수: 없으면 세로 스크롤이 사라짐 */
+    overflow-y: auto; padding: 22px 30px 40vh; outline: none;
     background: #ffffff; color: #24292f;
   }
   #web-editor:focus { outline: none; }
@@ -462,31 +463,26 @@
   #main.full-editor #editor-pane { flex: 1 1 auto !important; }
   #main.full-preview #preview-pane { flex: 1 1 auto !important; }
 
-  /* 맨 위로 가기 버튼 (연하게, 호버 시 진하게) */
+  /* 맨 위로 가기 버튼 — 인디고 강조로 잘 보이게 (편집/웹에디터/프리뷰 공통) */
   #editor-pane, #preview-pane { position: relative; }
   .scroll-top {
     position: absolute;
     right: 20px;
     bottom: 16px;
-    z-index: 5;
-    width: 36px;
-    height: 36px;
+    z-index: 6;   /* 웹에디터 레이어(z-index:3)보다 위 */
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: 1px solid rgba(120, 120, 170, 0.35);
-    background: rgba(120, 120, 170, 0.16);
-    color: rgba(200, 200, 230, 0.6);
-    font-size: 15px;
+    border: 1px solid rgba(129, 140, 248, 0.8);
+    background: rgba(99, 102, 241, 0.85);
+    color: #ffffff;
+    font-size: 17px;
     cursor: pointer;
-    opacity: 0.4;
-    transition: opacity 0.15s;
+    opacity: 0.9;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    transition: opacity 0.15s, transform 0.15s, background 0.15s;
   }
-  .scroll-top:hover { opacity: 1; background: rgba(99, 102, 241, 0.5); color: #fff; }
-  #preview-pane .scroll-top {
-    border-color: rgba(60, 60, 90, 0.25);
-    background: rgba(120, 120, 150, 0.13);
-    color: rgba(60, 60, 90, 0.55);
-  }
-  #preview-pane .scroll-top:hover { background: rgba(99, 102, 241, 0.75); color: #fff; }
+  .scroll-top:hover { opacity: 1; background: #7477f5; transform: translateY(-2px); }
 
   /* 탭 드래그 정렬 표시 */
   .tab.drag-over { box-shadow: inset 3px 0 0 #6366f1; }
@@ -1060,6 +1056,22 @@
   }
   .form-row input:focus { border-color: #818cf8; background: rgba(0, 0, 0, 0.3); }
   .form-hint { font-size: 11px; color: #7a7a9a; margin-top: 3px; }
+  /* 밝은 톤 상세 툴팁 (토큰 발급 매뉴얼 등) */
+  .tip-wrap { position: relative; display: inline-block; margin-top: 5px; }
+  .tip-link {
+    font-size: 12px; color: #a5b4fc; cursor: help;
+    text-decoration: underline dotted; text-underline-offset: 3px;
+  }
+  .tip-wrap:hover .tip-link { color: #c7d2fe; }
+  .tip-pop {
+    display: none; position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 30;
+    width: 380px; max-width: 70vw;
+    background: #ffffff; color: #1f2328;
+    border: 1px solid #d9dde6; border-radius: 10px; padding: 13px 15px;
+    font-size: 12.5px; line-height: 1.7; white-space: pre-line;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  }
+  .tip-wrap:hover .tip-pop { display: block; }
   .section-title { font-size: 13px; font-weight: 700; color: #c5c5e5; margin: 4px 0 12px; }
   #set-test-result { font-size: 12px; margin-top: 6px; min-height: 16px; }
   #set-test-result.ok { color: #4ade80; }
@@ -1129,18 +1141,18 @@
     <button id="btn-file" class="has-caret" title="파일 메뉴 (열기/저장 등)">📁 파일</button>
     <div class="dropdown" id="file-menu">
       <button id="btn-open" title="파일 열기 (Ctrl+O)">📂 열기</button>
-      <button id="btn-save" title="저장 (Ctrl+S)">💾 저장</button>
       <button id="btn-saveas" title="다른 이름으로 저장 (Ctrl+Shift+S)">📝 다른 이름 저장</button>
       <div class="menu-sep"></div>
       <button id="btn-saveall" title="열린 파일 모두 저장">🗃️ 모두 저장</button>
       <button id="btn-closeall" title="열린 탭 모두 닫기 (변경사항은 파일마다 확인)">🚪 모두 닫기</button>
     </div>
   </div>
+  <button id="btn-save" class="primary" title="저장 (Ctrl+S) — 컨플 문서는 컨플에, 로컬 파일은 로컬에 저장">💾 저장</button>
   <button id="btn-search" title="검색 (Ctrl+F)">🔍 검색</button>
   <button id="btn-export" title="미리보기 그대로 HTML로 저장">🌐 HTML 내보내기</button>
   <button id="btn-settings" title="설정 (Confluence 연동 등)">⚙️ 설정</button>
-  <button id="btn-confluence" title="Confluence 문서 탐색" style="display:none">🔗 Confluence</button>
-  <button id="btn-conf-save" title="현재 문서를 Confluence에 저장" style="display:none">☁️ 컨플 저장</button>
+  <button id="btn-confluence" title="Confluence 문서 탐색" style="display:none">🔗 Confluence 조회</button>
+  <button id="btn-conf-save" title="현재 문서를 Confluence에 업로드" style="display:none">☁️ Confluence 업로드</button>
   <button id="btn-help" title="프로그램 기능/사용 설명서 보기">❓ 설명서</button>
   <div id="file-path"><span class="name">새 문서</span></div>
   <div id="lang-toggle" title="언어 / Language">
@@ -1379,6 +1391,10 @@
             <label id="set-token-l">토큰 값 (API token)</label>
             <input id="set-token" type="password" spellcheck="false" placeholder="••••••••">
             <div class="form-hint" id="set-token-help">API 토큰: Atlassian 계정 → 보안 → API 토큰에서 발급</div>
+            <div class="tip-wrap">
+              <span class="tip-link" id="set-token-tip-link">❓ 토큰 발급 방법 자세히 보기</span>
+              <div class="tip-pop" id="set-token-tip"></div>
+            </div>
           </div>
           <div class="form-row">
             <label id="set-work-l">나의 작업 폴더 또는 링크</label>
@@ -1422,21 +1438,21 @@
 <div id="conf-save-overlay" class="app-overlay">
   <div class="app-modal wide">
     <div class="app-modal-header">
-      <span id="conf-save-title">☁️ Confluence에 저장</span>
+      <span id="conf-save-title">☁️ Confluence 업로드</span>
       <button class="x" id="conf-save-x" title="닫기 (Esc)">✕</button>
     </div>
     <div class="app-modal-body">
       <div class="form-row">
-        <label id="conf-save-title-l">제목 (파일명)</label>
+        <label id="conf-save-title-l">업로드할 문서 제목(파일명)</label>
         <input id="conf-save-name" type="text" spellcheck="false">
       </div>
-      <div class="section-title" id="conf-save-loc-l">저장 위치</div>
+      <div class="section-title" id="conf-save-loc-l">업로드할 위치 선택</div>
       <div id="conf-save-path"></div>
       <div id="conf-save-tree"></div>
     </div>
     <div class="app-modal-footer">
       <button id="conf-save-cancel">닫기</button>
-      <button id="conf-save-do" class="primary">저장</button>
+      <button id="conf-save-do" class="primary">업로드</button>
     </div>
   </div>
 </div>
@@ -1464,7 +1480,7 @@ const I18N = {
     btnSearch: '🔍 검색', btnSearch_t: '검색 (Ctrl+F)',
     btnExport: '🌐 HTML 내보내기', btnExport_t: '미리보기 그대로 HTML로 저장',
     btnSettings: '⚙️ 설정', btnSettings_t: '설정 (Confluence 연동 등)',
-    btnConfluence: '🔗 Confluence', btnConfluence_t: 'Confluence 문서 탐색',
+    btnConfluence: '🔗 Confluence 조회', btnConfluence_t: 'Confluence 문서 탐색',
     btnHelp: '❓ 설명서', btnHelp_t: '프로그램 기능/사용 설명서 보기',
     tabLeft_t: '이전 파일 보기', tabRight_t: '다음 파일 보기',
     sbUp_t: '상위 폴더로', sbClose_t: '디렉토리 닫기',
@@ -1489,6 +1505,7 @@ const I18N = {
     upDblClick: '클릭: 상위 폴더로 이동', folderDblClick: '클릭: 폴더 열기',
     fileDblClick: '더블클릭: 열기', tabClose_t: '탭 닫기',
     ctxRename: '✏️ 이름 변경', ctxDelete: '🗑️ 삭제', ctxNew: '📄 새 파일',
+    ctxNewFolder: '📁 새 폴더',
     sbEmpty: '표시할 폴더/마크다운 파일이 없습니다',
     openDone: '열기 완료',
     reloadConfirm: '내용이 수정되어 다시 로딩 하시겠습니까?',
@@ -1503,6 +1520,7 @@ const I18N = {
     unknownErr: '알 수 없는 오류',
     needFolder: '폴더를 연 상태에서만 새 파일을 만들 수 있습니다',
     createFail: '생성 실패: ', createDone: '새 파일 생성: ',
+    folderDone: '새 폴더 생성: ',
     renameFail: '이름 변경 실패: ', renameDone: '이름 변경 완료: ',
     deleteConfirm: (name) => '"' + name + '" 파일을 삭제할까요?\n(휴지통을 거치지 않고 바로 삭제됩니다)',
     deleteFail: '삭제 실패: ', deleteDone: '삭제 완료: ',
@@ -1511,6 +1529,8 @@ const I18N = {
     setConfSection: '🔗 Confluence 연동',
     setEmail: '로그인 아이디 (Atlassian 계정 email)', setTokenName: '토큰 이름',
     setToken: '토큰 값 (API token)', setWork: '접근할 폴더 링크',
+    setTokenTipLink: '❓ 토큰 발급 방법 자세히 보기',
+    setTokenTip: '1) 브라우저에서 id.atlassian.com/manage-profile/security/api-tokens 접속\n    (또는 Confluence 우측 상단 프로필 아이콘 → 계정 관리(Manage account) → 보안(Security) 탭 → API 토큰(API tokens))\n2) "API 토큰 만들기(Create API token)" 클릭 — 스코프 없는 기본(클래식) 토큰 권장\n3) 라벨(토큰 이름) 입력 후 생성 → 표시된 토큰 문자열을 즉시 복사\n    (창을 닫으면 다시 볼 수 없습니다!)\n4) 복사한 값을 이 입력칸에 붙여넣고 [연동 테스트]로 확인하세요',
     setWorkHint: '예: https://사이트/wiki/spaces/스페이스키/folder/폴더ID  (스페이스 링크도 가능)',
     setCloudId: 'cloudId (선택 — 자동 조회 실패 시 직접 입력)',
     setCloudIdHint: '브라우저에서 {사이트}/wiki/_edge/tenant_info 접속 시 보이는 cloudId 값',
@@ -1557,12 +1577,12 @@ const I18N = {
     wnTitle: '✨ 새로운 기능',
     wnVer: (v) => '버전 v' + v + ' 의 추가/개선 내용입니다.',
     wnDontShow: '다시 보지 않기', wnClose: '닫기',
-    btnConfSave: '☁️ 컨플 저장', btnConfSave_t: '현재 문서를 Confluence에 저장',
-    confSaveModal: '☁️ Confluence에 저장', confSaveTitleL: '저장할 문서 제목(파일명)',
-    confSaveLocL: '저장할 위치 선택', confSaveRoot: '폴더 최상위',
-    confSaveBtn: '저장', confNeedTitle: '제목을 입력하세요',
+    btnConfSave: '☁️ Confluence 업로드', btnConfSave_t: '현재 문서를 Confluence에 업로드',
+    confSaveModal: '☁️ Confluence 업로드', confSaveTitleL: '업로드할 문서 제목(파일명)',
+    confSaveLocL: '업로드할 위치 선택', confSaveRoot: '폴더 최상위',
+    confSaveBtn: '업로드', confNeedTitle: '제목을 입력하세요',
     confFilterPh: '제목으로 검색...',
-    confNoSub: '하위 페이지 없음 — 이 위치에 저장됩니다',
+    confNoSub: '하위 페이지 없음 — 이 위치에 업로드됩니다',
     confNoMatch: '검색 결과가 없습니다',
   },
   en: {
@@ -1577,7 +1597,7 @@ const I18N = {
     btnSearch: '🔍 Search', btnSearch_t: 'Search (Ctrl+F)',
     btnExport: '🌐 Export HTML', btnExport_t: 'Save preview as an HTML file',
     btnSettings: '⚙️ Settings', btnSettings_t: 'Settings (Confluence integration, etc.)',
-    btnConfluence: '🔗 Confluence', btnConfluence_t: 'Browse Confluence documents',
+    btnConfluence: '🔗 Confluence Browse', btnConfluence_t: 'Browse Confluence documents',
     btnHelp: '❓ Help', btnHelp_t: 'View program features / user guide',
     tabLeft_t: 'Previous file', tabRight_t: 'Next file',
     sbUp_t: 'Up to parent folder', sbClose_t: 'Close directory',
@@ -1602,6 +1622,7 @@ const I18N = {
     upDblClick: 'Click: go to parent folder', folderDblClick: 'Click: open folder',
     fileDblClick: 'Double-click: open', tabClose_t: 'Close tab',
     ctxRename: '✏️ Rename', ctxDelete: '🗑️ Delete', ctxNew: '📄 New file',
+    ctxNewFolder: '📁 New folder',
     sbEmpty: 'No folders or Markdown files to show',
     openDone: 'Opened',
     reloadConfirm: 'This file has changed on disk. Reload it?',
@@ -1616,6 +1637,7 @@ const I18N = {
     unknownErr: 'Unknown error',
     needFolder: 'Open a folder first to create a new file',
     createFail: 'Create failed: ', createDone: 'File created: ',
+    folderDone: 'Folder created: ',
     renameFail: 'Rename failed: ', renameDone: 'Renamed: ',
     deleteConfirm: (name) => 'Delete "' + name + '"?\n(This deletes immediately without using the Recycle Bin)',
     deleteFail: 'Delete failed: ', deleteDone: 'Deleted: ',
@@ -1624,6 +1646,8 @@ const I18N = {
     setConfSection: '🔗 Confluence Integration',
     setEmail: 'Login ID (Atlassian account email)', setTokenName: 'Token name',
     setToken: 'Token value (API token)', setWork: 'Target folder link',
+    setTokenTipLink: '❓ How to create an API token (details)',
+    setTokenTip: '1) Open id.atlassian.com/manage-profile/security/api-tokens in a browser\n    (or Confluence top-right profile icon → Manage account → Security tab → API tokens)\n2) Click "Create API token" — a classic token without scopes is recommended\n3) Enter a label (token name), create it, then copy the token string immediately\n    (you cannot see it again after closing the dialog!)\n4) Paste the copied value into this field and click [Test connection]',
     setWorkHint: 'e.g. https://site/wiki/spaces/SPACEKEY/folder/FOLDERID  (a space link also works)',
     setCloudId: 'cloudId (optional — enter manually if auto-lookup fails)',
     setCloudIdHint: 'The cloudId shown when you open {site}/wiki/_edge/tenant_info in a browser',
@@ -1670,12 +1694,12 @@ const I18N = {
     wnTitle: "✨ What's new",
     wnVer: (v) => 'Additions and improvements in v' + v + '.',
     wnDontShow: "Don't show again", wnClose: 'Close',
-    btnConfSave: '☁️ Save to Confluence', btnConfSave_t: 'Save current document to Confluence',
-    confSaveModal: '☁️ Save to Confluence', confSaveTitleL: 'Document title (file name)',
-    confSaveLocL: 'Select where to save', confSaveRoot: 'Folder root',
-    confSaveBtn: 'Save', confNeedTitle: 'Enter a title',
+    btnConfSave: '☁️ Confluence Upload', btnConfSave_t: 'Upload current document to Confluence',
+    confSaveModal: '☁️ Confluence Upload', confSaveTitleL: 'Document title to upload (file name)',
+    confSaveLocL: 'Select where to upload', confSaveRoot: 'Folder root',
+    confSaveBtn: 'Upload', confNeedTitle: 'Enter a title',
     confFilterPh: 'Filter by title...',
-    confNoSub: 'No sub-pages — will be saved here',
+    confNoSub: 'No sub-pages — will be uploaded here',
     confNoMatch: 'No matching pages',
   },
 };
@@ -1743,6 +1767,7 @@ function applyLang() {
   setTxt('set-conf-section', d.setConfSection);
   setTxt('set-email-l', d.setEmail); setTxt('set-tokenname-l', d.setTokenName);
   setTxt('set-token-l', d.setToken); setTxt('set-token-help', d.setTokenHelp);
+  setTxt('set-token-tip-link', d.setTokenTipLink); setTxt('set-token-tip', d.setTokenTip);
   setTxt('set-work-l', d.setWork); setTxt('set-work-hint', d.setWorkHint);
   setTxt('set-cloudid-l', d.setCloudId); setTxt('set-cloudid-hint', d.setCloudIdHint);
   setTxt('set-test', d.setTest); setTxt('set-cancel', d.setCancel); setTxt('set-save', d.setSave);
@@ -2395,8 +2420,14 @@ document.getElementById('tab-left').addEventListener('click', () => scrollTabs(-
 document.getElementById('tab-right').addEventListener('click', () => scrollTabs(1));
 
 /* ---------- 맨 위로 가기 ---------- */
-document.getElementById('editor-top').addEventListener('click', () =>
-  editor.scrollTo({ top: 0, behavior: 'smooth' }));
+document.getElementById('editor-top').addEventListener('click', () => {
+  /* 웹에디터가 켜져 있으면 웹에디터를, 아니면 소스 편집기를 맨 위로 */
+  if (typeof webEditorOn !== 'undefined' && webEditorOn) {
+    webEditorEl.scrollTo({ top: 0, behavior: 'smooth' });
+  } else {
+    editor.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+});
 document.getElementById('preview-top').addEventListener('click', () =>
   previewScroll.scrollTo({ top: 0, behavior: 'smooth' }));
 
@@ -2407,9 +2438,10 @@ async function doExport() {
 }
 
 /* ---------- 설명서 문서 (언어별) ---------- */
-function getHelpMd() { return modKey(lang === 'en' ? HELP_MD_EN : HELP_MD_KO); }
-function getMdGuide() { return modKey(lang === 'en' ? MD_GUIDE_EN : MD_GUIDE_KO); }
-function getVersionMd() { return modKey(lang === 'en' ? VERSION_MD_EN : VERSION_MD_KO); }
+/* 설명서는 Windows/macOS 단축키를 모두 명시하므로 자동 치환(modKey) 없이 그대로 표시 */
+function getHelpMd() { return lang === 'en' ? HELP_MD_EN : HELP_MD_KO; }
+function getMdGuide() { return lang === 'en' ? MD_GUIDE_EN : MD_GUIDE_KO; }
+function getVersionMd() { return lang === 'en' ? VERSION_MD_EN : VERSION_MD_KO; }
 
 /* ---------- 설명서 (한국어) ---------- */
 const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
@@ -2429,14 +2461,17 @@ const HELP_MD_KO = `# 📖 jm-mdv (Markdown Viewer) 사용 설명서
 |------|------|--------|
 | 📄 새 파일 | 빈 새 문서 탭을 만듭니다 | \`Ctrl+N\` |
 | 🗂️ 디렉토리 | 좌측 폴더 탐색 패널을 열고 닫습니다 | - |
-| 📂 열기 | 파일 열기 대화상자로 마크다운 파일을 엽니다 | \`Ctrl+O\` |
-| 💾 저장 | 현재 문서를 저장합니다 (새 문서면 저장 위치를 물어봄) | \`Ctrl+S\` |
-| 📝 다른 이름 | 현재 문서를 다른 이름/위치로 저장합니다 | \`Ctrl+Shift+S\` |
-| 🗃️ 모두 저장 | 확인 창에서 확인을 눌러야 모든 탭의 변경사항을 일괄 저장합니다 | - |
-| 🚪 모두 닫기 | 확인 창에서 확인을 눌러야 모든 탭을 닫습니다 (변경사항은 파일마다 저장 여부 확인) | - |
+| 📁 파일 | 드롭다운 메뉴: 열기 / 다른 이름 저장 / 모두 저장 / 모두 닫기 | - |
+| 💾 저장 | 현재 문서를 저장합니다 — **컨플에서 연 문서는 Confluence에 업데이트**, 로컬 파일은 로컬에 저장 | \`Ctrl+S\` |
 | 🔍 검색 | 에디터 검색 바를 엽니다 | \`Ctrl+F\` |
 | 🌐 HTML 내보내기 | 미리보기 모습 그대로 단일 HTML 파일로 저장합니다 | - |
-| ❓ 설명서 | 이 설명서를 모달 창으로 표시합니다 | - |
+| ⚙️ 설정 | 백업 폴더 지정, Confluence 연동(계정/토큰/폴더 링크) | - |
+| 🔗 Confluence 조회 | 연동 완료 시 표시 — 폴더/페이지 목록 조회·열기 | - |
+| ☁️ Confluence 업로드 | 현재 문서를 위치 선택 후 Confluence 새 페이지로 업로드 | - |
+| ❓ 설명서 | 이 설명서를 모달 창으로 표시합니다 (상단 🚀 업데이트 버튼으로 새 버전 확인) | - |
+| KOR / ENG | 인터페이스 전체를 한국어/영어로 전환합니다 | - |
+
+**📁 파일 메뉴 안**: 📂 열기(\`Ctrl+O\`) · 📝 다른 이름 저장(\`Ctrl+Shift+S\`) · 🗃️ 모두 저장 · 🚪 모두 닫기 (모두 저장/닫기는 확인 창 후 진행)
 
 우측의 **파일 경로 표시줄**을 클릭하면 현재 파일 위치가 탐색기에서 열립니다.
 파일명 앞의 <span style="color:#b45309">●</span> 표시는 **저장되지 않은 변경사항**이 있다는 뜻입니다.
@@ -2522,13 +2557,29 @@ CSS가 포함된 **단일 HTML 파일**로 저장됩니다. 브라우저만 있�
 
 ## ⌨️ 전체 단축키 요약
 
+### 🪟 Windows
+
 | 단축키 | 기능 |
 |--------|------|
 | \`Ctrl+N\` | 새 문서 |
 | \`Ctrl+O\` | 파일 열기 |
-| \`Ctrl+S\` | 저장 |
+| \`Ctrl+S\` | 저장 (컨플 문서는 Confluence에 업데이트) |
 | \`Ctrl+Shift+S\` | 다른 이름으로 저장 |
 | \`Ctrl+F\` | 검색 |
+| \`Enter\` / \`Shift+Enter\` | (검색 중) 다음/이전 결과 |
+| \`F3\` / \`Shift+F3\` | 다음/이전 검색 결과 |
+| \`Esc\` | 검색 닫기 |
+| \`Tab\` | 공백 4칸 입력 |
+
+### 🍎 macOS
+
+| 단축키 | 기능 |
+|--------|------|
+| \`Command+N\` | 새 문서 |
+| \`Command+O\` | 파일 열기 |
+| \`Command+S\` | 저장 (컨플 문서는 Confluence에 업데이트) |
+| \`Command+Shift+S\` | 다른 이름으로 저장 |
+| \`Command+F\` | 검색 |
 | \`Enter\` / \`Shift+Enter\` | (검색 중) 다음/이전 결과 |
 | \`F3\` / \`Shift+F3\` | 다음/이전 검색 결과 |
 | \`Esc\` | 검색 닫기 |
@@ -2571,8 +2622,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.13.0** |
-| 최종 업데이트 | 2026-07-13 |
+| **최신 버전** | **v1.14.0** |
+| 최종 업데이트 | 2026-07-15 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2583,6 +2634,40 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.14.0</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; 디렉토리 폴더 관리 · 저장 버튼 분리 · UI 개선</summary>
+
+### 📂 디렉토리(파일 탐색) 기능 강화
+
+- **📁 새 폴더** — 우클릭 메뉴에서 새 폴더 생성 (noname, 중복 시 noname_1…) 후 **즉시 이름 변경 입력이 활성화**됨
+- **📄 새 파일도 생성 직후 바로 이름 변경 활성화** (기존: 생성 후 자동 열기)
+- **폴더 드래그 & 드롭 이동** — 파일뿐 아니라 **폴더도 드래그해서 다른 폴더로 이동** 가능 (자기 자신/하위 폴더로의 이동은 차단)
+- 폴더 우클릭 메뉴 추가 (이름 변경 / 새 파일 / 새 폴더)
+- **우클릭 메뉴가 프로그램 창을 벗어나지 않게 개선** — 화면 가장자리에서 위/아래/좌/우로 자동 플립하여 항상 보이도록 표시
+
+### 💾 저장 버튼 분리 · Confluence 명칭 정리
+
+- **💾 저장 버튼을 📁 파일 메뉴에서 분리**해 🔍 검색 버튼 왼쪽에 상시 노출 — Confluence 문서는 Confluence에 즉시 업데이트, 로컬 파일은 로컬에 저장
+- 상단 메뉴 명칭 변경: **🔗 Confluence 조회**, **☁️ Confluence 업로드** (업로드 창 내 문구도 저장 → 업로드로 통일)
+
+### 🖥️ 웹에디터 · 화면 개선
+
+- **웹에디터 우측 세로 스크롤바가 사라지던 문제 수정**
+- **⬆ 맨 위로 버튼을 모든 창(에디터/웹에디터/프리뷰)에서 잘 보이게** 인디고 톤으로 강조
+- 웹에디터에서 맨 위로 버튼이 동작하지 않던 문제 수정
+
+### 🔑 토큰 발급 안내
+
+- 설정 → Confluence **API 토큰 입력칸 아래 "토큰 발급 방법" 툴팁 추가** — 밝은 톤의 단계별 발급 매뉴얼 (한/영)
+- README에도 토큰 발급 매뉴얼 상세 보강 (영문 메뉴명 + 한글 병기)
+
+### 📖 설명서 현행화
+
+- 상단 툴바 표를 현재 버튼 구성에 맞게 갱신
+- **단축키를 🪟 Windows / 🍎 macOS 두 표로 분리** 제공 (Ctrl ↔ Command)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.13.0</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; 업데이트 프로그레스 · 수동 확인</summary>
 
 ### 🚀 자동 업데이트 개선
@@ -3513,18 +3598,21 @@ multiple files as tabs to work on them at once.
 
 ## 🧰 Top Toolbar Buttons
 
-| Button | Function | Shortcut |
+| Button | Function | Shortcut (Win / Mac) |
 |--------|----------|----------|
-| 📄 New | Creates a new empty document tab | \`Ctrl+N\` |
+| 📄 New | Creates a new empty document tab | \`Ctrl+N\` / \`Command+N\` |
 | 🗂️ Directory | Shows/hides the folder explorer panel on the left | - |
-| 📂 Open | Opens a Markdown file via the file dialog | \`Ctrl+O\` |
-| 💾 Save | Saves the current document (asks for a location if new) | \`Ctrl+S\` |
-| 📝 Save As | Saves the current document under a new name/location | \`Ctrl+Shift+S\` |
-| 🗃️ Save All | Saves all tabs at once (after a confirmation dialog) | - |
-| 🚪 Close All | Closes all tabs after a confirmation (unsaved changes confirmed per file) | - |
-| 🔍 Search | Opens the editor search bar | \`Ctrl+F\` |
+| 📁 File | Dropdown menu: Open / Save As / Save All / Close All | - |
+| 💾 Save | Saves the current document — **Confluence docs update Confluence**, local files save locally | \`Ctrl+S\` / \`Command+S\` |
+| 🔍 Search | Opens the editor search bar | \`Ctrl+F\` / \`Command+F\` |
 | 🌐 Export HTML | Saves the preview as a single HTML file | - |
-| ❓ Help | Shows this help window | - |
+| ⚙️ Settings | Backup folder, Confluence integration (account/token/folder link) | - |
+| 🔗 Confluence Browse | Shown when connected — browse folders/pages | - |
+| ☁️ Confluence Upload | Upload the current document as a new Confluence page (pick a location) | - |
+| ❓ Help | Shows this help window (🚀 Update button checks for new versions) | - |
+| KOR / ENG | Switches the whole interface between Korean and English | - |
+
+**Inside the 📁 File menu**: 📂 Open (\`Ctrl+O\`/\`Command+O\`) · 📝 Save As (\`Ctrl+Shift+S\`/\`Command+Shift+S\`) · 🗃️ Save All · 🚪 Close All (Save All / Close All confirm first)
 
 Click the **file path bar** on the right to reveal the current file in the system file explorer.
 A <span style="color:#b45309">●</span> mark before a file name means it has **unsaved changes**.
@@ -3613,13 +3701,29 @@ preview and its CSS embedded. It opens in any browser, anywhere.
 
 ## ⌨️ Shortcut Summary
 
+### 🪟 Windows
+
 | Shortcut | Function |
 |----------|----------|
 | \`Ctrl+N\` | New document |
 | \`Ctrl+O\` | Open file |
-| \`Ctrl+S\` | Save |
+| \`Ctrl+S\` | Save (Confluence docs update Confluence) |
 | \`Ctrl+Shift+S\` | Save as |
 | \`Ctrl+F\` | Search |
+| \`Enter\` / \`Shift+Enter\` | (while searching) next/previous match |
+| \`F3\` / \`Shift+F3\` | Next/previous match |
+| \`Esc\` | Close search |
+| \`Tab\` | Insert 4 spaces |
+
+### 🍎 macOS
+
+| Shortcut | Function |
+|----------|----------|
+| \`Command+N\` | New document |
+| \`Command+O\` | Open file |
+| \`Command+S\` | Save (Confluence docs update Confluence) |
+| \`Command+Shift+S\` | Save as |
+| \`Command+F\` | Search |
 | \`Enter\` / \`Shift+Enter\` | (while searching) next/previous match |
 | \`F3\` / \`Shift+F3\` | Next/previous match |
 | \`Esc\` | Close search |
@@ -3661,8 +3765,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.13.0** |
-| Last updated | 2026-07-13 |
+| **Latest version** | **v1.14.0** |
+| Last updated | 2026-07-15 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -3673,6 +3777,40 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.14.0</b> &nbsp;·&nbsp; 2026-07-15 &nbsp;·&nbsp; Directory folder management · Save button · UI polish</summary>
+
+### 📂 Directory (file explorer) enhancements
+
+- **📁 New folder** — create a folder from the context menu (noname, then noname_1…) with the **rename input activated immediately**
+- **📄 New file also enters rename mode right after creation** (previously it auto-opened)
+- **Drag & drop folders** — move **folders as well as files** into other folders by dragging (moving into itself/its subfolder is blocked)
+- Added a context menu for folders (Rename / New file / New folder)
+- **Context menu now never leaves the app window** — it flips up/down/left/right near screen edges so it always stays visible
+
+### 💾 Save button split · Confluence naming
+
+- **💾 Save moved out of the 📁 File menu** and is always visible left of 🔍 Search — Confluence documents update Confluence directly, local files save locally
+- Menu renames: **🔗 Confluence Browse**, **☁️ Confluence Upload** (the upload dialog wording now says Upload consistently)
+
+### 🖥️ Web editor · screen polish
+
+- **Fixed the missing vertical scrollbar** in the web editor
+- **⬆ Scroll-to-top buttons are now prominent** (indigo) in all panes (editor / web editor / preview)
+- Fixed scroll-to-top not working inside the web editor
+
+### 🔑 Token guide
+
+- Settings → Confluence: **added a "how to create a token" tooltip** under the API token field — a bright, step-by-step guide (KO/EN)
+- README token guide expanded with English menu names + Korean equivalents
+
+### 📖 Help refresh
+
+- Toolbar table updated to the current button layout
+- **Shortcuts now listed in two tables: 🪟 Windows / 🍎 macOS** (Ctrl ↔ Command)
+
+</details>
+
+<details markdown="1">
 <summary>💠 <b>v1.13.0</b> &nbsp;·&nbsp; 2026-07-13 &nbsp;·&nbsp; Update progress · manual check</summary>
 
 ### 🚀 Auto-update improvements
@@ -4857,8 +4995,27 @@ async function loadDir(path) {
     const el = makeItem('📁', d.name);
     el.title = L().folderDblClick;
     el.style.cursor = 'pointer';
+    el.dataset.path = d.path;
     if (d.hidden) el.classList.add('hidden-item');
     el.addEventListener('click', () => loadDir(d.path));
+    /* 폴더도 드래그로 다른 폴더에 이동 가능 */
+    el.draggable = true;
+    el.addEventListener('dragstart', (e) => {
+      dragFile = d.path;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', d.path);
+    });
+    el.addEventListener('dragend', () => { dragFile = null; });
+    /* 우클릭 메뉴: 이름 변경 / 새 파일 / 새 폴더 */
+    el.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showCtxMenu(e.clientX, e.clientY, [
+        { label: L().ctxRename, action: () => startRename(el, d) },
+        { label: L().ctxNew, action: createNewFile },
+        { label: L().ctxNewFolder, action: createNewFolder },
+      ]);
+    });
     addDropTarget(el, d.path);
     sbList.appendChild(el);
   }
@@ -4887,6 +5044,7 @@ async function loadDir(path) {
         { label: L().ctxRename, action: () => startRename(el, f) },
         { label: L().ctxDelete, danger: true, action: () => deleteFile(f) },
         { label: L().ctxNew, action: createNewFile },
+        { label: L().ctxNewFolder, action: createNewFolder },
       ]);
     });
     sbList.appendChild(el);
@@ -4931,8 +5089,14 @@ function showCtxMenu(x, y, items) {
   }
   ctxMenu.style.display = 'block';
   const rect = ctxMenu.getBoundingClientRect();
-  ctxMenu.style.left = Math.max(0, Math.min(x, innerWidth - rect.width - 4)) + 'px';
-  ctxMenu.style.top = Math.max(0, Math.min(y, innerHeight - rect.height - 4)) + 'px';
+  /* zoom(1.05) 보정: style 좌표(css px)와 실제 렌더 좌표(real px) 배율 */
+  const Z = (ctxMenu.offsetWidth ? rect.width / ctxMenu.offsetWidth : 1) || 1;
+  let lx = x, ly = y;
+  /* 프로그램 영역을 벗어나면 반대 방향(좌/위)으로 플립 */
+  if (lx + rect.width > innerWidth - 4) lx = Math.max(4, x - rect.width);
+  if (ly + rect.height > innerHeight - 4) ly = Math.max(4, y - rect.height);
+  ctxMenu.style.left = (lx / Z) + 'px';
+  ctxMenu.style.top = (ly / Z) + 'px';
 }
 
 function hideCtxMenu() { ctxMenu.style.display = 'none'; }
@@ -4942,11 +5106,12 @@ document.addEventListener('mousedown', (e) => {
   if (!ctxMenu.contains(e.target)) hideCtxMenu();
 });
 
-/* 파일 목록 빈 곳 우클릭 → 새 파일 */
+/* 파일 목록 빈 곳 우클릭 → 새 파일 / 새 폴더 */
 sbList.addEventListener('contextmenu', (e) => {
   e.preventDefault();
   showCtxMenu(e.clientX, e.clientY, [
     { label: L().ctxNew, action: createNewFile },
+    { label: L().ctxNewFolder, action: createNewFolder },
   ]);
 });
 
@@ -4983,14 +5148,34 @@ function addDropTarget(el, dirPath) {
   });
 }
 
+/* 목록에서 경로로 항목 요소 찾기 (생성 직후 이름변경 활성화용) */
+function findSbItemByPath(p) {
+  for (const el of sbList.querySelectorAll('.sb-item')) {
+    if (el.dataset.path === p) return el;
+  }
+  return null;
+}
+
 async function createNewFile() {
   if (!sidebarDir || sidebarDir === '::drives') { flash(L().needFolder); return; }
   const r = await window.pywebview.api.create_file(sidebarDir);
   if (!r || r.error) { flash(L().createFail + (r ? r.error : L().unknownErr)); return; }
   await loadDir(sidebarDir);
-  const opened = await window.pywebview.api.open_path(r.path);
-  if (opened) await openFileIntoTabs(opened);
+  /* 생성 직후 바로 파일명 수정 가능하게 인라인 편집 활성화 */
+  const el = findSbItemByPath(r.path);
+  if (el) startRename(el, { path: r.path, name: r.name });
   flash(L().createDone + r.name);
+}
+
+async function createNewFolder() {
+  if (!sidebarDir || sidebarDir === '::drives') { flash(L().needFolder); return; }
+  const r = await window.pywebview.api.create_folder(sidebarDir);
+  if (!r || r.error) { flash(L().createFail + (r ? r.error : L().unknownErr)); return; }
+  await loadDir(sidebarDir);
+  /* 생성 직후 바로 폴더명 수정 가능하게 인라인 편집 활성화 */
+  const el = findSbItemByPath(r.path);
+  if (el) startRename(el, { path: r.path, name: r.name });
+  flash(L().folderDone + r.name);
 }
 
 /* 이름 변경: 목록 항목 안에서 인라인 입력 */

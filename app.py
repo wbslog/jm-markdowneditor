@@ -23,7 +23,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.13.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.14.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -255,10 +255,26 @@ class Api:
             return {"error": str(e)}
         return {"path": path, "name": os.path.basename(path)}
 
+    def create_folder(self, dir_path):
+        """noname 폴더 생성 (중복 시 noname_1, noname_2 ...)"""
+        if not dir_path or not os.path.isdir(dir_path):
+            return {"error": "폴더를 찾을 수 없습니다"}
+        base = "noname"
+        path = os.path.join(dir_path, base)
+        n = 1
+        while os.path.exists(path):
+            path = os.path.join(dir_path, f"{base}_{n}")
+            n += 1
+        try:
+            os.makedirs(path)
+        except OSError as e:
+            return {"error": str(e)}
+        return {"path": path, "name": os.path.basename(path)}
+
     def rename_path(self, path, new_name):
-        """파일 이름 변경 (같은 폴더 안에서)"""
-        if not os.path.isfile(path):
-            return {"error": "파일을 찾을 수 없습니다"}
+        """파일/폴더 이름 변경 (같은 폴더 안에서)"""
+        if not os.path.exists(path):
+            return {"error": "파일/폴더를 찾을 수 없습니다"}
         new_name = (new_name or "").strip()
         if not new_name or any(c in new_name for c in self.INVALID_NAME_CHARS):
             return {"error": "올바르지 않은 파일 이름입니다"}
@@ -287,18 +303,24 @@ class Api:
         return {"ok": True}
 
     def move_path(self, src, dst_dir):
-        """파일을 다른 폴더로 이동 (드래그 앤 드롭용)"""
-        if not os.path.isfile(src):
-            return {"error": "파일을 찾을 수 없습니다"}
+        """파일/폴더를 다른 폴더로 이동 (드래그 앤 드롭용)"""
+        if not os.path.exists(src):
+            return {"error": "파일/폴더를 찾을 수 없습니다"}
         if not dst_dir or not os.path.isdir(dst_dir):
             return {"error": "대상 폴더를 찾을 수 없습니다"}
         src = os.path.normpath(src)
         dst_dir = os.path.normpath(dst_dir)
         if os.path.normcase(os.path.dirname(src)) == os.path.normcase(dst_dir):
             return {"error": "이미 같은 폴더에 있습니다"}
+        if os.path.isdir(src):
+            # 폴더를 자기 자신/하위 폴더로 이동하는 것 방지
+            sp = os.path.normcase(src + os.sep)
+            dp = os.path.normcase(dst_dir + os.sep)
+            if dp.startswith(sp):
+                return {"error": "자기 자신(하위 폴더)으로는 이동할 수 없습니다"}
         dst = os.path.join(dst_dir, os.path.basename(src))
         if os.path.exists(dst):
-            return {"error": "대상 폴더에 같은 이름의 파일이 이미 있습니다"}
+            return {"error": "대상 폴더에 같은 이름의 파일/폴더가 이미 있습니다"}
         try:
             shutil.move(src, dst)
         except OSError as e:
