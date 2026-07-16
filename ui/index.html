@@ -2386,7 +2386,11 @@ function renderTabs() {
 async function activateTab(t) {
   syncEditorToTab();
   activeTab = t;
-  if (t.path) {
+  if (t.conf) {
+    /* Confluence 탭: 내용은 메모리에 있고 로컬 디스크 파일이 없으므로
+       open_path/new_file 호출 없이 그대로 표시한다.
+       (예전엔 path가 없어 new_file()을 불러 현재 문서 상태가 흐트러졌다) */
+  } else if (t.path) {
     const r = await window.pywebview.api.open_path(t.path);
     if (r && r.content !== t.content) {
       if (confirm(L().reloadConfirm)) {
@@ -2802,7 +2806,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.18.2** |
+| **최신 버전** | **v1.18.3** |
 | 최종 업데이트 | 2026-07-16 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2814,6 +2818,17 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.18.3</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; 중복 열기 방지 보강 (기존 탭으로 포커스)</summary>
+
+### 🔁 중복 열기 방지
+
+- **이미 열려 있는 문서를 다시 열면 새 탭을 만들지 않고 기존 탭으로 포커스가 이동**합니다. (Windows/macOS 공통)
+    - **로컬 파일**: 디렉토리 패널 더블클릭·드래그드롭·다중 열기 모두 경로(구분자·대소문자 무시)로 판별
+    - **Confluence 문서**: 조회 목록에서 다시 열어도 페이지 id로 판별해 기존 탭으로 이동
+- **버그 수정**: 이미 열린 Confluence 탭으로 전환할 때 내부적으로 `new_file`을 잘못 호출하던 문제 제거, 페이지 id를 **문자열로 통일 비교**해 매칭 누락 방지
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.18.2</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; macOS 온보딩 재표시 버그 수정</summary>
 
 ### 🐞 버그 수정
@@ -4082,7 +4097,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.18.2** |
+| **Latest version** | **v1.18.3** |
 | Last updated | 2026-07-16 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -4094,6 +4109,17 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.18.3</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; Prevent duplicate opens (focus existing tab)</summary>
+
+### 🔁 No duplicate opens
+
+- **Reopening a document that is already open no longer creates a new tab — focus moves to the existing tab instead.** (Windows/macOS)
+    - **Local files**: matched by normalized path (separator/case-insensitive) across directory double-click, drag-and-drop, and multi-open
+    - **Confluence pages**: matched by page id, so reopening from the list focuses the existing tab
+- **Fixes**: removed a wrong `new_file` call when switching to an already-open Confluence tab, and unified page-id comparison as **strings** to avoid missed matches
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.18.2</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; Fix: macOS onboarding shown every launch</summary>
 
 ### 🐞 Bug fix
@@ -6722,8 +6748,10 @@ async function deleteConfPage(p) {
 
 /* Confluence 페이지를 탭으로 열기 (원본 마크다운을 편집) */
 async function openConfPage(pageId) {
-  const existing = tabs.find(t => t.conf && t.conf.id === pageId);
-  if (existing) { closeConfluence(); await activateTab(existing); return; }
+  /* 이미 열려 있는 Confluence 문서면 새로 열지 않고 기존 탭으로 포커스 이동.
+     페이지 id가 숫자/문자열로 섞여 올 수 있어 문자열로 비교한다. */
+  const existing = tabs.find(t => t.conf && String(t.conf.id) === String(pageId));
+  if (existing) { closeConfluence(); await activateTab(existing); flash(L().openDone); return; }
   const r = await window.pywebview.api.conf_get(pageId);
   if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
   syncEditorToTab();
