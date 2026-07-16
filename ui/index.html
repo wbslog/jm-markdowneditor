@@ -2806,7 +2806,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.18.3** |
+| **최신 버전** | **v1.18.4** |
 | 최종 업데이트 | 2026-07-16 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2818,6 +2818,19 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.18.4</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; 긴급 핫픽스 (앱 먹통 문제 수정)</summary>
+
+### 🚨 긴급 핫픽스
+
+- **v1.18.2 · v1.18.3에서 앱 실행 시 이전 파일이 복원되지 않고 상단 버튼이 전부 눌리지 않던 문제 수정**
+    - 원인: 버전 기록 문구(자바스크립트 템플릿 문자열) 안에 **이스케이프 되지 않은 백틱**이 들어가 스크립트 문자열이 중간에 끊기며 **전체 스크립트가 문법 오류로 중단** → 초기화·버튼 연결·세션 복원이 모두 실행되지 않음
+    - 조치: 해당 백틱을 모두 이스케이프하고, 빌드 전 **자바스크립트 문법 검사(node)** 로 전 구간 통과 확인
+- v1.18.3의 중복 열기 방지 개선은 그대로 포함됩니다.
+
+> ⚠️ v1.18.2 · v1.18.3 을 받으셨다면 **이 버전(v1.18.4)으로 교체**해 주세요.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.18.3</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; 중복 열기 방지 보강 (기존 탭으로 포커스)</summary>
 
 ### 🔁 중복 열기 방지
@@ -2825,7 +2838,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 - **이미 열려 있는 문서를 다시 열면 새 탭을 만들지 않고 기존 탭으로 포커스가 이동**합니다. (Windows/macOS 공통)
     - **로컬 파일**: 디렉토리 패널 더블클릭·드래그드롭·다중 열기 모두 경로(구분자·대소문자 무시)로 판별
     - **Confluence 문서**: 조회 목록에서 다시 열어도 페이지 id로 판별해 기존 탭으로 이동
-- **버그 수정**: 이미 열린 Confluence 탭으로 전환할 때 내부적으로 `new_file`을 잘못 호출하던 문제 제거, 페이지 id를 **문자열로 통일 비교**해 매칭 누락 방지
+- **버그 수정**: 이미 열린 Confluence 탭으로 전환할 때 내부적으로 \`new_file\`을 잘못 호출하던 문제 제거, 페이지 id를 **문자열로 통일 비교**해 매칭 누락 방지
 
 </details>
 <details markdown="1">
@@ -2834,8 +2847,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 ### 🐞 버그 수정
 
 - **macOS에서 '시작하기'(온보딩) 안내가 매번 다시 뜨던 문제 해결**
-    - 원인: 온보딩 종료 시 상태 저장 API를 두 번(온보딩 완료 + 버전 확인) **await 없이** 연달아 호출했는데, macOS pywebview는 각 호출을 **별도 스레드**로 처리해 같은 상태 파일을 동시에 덮어쓰며(race) `onboarded` 기록이 사라짐
-    - 조치: 두 동작을 **파이썬 단일 저장(read-modify-write)** 으로 합치고 프런트는 한 번만 `await` 하도록 변경
+    - 원인: 온보딩 종료 시 상태 저장 API를 두 번(온보딩 완료 + 버전 확인) **await 없이** 연달아 호출했는데, macOS pywebview는 각 호출을 **별도 스레드**로 처리해 같은 상태 파일을 동시에 덮어쓰며(race) \`onboarded\` 기록이 사라짐
+    - 조치: 두 동작을 **파이썬 단일 저장(read-modify-write)** 으로 합치고 프런트는 한 번만 \`await\` 하도록 변경
 - 사용 설명서(한/영)에 **📜 라이선스 요약** 반영 확인
 
 </details>
@@ -4097,7 +4110,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.18.3** |
+| **Latest version** | **v1.18.4** |
 | Last updated | 2026-07-16 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -4109,6 +4122,19 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.18.4</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; Emergency hotfix (app became unresponsive)</summary>
+
+### 🚨 Emergency hotfix
+
+- **Fixed v1.18.2 · v1.18.3 where, on launch, previously opened files were not restored and none of the top toolbar buttons were clickable**
+    - Cause: the version-history text (a JavaScript template string) contained an **unescaped backtick**, which closed the string early and broke the **entire script with a syntax error** — so init, button wiring, and session restore never ran
+    - Fix: escaped all such backticks and added a **JavaScript syntax check (node)** over the whole script before building
+- The v1.18.3 duplicate-open improvements are still included.
+
+> ⚠️ If you downloaded v1.18.2 · v1.18.3, please replace it with **v1.18.4**.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.18.3</b> &nbsp;·&nbsp; 2026-07-16 &nbsp;·&nbsp; Prevent duplicate opens (focus existing tab)</summary>
 
 ### 🔁 No duplicate opens
@@ -4116,7 +4142,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 - **Reopening a document that is already open no longer creates a new tab — focus moves to the existing tab instead.** (Windows/macOS)
     - **Local files**: matched by normalized path (separator/case-insensitive) across directory double-click, drag-and-drop, and multi-open
     - **Confluence pages**: matched by page id, so reopening from the list focuses the existing tab
-- **Fixes**: removed a wrong `new_file` call when switching to an already-open Confluence tab, and unified page-id comparison as **strings** to avoid missed matches
+- **Fixes**: removed a wrong \`new_file\` call when switching to an already-open Confluence tab, and unified page-id comparison as **strings** to avoid missed matches
 
 </details>
 <details markdown="1">
@@ -4125,8 +4151,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 ### 🐞 Bug fix
 
 - **Fixed the "Get started" (onboarding) screen reappearing on every launch on macOS**
-    - Cause: on close, two state-saving APIs (mark onboarded + mark version seen) were called back-to-back **without `await`**. macOS pywebview runs each call on a **separate thread**, so they raced on the same state file and the `onboarded` flag was overwritten.
-    - Fix: merged both into a **single Python read-modify-write** and the frontend now `await`s one call.
+    - Cause: on close, two state-saving APIs (mark onboarded + mark version seen) were called back-to-back **without \`await\`**. macOS pywebview runs each call on a **separate thread**, so they raced on the same state file and the \`onboarded\` flag was overwritten.
+    - Fix: merged both into a **single Python read-modify-write** and the frontend now \`await\`s one call.
 - Confirmed the **📜 License** summary is present in the Help (KO/EN)
 
 </details>
