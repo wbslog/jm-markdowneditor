@@ -24,7 +24,7 @@ from webview.dom import DOMEventHandler
 from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.18.1"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.18.2"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -1139,9 +1139,19 @@ body {{ margin: 0; background: #f0f2f5; }}
         return {"show": not self._update_state().get("onboarded", False)}
 
     def onboarding_done(self):
-        """온보딩 완료 표시 (이후 다시 표시하지 않음)."""
+        """온보딩 완료 표시 (이후 다시 표시하지 않음).
+
+        온보딩 직후 같은 버전의 '새 기능' 안내가 겹치지 않도록 현재 버전을
+        '확인함'으로 함께 기록한다. 예전에는 프런트에서 onboarding_done()과
+        update_mark_seen()을 각각(await 없이) 호출했는데, macOS의 pywebview는
+        각 JS→Python 호출을 별도 스레드에서 처리하므로 두 호출이 같은 상태
+        파일을 동시에 read-modify-write 하며 경쟁했다. 그 결과 update_mark_seen가
+        onboarded=True 쓰기 직전 상태를 읽어 덮어써서 온보딩이 매번 다시 뜨는
+        문제가 있었다. 이를 방지하기 위해 두 동작을 단일 쓰기로 합친다."""
         st = self._update_state()
         st["onboarded"] = True
+        st["last_seen_version"] = APP_VERSION
+        st.pop("pending_notes", None)
         try:
             with open(UPDATE_STATE_FILE, "w", encoding="utf-8") as f:
                 json.dump(st, f, ensure_ascii=False)
