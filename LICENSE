@@ -1,0 +1,74 @@
+jm-mdv (Markdown Viewer) — Freeware License / 프리웨어 라이선스
+Copyright (c) 2026 Shin.DoYeon <jinroh77@gmail.com>
+All rights reserved.
+
+================================================================
+한국어 (Korean)
+================================================================
+
+본 소프트웨어(jm-mdv, 소스 코드와 빌드된 실행 파일 포함, 이하 "소프트웨어")는
+아래 조건에 따라 무료로 제공됩니다.
+
+1. 허용되는 것
+   - 개인, 기업, 기관, 단체 누구나 소프트웨어를 무료로 다운로드하여
+     사용할 수 있습니다. (업무·상업 환경에서의 내부 사용 포함)
+   - 조직 내부에서의 복제 및 배포 (사내 배포 등)
+   - 개인적 또는 조직 내부적 사용을 위한 소스 코드 열람 및 수정
+   - 원본 그대로, 무료로, 본 라이선스 파일을 포함한 채로 다른 사람에게
+     전달하는 것 (링크 공유 권장)
+
+2. 금지되는 것 (저작권자의 사전 서면 허락 없이는 불가)
+   - 소프트웨어 또는 그 수정본의 판매, 재판매, 유료 배포, 대여, 리스
+   - 재라이선스(sublicense) 또는 이름·저작자 표시를 바꾼 배포(리브랜딩)
+   - 유료 제품, 유료 서비스, 구독 상품 등에 포함시켜 제공하는 행위
+   - 소프트웨어의 저작권 표시, 개발자 정보, 본 라이선스 고지의 제거·변경
+
+3. 보증의 부인
+   - 본 소프트웨어는 "있는 그대로(AS IS)" 제공되며, 상품성이나 특정 목적
+     적합성을 포함한 어떠한 명시적·묵시적 보증도 하지 않습니다.
+   - 소프트웨어의 사용으로 발생하는 어떠한 손해에 대해서도 저작권자는
+     책임을 지지 않습니다.
+
+4. 기타
+   - 본 라이선스에서 명시적으로 허용하지 않은 모든 권리는 저작권자에게
+     있습니다.
+   - 위 조건을 위반하는 경우 본 라이선스는 자동으로 종료됩니다.
+   - 문의: jinroh77@gmail.com
+
+================================================================
+English
+================================================================
+
+This software (jm-mdv, including its source code and built binaries;
+the "Software") is provided free of charge under the following terms.
+
+1. You MAY
+   - Download and use the Software free of charge, whether you are an
+     individual, a company, or any organization (including internal use
+     in commercial/business environments).
+   - Copy and distribute the Software within your organization.
+   - View and modify the source code for personal or internal use.
+   - Share the Software with others, unmodified, free of charge, and
+     with this license file included (sharing a link is preferred).
+
+2. You MAY NOT (without prior written permission from the copyright holder)
+   - Sell, resell, distribute for a fee, rent, or lease the Software or
+     any modified version of it.
+   - Sublicense it, or distribute it under a different name or authorship
+     (rebranding).
+   - Include it in any paid product, paid service, or subscription offering.
+   - Remove or alter the copyright notice, developer information, or this
+     license notice.
+
+3. NO WARRANTY
+   - The Software is provided "AS IS", without warranty of any kind,
+     express or implied, including but not limited to merchantability or
+     fitness for a particular purpose.
+   - In no event shall the copyright holder be liable for any damages
+     arising from the use of the Software.
+
+4. Miscellaneous
+   - All rights not expressly granted here are reserved by the copyright
+     holder.
+   - This license terminates automatically if you violate its terms.
+   - Contact: jinroh77@gmail.com
