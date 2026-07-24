@@ -222,6 +222,7 @@
     flex: 1;
     display: flex;
     min-height: 0;
+    position: relative;   /* 검색 바(#search-bar)의 위치 기준 — 전체보기 모드와 무관하게 항상 표시 */
   }
 
   /* ---------- 좌측 폴더 탐색 패널 ---------- */
@@ -611,19 +612,21 @@
   /* ---------- 검색 바 ---------- */
   #search-bar {
     position: absolute;
-    top: 27px;
-    right: 18px;
-    z-index: 6;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 30;
     display: none;
     align-items: center;
     gap: 5px;
     padding: 6px 8px;
-    background: rgba(40, 40, 66, 0.7);
+    background: rgba(40, 40, 66, 0.82);
     backdrop-filter: blur(22px) saturate(160%);
     -webkit-backdrop-filter: blur(22px) saturate(160%);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 12px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    max-width: calc(100% - 24px);
   }
   #search-bar.open { display: flex; }
   #search-input {
@@ -1219,6 +1222,15 @@
 </div>
 
 <div id="main">
+  <!-- 검색 바: 프로그램 상단(콘텐츠 영역)에 떠서 에디터/프리뷰 어느 화면에서도 사용 가능 -->
+  <div id="search-bar">
+    <input id="search-input" type="text" placeholder="검색..." spellcheck="false">
+    <span id="search-count"></span>
+    <button id="search-case" class="search-btn" title="대소문자 구분">Aa</button>
+    <button id="search-prev" class="search-btn" title="이전 결과 (Shift+Enter)">▲</button>
+    <button id="search-next" class="search-btn" title="다음 결과 (Enter)">▼</button>
+    <button id="search-close" class="search-btn" title="닫기 (Esc)">✕</button>
+  </div>
   <div id="sidebar">
     <div id="sidebar-header">
       <button id="sb-up" title="상위 폴더로">⬆️</button>
@@ -1232,14 +1244,6 @@
   <div id="sb-divider"></div>
   <div id="editor-pane">
     <div class="pane-label"><span>Markdown<span id="editor-fname" class="pl-fname"></span><span id="file-times"></span></span> <span class="pl-btns"><button class="btn-full" id="btn-web-editor" title="웹에디터로 편집 (서식 편집)">🖊 웹에디터</button><button class="btn-full" id="btn-full-editor" title="에디터 전체보기 전환">⛶ 전체보기</button></span></div>
-    <div id="search-bar">
-      <input id="search-input" type="text" placeholder="검색..." spellcheck="false">
-      <span id="search-count"></span>
-      <button id="search-case" class="search-btn" title="대소문자 구분">Aa</button>
-      <button id="search-prev" class="search-btn" title="이전 결과 (Shift+Enter)">▲</button>
-      <button id="search-next" class="search-btn" title="다음 결과 (Enter)">▼</button>
-      <button id="search-close" class="search-btn" title="닫기 (Esc)">✕</button>
-    </div>
     <div id="editor-wrap">
       <div id="editor-backdrop"><div id="editor-highlights"></div></div>
       <textarea id="editor" spellcheck="false" wrap="off" placeholder="여기에 마크다운을 입력하세요..."></textarea>
@@ -2858,8 +2862,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.19.0** |
-| 최종 업데이트 | 2026-07-22 |
+| **최신 버전** | **v1.20.0** |
+| 최종 업데이트 | 2026-07-24 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2870,6 +2874,16 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.20.0</b> &nbsp;·&nbsp; 2026-07-24 &nbsp;·&nbsp; 검색 바를 프로그램 상단으로 이동</summary>
+
+### 🔍 검색 개선
+
+- **검색 바가 프로그램 상단 중앙에 뜨도록 변경** — 이전에는 에디터 영역 안에 있어서 미리보기 전체보기 상태에서는 보이지 않았습니다.
+- 이제 **에디터 전용 / 미리보기 전용 / 분할 보기 어느 상태에서도** 검색·하이라이트·다음·이전 이동이 모두 동작합니다.
+- 에디터와 미리보기 **양쪽을 동시에 하이라이트**하고 현재 위치를 강조하는 기능은 그대로입니다.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.19.0</b> &nbsp;·&nbsp; 2026-07-22 &nbsp;·&nbsp; 디렉토리 새로고침 · 탭 우클릭 메뉴</summary>
 
 ### 🔄 디렉토리 새로고침 · 탭 우클릭 메뉴
@@ -4176,8 +4190,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.19.0** |
-| Last updated | 2026-07-22 |
+| **Latest version** | **v1.20.0** |
+| Last updated | 2026-07-24 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -4188,6 +4202,16 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.20.0</b> &nbsp;·&nbsp; 2026-07-24 &nbsp;·&nbsp; Search bar moved to the top of the app</summary>
+
+### 🔍 Search improvements
+
+- **The search bar now floats at the top-center of the app** — previously it lived inside the editor area and was hidden in preview full-view.
+- Search / highlight / next / prev now work in **editor-only, preview-only, and split views alike**.
+- It still **highlights both the editor and the preview** at once and emphasizes the current match.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.19.0</b> &nbsp;·&nbsp; 2026-07-22 &nbsp;·&nbsp; Directory refresh · tab right-click menu</summary>
 
 ### 🔄 Directory refresh · tab right-click menu
