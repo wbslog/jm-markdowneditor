@@ -21,10 +21,9 @@ import webbrowser
 import markdown
 import webview
 from webview.dom import DOMEventHandler
-from pygments.formatters import HtmlFormatter
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.21.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.22.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -59,7 +58,19 @@ MD_CONFIGS = {
     "toc": {"permalink": False},
 }
 
-PYGMENTS_CSS = HtmlFormatter(style="default").get_style_defs(".highlight")
+_PYGMENTS_CSS = None
+
+
+def pygments_css():
+    """코드 하이라이트 CSS는 첫 요청 때 한 번만 생성한다.
+    (import 시점에 만들면 창이 뜨기 전에 pygments 스타일 로딩 비용을 다 치른다)"""
+    global _PYGMENTS_CSS
+    if _PYGMENTS_CSS is None:
+        from pygments.formatters import HtmlFormatter
+
+        _PYGMENTS_CSS = HtmlFormatter(style="default").get_style_defs(".highlight")
+    return _PYGMENTS_CSS
+
 
 GITHUB_REPO = "wbslog/jm-markdowneditor"  # 자동 업데이트 확인 대상 저장소
 SESSION_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-session.json")
@@ -80,13 +91,19 @@ class Api:
     def __init__(self):
         self._window = None
         self.current_path = None
-        self._md = markdown.Markdown(extensions=MD_EXTENSIONS, extension_configs=MD_CONFIGS)
+        self._md = None      # 첫 렌더 때 생성 (창이 먼저 뜨도록 지연 초기화)
         self._lock = threading.Lock()
         self._cloud_ids = {}  # host -> cloudId 캐시
 
     # ---------- 변환 ----------
     def render(self, text):
         with self._lock:
+            if self._md is None:
+                # 확장(pymdownx 등) 로딩은 수백 ms가 걸려 앱 시작을 늦추므로
+                # 실제로 렌더가 필요한 시점까지 미룬다.
+                self._md = markdown.Markdown(
+                    extensions=MD_EXTENSIONS, extension_configs=MD_CONFIGS
+                )
             self._md.reset()
             try:
                 return {"html": self._md.convert(text or "")}
@@ -428,7 +445,7 @@ class Api:
 <title>{title}</title>
 <style>
 {preview_css}
-{PYGMENTS_CSS}
+{pygments_css()}
 body {{ margin: 0; background: #f0f2f5; }}
 .page {{ max-width: 900px; margin: 0 auto; padding: 48px 24px; }}
 .markdown-body {{ background: #ffffff; border-radius: 12px; box-shadow: 0 1px 8px rgba(0,0,0,.08); padding: 48px 56px; }}
@@ -447,7 +464,7 @@ body {{ margin: 0; background: #f0f2f5; }}
         return {"path": path}
 
     def get_pygments_css(self):
-        return PYGMENTS_CSS
+        return pygments_css()
 
     # ================= 기본 설정 / 백업 =================
     def settings_load(self):
@@ -958,14 +975,6 @@ body {{ margin: 0; background: #f0f2f5; }}
                 return {"id": new_id, "title": title, "version": 1}
             return {"error": "생성 실패(v2): " + (e2 or "알 수 없음")}
         return {"error": "생성 실패: " + (err or "알 수 없음")}
-
-    def conf_delete(self, page_id, cfg=None):
-        """페이지 삭제(휴지통 이동, 복구 가능)."""
-        cfg = cfg or self.conf_load_config()
-        _, err = self._conf_request(cfg, "DELETE", f"/rest/api/content/{page_id}")
-        if err:
-            return {"error": err}
-        return {"ok": True}
 
     def _conf_set_md_prop(self, cfg, page_id, markdown_text):
         """페이지에 원본 마크다운을 content property로 저장(왕복 편집용)."""

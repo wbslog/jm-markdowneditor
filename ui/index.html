@@ -1623,8 +1623,6 @@ const I18N = {
     confSaved: 'Confluence에 저장됨: ', confUpdated: 'Confluence 업데이트됨: ',
     confBadge: 'Confluence', confOpen_t: '열기', confDelete_t: '삭제(휴지통)', confReloadNode_t: '하위 목록 새로고침',
     colName: '제목', colCreated: '등록일', colUpdated: '수정일',
-    confDeleteConfirm: (t) => '"' + t + '" 페이지를 삭제할까요?\n(휴지통으로 이동, 나중에 복구 가능)',
-    confDeleted: 'Confluence에서 삭제됨: ',
     // 최초 실행 온보딩 (대표 기능 5가지)
     obTitle: '👋 jm-mdv에 오신 것을 환영합니다',
     obSub: '실시간 미리보기 마크다운 에디터의 대표 기능 5가지를 소개합니다.',
@@ -1770,8 +1768,6 @@ const I18N = {
     confSaved: 'Saved to Confluence: ', confUpdated: 'Updated on Confluence: ',
     confBadge: 'Confluence', confOpen_t: 'Open', confDelete_t: 'Delete (trash)', confReloadNode_t: 'Refresh sub-items',
     colName: 'Title', colCreated: 'Created', colUpdated: 'Updated',
-    confDeleteConfirm: (t) => 'Delete "' + t + '"?\n(Moved to trash, recoverable later)',
-    confDeleted: 'Deleted from Confluence: ',
     // First-run onboarding (5 key features)
     obTitle: '👋 Welcome to jm-mdv',
     obSub: 'Here are the 5 key features of this real-time Markdown editor.',
@@ -2058,12 +2054,16 @@ filePathEl.addEventListener('click', () => {
 });
 
 function updateStats() {
+  /* 커서 앞부분을 slice/정규식으로 복사하지 않고 개행만 세어 큰 문서에서도 가볍게 */
+  const v = editor.value;
   const pos = editor.selectionStart;
-  const before = editor.value.slice(0, pos);
-  const line = (before.match(/\n/g) || []).length + 1;
-  const col = pos - before.lastIndexOf('\n');
-  statPos.textContent = line + ':' + col;
-  statLen.textContent = editor.value.length.toLocaleString() + L().charSuffix;
+  let line = 1, lineStart = 0;
+  for (let i = v.indexOf('\n'); i !== -1 && i < pos; i = v.indexOf('\n', i + 1)) {
+    line++;
+    lineStart = i + 1;
+  }
+  statPos.textContent = line + ':' + (pos - lineStart + 1);
+  statLen.textContent = v.length.toLocaleString() + L().charSuffix;
 }
 
 function flash(msg) {
@@ -2084,10 +2084,24 @@ function setDirty(d) {
 let scrollSource = null;
 let scrollResetTimer = null;
 
+/* 하단 여백(60vh/40vh 등)은 창 크기가 바뀔 때만 달라지므로 캐시해 둔다
+   (스크롤할 때마다 getComputedStyle을 부르면 매 프레임 레이아웃을 강제한다) */
+const padBottomCache = new WeakMap();
+function padBottomOf(el) {
+  let v = padBottomCache.get(el);
+  if (v === undefined) {
+    v = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+    padBottomCache.set(el, v);
+  }
+  return v;
+}
+window.addEventListener('resize', () => {
+  for (const el of [editor, previewScroll, webEditorEl]) if (el) padBottomCache.delete(el);
+});
+
 /* 요소의 하단 빈 여백(60vh/40vh 등)을 제외한 '실제 콘텐츠' 스크롤 범위 */
 function contentScrollMax(el) {
-  const padB = parseFloat(getComputedStyle(el).paddingBottom) || 0;
-  return el.scrollHeight - padB - el.clientHeight;
+  return el.scrollHeight - padBottomOf(el) - el.clientHeight;
 }
 function syncScroll(src, dst) {
   if (scrollSource && scrollSource !== src) return;
@@ -2296,12 +2310,10 @@ editor.addEventListener('input', () => {
   updateStats();
   refreshSearch();
 });
-/* 키보드에서 손을 뗄 때마다 즉시 렌더링 */
-editor.addEventListener('keyup', () => {
-  updateStats();
-  clearTimeout(renderTimer);
-  renderNow();
-});
+/* 키보드에서 손을 뗄 때마다 커서 위치/글자 수 갱신.
+   (렌더링은 input의 100ms 디바운스에 맡긴다 — 예전에는 키를 뗄 때마다 즉시
+    renderNow()를 호출해 타이핑 한 글자마다 파이썬 렌더 IPC가 왕복했다) */
+editor.addEventListener('keyup', updateStats);
 editor.addEventListener('click', updateStats);
 
 /* Tab 키 → 공백 4칸 삽입 */
@@ -2450,6 +2462,7 @@ async function closeTab(t) {
   if (t === activeTab) syncEditorToTab();
   if (t.dirty && !confirm(L().closeTabConfirm)) return;
   const idx = tabs.indexOf(t);
+  if (idx < 0) return;   /* 이미 닫힌 탭(중복 호출) — splice(-1)로 엉뚱한 탭이 닫히지 않게 */
   tabs.splice(idx, 1);
   if (t === activeTab) {
     if (!tabs.length) { await doNew(); return; }
@@ -2537,6 +2550,8 @@ async function doSaveAs() {
   activeTab.path = d.path;
   activeTab.name = baseName(d.path);
   activeTab.dirty = false;
+  /* Confluence 탭을 로컬 파일로 저장했으면 이후 Ctrl+S는 로컬 파일로 (탭 성격 전환) */
+  delete activeTab.conf;
   currentPath = d.path;
   await window.pywebview.api.set_current(d.path);
   updatePath();
@@ -2553,7 +2568,11 @@ async function doSaveAll() {
   syncEditorToTab();
   let saved = 0;
   for (const t of tabs) {
-    if (t.path) {
+    if (t.conf) {
+      /* Confluence 탭은 로컬 파일이 없으므로 원본 페이지로 업데이트 */
+      if (!t.dirty) continue;
+      if (await saveConfTab(t)) saved++;
+    } else if (t.path) {
       if (!t.dirty) continue; // 변경 없는 파일은 그대로
       await window.pywebview.api.save_to(t.path, t.content);
       t.dirty = false;
@@ -2585,8 +2604,10 @@ async function doCloseAll() {
   syncEditorToTab();
   for (const t of [...tabs]) {
     if (t.dirty) {
-      if (confirm(L().closeAllPerFile(t.path ? t.name : L().newDoc))) {
-        if (t.path) {
+      if (confirm(L().closeAllPerFile((t.path || t.conf) ? t.name : L().newDoc))) {
+        if (t.conf) {
+          await saveConfTab(t);   // Confluence 탭은 원본 페이지로 업데이트
+        } else if (t.path) {
           await window.pywebview.api.save_to(t.path, t.content);
         } else {
           const d = await window.pywebview.api.save_as_dialog('untitled.md');
@@ -2863,7 +2884,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.21.0** |
+| **최신 버전** | **v1.22.0** |
 | 최종 업데이트 | 2026-07-27 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2875,6 +2896,31 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.0</b> &nbsp;·&nbsp; 2026-07-27 &nbsp;·&nbsp; End 키 · 실행 속도 개선 · 버그 수정</summary>
+
+### ⌨️ End 키 — 커서가 있는 줄의 가장 오른쪽으로
+
+- **소스 에디터 / 웹에디터 / 미리보기 모두 동일하게** End 키를 지원합니다. (v1.21.0의 Home 키와 짝)
+- **소스 에디터**: 자동 줄바꿈과 상관없이 **실제 줄의 마지막 글자**로 이동하고, 줄 끝이 보이도록 가로 스크롤합니다. \`Shift+End\` 선택도 지원합니다.
+- **웹에디터**: 커서가 있는 줄의 끝으로 이동합니다.
+- **미리보기**(읽기 전용): 표·코드처럼 가로로 긴 내용을 **맨 오른쪽까지** 스크롤합니다.
+
+### ⚡ 실행·반응 속도 개선
+
+- **시작 시 파이썬 호출을 병렬화** — 하이라이트 CSS·설정·직전 세션을 한꺼번에 불러오고, 복원할 파일도 동시에 읽습니다. (탭이 여러 개 열려 있을수록 효과가 큽니다)
+- **마크다운 변환기·코드 하이라이트 초기화를 지연 로딩으로** 전환 — 창이 먼저 뜼고 무거운 준비는 실제로 필요할 때 합니다.
+- **타이핑 중 불필요한 재렌더링 제거** — 예전엔 키를 뗄 때마다 변환을 요청해 글자 하나마다 왜복이 발생했습니다. (미리보기는 기존대로 0.1초 뒤 갱신)
+- **스크롤·커서 표시 계산 경량화** — 스크롤할 때마다의 스타일 재계산과 문서 복사를 없앨습니다. (긴 문서일수록 체감 차이)
+
+### 🐛 버그 수정 · 정리
+
+- **모두 저장 / 모두 닫기**에서 Confluence 탭이 로컬 ‘다른 이름으로 저장’ 창을 띄우며 일반 파일로 바뀌던 문제 수정 → 이제 **원본 Confluence 페이지로 업데이트**됩니다.
+- Confluence 탭을 **다른 이름으로 저장(로컬 파일)** 한 뒤에도 \`Ctrl+S\`가 Confluence로 가던 문제 수정 → 저장한 로컬 파일로 바뀍니다.
+- 탭 닫기가 중복 호출될 때 엉뚱한 탭이 닫힐 수 있던 문제 방지.
+- 화면에서 도달할 수 없는 **미사용 코드 제거**(Confluence 페이지 삭제 함수 등).
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.21.0</b> &nbsp;·&nbsp; 2026-07-27 &nbsp;·&nbsp; Home 키 — 현재 줄의 가장 왼쪽으로 이동</summary>
 
 ### ⌨️ Home 키 동작 개선
@@ -4203,7 +4249,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.21.0** |
+| **Latest version** | **v1.22.0** |
 | Last updated | 2026-07-27 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -4215,6 +4261,31 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.0</b> &nbsp;·&nbsp; 2026-07-27 &nbsp;·&nbsp; End key · faster startup · bug fixes</summary>
+
+### ⌨️ End key — jump to the far right of the current line
+
+- End now works **the same way in the source editor, the web editor, and the preview** (pairs with the Home key from v1.21.0).
+- **Source editor**: moves to the **last character of the actual line** regardless of soft wrapping, and scrolls horizontally so the line end is visible. \`Shift+End\` extends the selection.
+- **Web editor**: moves the caret to the end of the line it is on.
+- **Preview** (read-only): scrolls wide content such as tables and code **all the way to the right**.
+
+### ⚡ Speed improvements
+
+- **Startup Python calls now run in parallel** — highlight CSS, settings and the previous session are fetched together, and session files are read concurrently (the more tabs you had open, the bigger the win).
+- **The markdown converter and highlight CSS are initialized lazily** — the window appears first; the heavy setup happens when it is actually needed.
+- **Removed redundant re-rendering while typing** — previously every key release requested a conversion, so each character caused a round trip. (The preview still refreshes 0.1s after you stop typing.)
+- **Lighter scroll and caret-position math** — no more per-scroll style recalculation or whole-document copying (noticeable on long documents).
+
+### 🐛 Fixes and cleanup
+
+- **Save All / Close All** no longer turn a Confluence tab into a local file via a "Save as" dialog — they now **update the original Confluence page**.
+- After **Save As** on a Confluence tab, \`Ctrl+S\` now saves to the local file instead of pushing to Confluence.
+- Guarded against the wrong tab being closed if tab close is triggered twice.
+- **Removed unreachable dead code** (Confluence page-delete function and friends).
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.21.0</b> &nbsp;·&nbsp; 2026-07-27 &nbsp;·&nbsp; Home key — jump to the far left of the current line</summary>
 
 ### ⌨️ Home key behavior
@@ -6393,46 +6464,60 @@ webEditorEl.addEventListener('input', () => {
 /* 웹에디터 스크롤 → 프리뷰도 같은 라인으로 동기 스크롤 */
 webEditorEl.addEventListener('scroll', () => syncScroll(webEditorEl, previewScroll));
 
-/* ================= Home 키: 현재 줄의 가장 왼쪽으로 =================
+/* ================= Home / End 키: 현재 줄의 맨 왼쪽 · 맨 오른쪽으로 =================
    소스에디터 / 웹에디터 / 프리뷰 모두 동일하게 동작.
    (Ctrl/Cmd/Alt 조합은 기존 동작 유지 — 예: Ctrl+Home = 문서 맨 앞) */
-function isPlainHome(e) {
-  return e.key === 'Home' && !e.ctrlKey && !e.metaKey && !e.altKey;
+function plainLineKey(e) {
+  if (e.ctrlKey || e.metaKey || e.altKey) return null;
+  if (e.key === 'Home') return 'home';
+  if (e.key === 'End') return 'end';
+  return null;
 }
 
-/* 소스 에디터(textarea): 워드랩된 시각적 줄이 아니라 논리적 줄의 첫 글자로 */
+/* 소스 에디터(textarea): 워드랩된 시각적 줄이 아니라 논리적 줄의 처음/끝으로 */
 editor.addEventListener('keydown', (e) => {
-  if (!isPlainHome(e)) return;
+  const kind = plainLineKey(e);
+  if (!kind) return;
   e.preventDefault();
   const back = editor.selectionDirection === 'backward';
   const caret = back ? editor.selectionStart : editor.selectionEnd;
   const anchor = back ? editor.selectionEnd : editor.selectionStart;
-  const start = editor.value.lastIndexOf('\n', caret - 1) + 1;
-  if (e.shiftKey) {
-    if (start <= anchor) editor.setSelectionRange(start, anchor, 'backward');
-    else editor.setSelectionRange(anchor, start, 'forward');
+  let target;
+  if (kind === 'home') {
+    target = editor.value.lastIndexOf('\n', caret - 1) + 1;
   } else {
-    editor.setSelectionRange(start, start);
+    const nl = editor.value.indexOf('\n', caret);
+    target = nl === -1 ? editor.value.length : nl;
   }
-  editor.scrollLeft = 0;
-  backdrop.scrollLeft = 0;
+  if (e.shiftKey) {
+    if (target <= anchor) editor.setSelectionRange(target, anchor, 'backward');
+    else editor.setSelectionRange(anchor, target, 'forward');
+  } else {
+    editor.setSelectionRange(target, target);
+  }
+  if (kind === 'home') editor.scrollLeft = 0;
+  else editor.scrollLeft = editor.scrollWidth;   /* 줄 끝이 보이도록 가로 스크롤 */
+  backdrop.scrollLeft = editor.scrollLeft;
 });
 
-/* 웹에디터(contenteditable): 커서가 있는 줄의 맨 앞으로 */
+/* 웹에디터(contenteditable): 커서가 있는 줄의 맨 앞/맨 끝으로 */
 webEditorEl.addEventListener('keydown', (e) => {
-  if (!isPlainHome(e)) return;
+  const kind = plainLineKey(e);
+  if (!kind) return;
   const sel = window.getSelection();
   if (!sel || !sel.modify) return;   /* 미지원 환경이면 브라우저 기본 동작 */
   e.preventDefault();
-  sel.modify(e.shiftKey ? 'extend' : 'move', 'backward', 'lineboundary');
-  webEditorEl.scrollLeft = 0;
+  sel.modify(e.shiftKey ? 'extend' : 'move',
+             kind === 'home' ? 'backward' : 'forward', 'lineboundary');
+  if (kind === 'home') webEditorEl.scrollLeft = 0;
 });
 
-/* 프리뷰(읽기 전용): 커서가 없으므로 가로 스크롤을 맨 왼쪽으로 */
+/* 프리뷰(읽기 전용): 커서가 없으므로 가로 스크롤을 맨 왼쪽/맨 오른쪽으로 */
 previewScroll.addEventListener('keydown', (e) => {
-  if (!isPlainHome(e)) return;
+  const kind = plainLineKey(e);
+  if (!kind) return;
   e.preventDefault();
-  previewScroll.scrollLeft = 0;
+  previewScroll.scrollLeft = kind === 'home' ? 0 : previewScroll.scrollWidth;
 });
 /* 웹에디터 클릭 → 프리뷰에 위치 마커 표시
    (웹에디터와 프리뷰는 같은 렌더링 HTML이므로 최상위 블록 인덱스로 1:1 매핑) */
@@ -6613,9 +6698,6 @@ document.getElementById('wt-hilite').addEventListener('input', (e) => {
   document.execCommand('hiliteColor', false, e.target.value);
   clearTimeout(webSyncTimer); webSyncTimer = setTimeout(syncWebToSource, 100);
 });
-
-/* 탭 전환/새 문서 시 웹에디터는 닫아 소스와 어긋나지 않게 */
-function ensureWebEditorClosed() { if (webEditorOn) exitWebEditor(); }
 
 /* ---------- 분할 크기 조절 ---------- */
 const divider = document.getElementById('divider');
@@ -6933,18 +7015,6 @@ async function loadConfList() {
 
 confFilterEl.addEventListener('input', renderConfList);
 
-/* Confluence 페이지 삭제(휴지통 이동) */
-async function deleteConfPage(p) {
-  if (!confirm(L().confDeleteConfirm(p.title))) return;
-  const r = await window.pywebview.api.conf_delete(p.id);
-  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
-  /* 열려 있는 탭이면 정리 */
-  const t = tabs.find(t => t.conf && t.conf.id === p.id);
-  if (t) { t.dirty = false; await closeTab(t); }
-  flash(L().confDeleted + p.title);
-  loadConfList();
-}
-
 /* Confluence 페이지를 탭으로 열기 (원본 마크다운을 편집) */
 async function openConfPage(pageId) {
   /* 이미 열려 있는 Confluence 문서면 새로 열지 않고 기존 탭으로 포커스 이동.
@@ -6964,14 +7034,23 @@ async function openConfPage(pageId) {
   flash(L().confOpened + r.title);
 }
 
+/* Confluence 탭(활성/비활성 무관)을 버퍼 내용 그대로 Confluence에 업데이트 */
+async function saveConfTab(t) {
+  const c = t.conf;
+  if (!c) return false;
+  const r = await window.pywebview.api.conf_update(c.id, c.title, t.content, c.version);
+  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return false; }
+  c.version = r.version;
+  t.dirty = false;
+  return true;
+}
+
 /* 현재 Confluence 탭 업데이트(저장) */
 async function confUpdateCurrent() {
   if (!activeTab || !activeTab.conf) return;
   const c = activeTab.conf;
-  const r = await window.pywebview.api.conf_update(c.id, c.title, editor.value, c.version);
-  if (!r || r.error) { flash(L().confErr + ((r && r.error) || L().unknownErr)); return; }
-  c.version = r.version;
-  activeTab.dirty = false;
+  activeTab.content = editor.value;
+  if (!await saveConfTab(activeTab)) return;
   updatePath();
   renderTabs();
   flash(L().confUpdated + c.title);
@@ -7325,29 +7404,35 @@ window.addEventListener('pywebviewready', async () => {
   } catch (e) {}
   applyLang();
 
+  /* 서로 의존하지 않는 초기 조회는 한꺼번에 (예전에는 순차 await라
+     파이썬 왕복이 그대로 더해져 첫 화면이 늦게 떴다) */
+  const api = window.pywebview.api;
+  const [css, ccfg, sess] = await Promise.all([
+    api.get_pygments_css().catch(() => ''),
+    api.conf_load_config().catch(() => null),
+    api.load_session().catch(() => null),
+  ]);
+
   // 코드 하이라이트(pygments) CSS 주입
-  const css = await window.pywebview.api.get_pygments_css();
-  const style = document.createElement('style');
-  style.textContent = css;
-  document.head.appendChild(style);
+  if (css) {
+    const style = document.createElement('style');
+    style.textContent = css;
+    document.head.appendChild(style);
+  }
 
   // Confluence 연동이 이미 완료돼 있으면 상단 Confluence 메뉴 노출
-  try {
-    const ccfg = await window.pywebview.api.conf_load_config();
-    if (ccfg && ccfg.verified) updateConfluenceMenu(true);
-  } catch (e) {}
+  if (ccfg && ccfg.verified) updateConfluenceMenu(true);
 
-  // 이전 세션(열려 있던 파일들) 복원
+  // 이전 세션(열려 있던 파일들) 복원 — 파일별 읽기도 병렬로
   try {
-    const sess = await window.pywebview.api.load_session();
     if (sess && sess.files && sess.files.length) {
-      for (const p of sess.files) {
-        const r = await window.pywebview.api.open_path(p);
+      const read = await Promise.all(sess.files.map(p => api.open_path(p).catch(() => null)));
+      for (const r of read) {
         if (r) tabs.push({ path: r.path, name: baseName(r.path), content: r.content, dirty: false });
       }
       if (tabs.length) {
         activeTab = tabs[sess.active] || tabs[0];
-        await window.pywebview.api.set_current(activeTab.path);
+        await api.set_current(activeTab.path);
       }
     }
   } catch (e) { /* 세션 복원 실패 시 새 문서로 시작 */ }
