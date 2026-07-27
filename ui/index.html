@@ -2127,6 +2127,8 @@ const previewMarker = document.getElementById('preview-marker');
    (지속 표시 — 다음 클릭 때 위치만 이동, 텍스트를 가리지 않음) */
 function markPreviewAtY(y) {
   previewMarker.style.top = y + 'px';
+  /* 에디터 쪽에서 위치를 정했으므로 프리뷰에서 클릭했던 위치 기억은 무효 */
+  if (typeof previewClickVY !== 'undefined') previewClickVY = null;
   /* 마커가 화면에 보이도록 스크롤 (동기 스크롤과 충돌 방지 위해 잠시 잠금) */
   scrollSource = 'marker';
   previewScroll.scrollTop = Math.max(0, y - previewScroll.clientHeight / 2);
@@ -2884,7 +2886,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.22.2** |
+| **최신 버전** | **v1.22.3** |
 | 최종 업데이트 | 2026-07-28 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2896,6 +2898,23 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.3</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; 미리보기 Home/End 기준 수정 · 포카스 이동</summary>
+
+### 📍 미리보기의 ‘현재 줄’ 기준을 커서로
+
+- 이전에는 위치 마커(에디터를 클릭해야 찍히는 표시)만 보고 줄을 정해서, 미리보기를 클릭한 위치와 상관없는 줄로 이동하거나 아예 동작하지 않았습니다.
+- 이제 **미리보기를 클릭한 지점(커서)** 을 먼저 보고, 그 줄의 글자 끝/시작으로 이동합니다. 클릭한 적이 없으면 위치 마커 → 화면 가운데 순으로 대신합니다.
+- **Home도 같은 기준**으로 동작합니다 — 무조건 맨 왼쪽이 아니라 그 줄 글자의 시작이 보이는 위치로 이동합니다.
+
+### 🎯 커서를 옮기면 화면 포카스도 함께
+
+- Home/End로 커서가 움직이면 **그 화면이 키보드 포카스를 가져갑니다** (에디터·웹에디터·미리보기 공통).
+- 미리보기는 어느 줄이 현재 줄인지 보이도록 **위치 마커를 그 줄로 옮겨** 표시합니다.
+- 웹에디터는 이동한 커서가 화면 밖이면 보이는 위치로 스크롤합니다.
+- 미리보기를 클릭하면 바로 키 입력을 받도록 포카스를 준다 — 클릭 후 바로 Home/End가 동작합니다.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.2</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; 미리보기 End 키 — 화면 끝이 아니라 텍스트 끝으로</summary>
 
 ### 🐛 미리보기 End 키 버그 수정
@@ -4270,7 +4289,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.22.2** |
+| **Latest version** | **v1.22.3** |
 | Last updated | 2026-07-28 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -4282,6 +4301,23 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.3</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; Preview Home/End anchored to the caret · focus follows</summary>
+
+### 📍 The preview's current line now follows the caret
+
+- It previously relied only on the position marker (which appears when you click in the editor), so pressing End could move to an unrelated line — or appear to do nothing.
+- Now it first uses **where you clicked in the preview (the caret)** and moves to the start/end of that line's glyphs, falling back to the position marker and then the middle of the view.
+- **Home uses the same anchor** — it goes to where that line's text begins rather than always to x = 0.
+
+### 🎯 Moving the cursor moves the focus too
+
+- When Home/End moves the cursor, **that pane takes keyboard focus** (source editor, web editor, preview alike).
+- The preview moves its **position marker to the current line** so you can see which line it is.
+- The web editor scrolls the caret back into view when it lands off-screen.
+- Clicking the preview now focuses it immediately, so Home/End work right after the click.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.2</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; Preview End key — end of the text, not the edge of the pane</summary>
 
 ### 🐛 Preview End key fix
@@ -6531,6 +6567,7 @@ editor.addEventListener('keydown', (e) => {
     const nl = editor.value.indexOf('\n', caret);
     target = nl === -1 ? editor.value.length : nl;
   }
+  editor.focus();   /* 커서가 이동하면 키보드 포커스도 그 화면으로 */
   if (e.shiftKey) {
     if (target <= anchor) editor.setSelectionRange(target, anchor, 'backward');
     else editor.setSelectionRange(anchor, target, 'forward');
@@ -6551,55 +6588,112 @@ webEditorEl.addEventListener('keydown', (e) => {
   const sel = window.getSelection();
   if (!sel || !sel.modify) return;   /* 미지원 환경이면 브라우저 기본 동작 */
   e.preventDefault();
+  webEditorEl.focus();   /* 커서가 이동하면 키보드 포커스도 그 화면으로 */
   sel.modify(e.shiftKey ? 'extend' : 'move',
              kind === 'home' ? 'backward' : 'forward', 'lineboundary');
   if (kind === 'home') webEditorEl.scrollLeft = 0;
+  /* 이동한 커서가 화면 밖이면 보이도록 */
+  const r = sel.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
+  if (r) {
+    const wrect = webEditorEl.getBoundingClientRect();
+    if (r.top < wrect.top || r.bottom > wrect.bottom) {
+      webEditorEl.scrollTop += r.top - wrect.top - webEditorEl.clientHeight / 3;
+    }
+  }
 });
 
-/* 프리뷰는 읽기 전용이라 커서가 없다. 대신 '현재 줄' = 위치 마커(에디터 클릭으로 이동)가
-   가리키는 블록, 마커가 없으면 화면 한가운데의 블록으로 보고 그 블록의 텍스트 끝을 기준으로 한다. */
-function previewBlockAtY(y) {
-  let found = null;
-  for (const el of preview.children) {
-    if (el.offsetTop <= y) found = el;
-    else break;
+/* ---------- 프리뷰의 '현재 줄' 찾기 ----------
+   프리뷰는 읽기 전용이지만 클릭하면 캐럿(선택)이 생긴다. 우선순위:
+     1) 프리뷰 안을 클릭해 생긴 캐럿/선택 위치
+     2) 위치 마커(에디터를 클릭하면 프리뷰에 찍히는 ◀)
+     3) 화면 한가운데
+   프리뷰를 클릭했을 때 키 입력을 받도록 포커스도 확실히 준다. */
+let previewClickVY = null;   // 프리뷰에서 마지막으로 클릭한 화면 y (캐럿 대용)
+previewScroll.addEventListener('mousedown', (e) => {
+  previewScroll.focus();
+  previewClickVY = e.clientY;
+});
+
+function previewCaretViewportY() {
+  const prect = previewScroll.getBoundingClientRect();
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    const r = sel.getRangeAt(0);
+    if (preview.contains(r.startContainer)) {
+      const rc = r.getBoundingClientRect();
+      if (rc.top || rc.bottom) return rc.top + rc.height / 2;
+      /* 접힌 캐럿이 (0,0)을 주는 경우가 있어 한 글자 범위로 다시 잰다 */
+      const n = r.startContainer;
+      if (n.nodeType === 3 && n.nodeValue.length) {
+        const r2 = document.createRange();
+        const i = Math.min(r.startOffset, n.nodeValue.length - 1);
+        r2.setStart(n, i);
+        r2.setEnd(n, i + 1);
+        const rc2 = r2.getBoundingClientRect();
+        if (rc2.top || rc2.bottom) return rc2.top + rc2.height / 2;
+      }
+    }
   }
-  return found;
+  if (previewClickVY != null) return previewClickVY;
+  const m = parseFloat(previewMarker.style.top);
+  if (Number.isFinite(m)) return m - previewScroll.scrollTop + prect.top;
+  return prect.top + previewScroll.clientHeight / 2;
+}
+
+/* 화면 y(뷰포트 좌표)에 걸치는 '한 줄'의 실제 글자 범위(left/right, 뷰포트 좌표).
+   문단·목록·표칸 같은 블록 요소는 글자가 짧아도 폭이 열 전체이므로
+   반드시 텍스트 노드의 줄 사각형(Range.getClientRects)으로 잰다. */
+function previewLineTextBounds(vy) {
+  const range = document.createRange();
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT, null);
+  let left = Infinity, right = -Infinity, top = 0, bottom = 0;
+  let bestLeft = Infinity, bestRight = -Infinity, bestDist = Infinity, bt = 0, bb = 0;
+  let tn;
+  while ((tn = walker.nextNode())) {
+    if (!tn.nodeValue.trim()) continue;
+    range.selectNodeContents(tn);
+    for (const rc of range.getClientRects()) {
+      if (!rc.width && !rc.height) continue;
+      if (vy >= rc.top - 1 && vy <= rc.bottom + 1) {      // 그 줄에 정확히 걸침
+        left = Math.min(left, rc.left);
+        right = Math.max(right, rc.right);
+        top = top || rc.top; bottom = Math.max(bottom, rc.bottom);
+      } else {                                            // 아니면 가장 가까운 줄을 후보로
+        const d = vy < rc.top ? rc.top - vy : vy - rc.bottom;
+        if (d < bestDist) { bestDist = d; bestLeft = rc.left; bestRight = rc.right; bt = rc.top; bb = rc.bottom; }
+        else if (d === bestDist) { bestLeft = Math.min(bestLeft, rc.left); bestRight = Math.max(bestRight, rc.right); }
+      }
+    }
+  }
+  if (right > -Infinity) return { left, right, top, bottom };
+  if (bestRight > -Infinity) return { left: bestLeft, right: bestRight, top: bt, bottom: bb };
+  return null;
 }
 
 previewScroll.addEventListener('keydown', (e) => {
   const kind = plainLineKey(e);
   if (!kind) return;
   e.preventDefault();
-  if (kind === 'home') { previewScroll.scrollLeft = 0; return; }
-  const markerY = parseFloat(previewMarker.style.top);
-  const y = Number.isFinite(markerY) ? markerY
-    : previewScroll.scrollTop + previewScroll.clientHeight / 2;
-  const el = previewBlockAtY(y);
-  if (!el) { previewScroll.scrollLeft = previewScroll.scrollWidth; return; }
+  previewScroll.focus();
   const prect = previewScroll.getBoundingClientRect();
-  /* 블록 요소는 폭이 열 전체라 요소 너비로 계산하면 '화면 우측 끝'이 된다.
-     Range의 줄 단위 사각형(getClientRects)은 실제 글자가 차지한 폭만 주므로
-     그중 커서(마커) 높이에 걸치는 줄의 오른쪽 끝을 쓴다. */
-  const vy = y - previewScroll.scrollTop + prect.top;   // 마커의 화면 좌표
-  const range = document.createRange();
-  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
-  let onLine = -Infinity, anyRight = -Infinity, tn;
-  /* 블록(li·td 등)의 사각형은 열 전체 폭이므로 반드시 '텍스트 노드' 단위로 잰다 */
-  while ((tn = walker.nextNode())) {
-    if (!tn.nodeValue.trim()) continue;
-    range.selectNodeContents(tn);
-    for (const rc of range.getClientRects()) {
-      if (!rc.width && !rc.height) continue;
-      anyRight = Math.max(anyRight, rc.right);
-      if (vy >= rc.top - 1 && vy <= rc.bottom + 1) onLine = Math.max(onLine, rc.right);
-    }
+  const vy = previewCaretViewportY();
+  const b = previewLineTextBounds(vy);
+  if (!b) { previewScroll.scrollLeft = kind === 'home' ? 0 : previewScroll.scrollWidth; return; }
+  const sl = previewScroll.scrollLeft;
+  if (kind === 'home') {
+    const left = b.left - prect.left + sl;
+    previewScroll.scrollLeft = Math.max(0, left - 12);
+  } else {
+    const right = b.right - prect.left + sl;
+    previewScroll.scrollLeft = Math.max(0, right - previewScroll.clientWidth + 12);
   }
-  const textRight = onLine > -Infinity ? onLine
-    : (anyRight > -Infinity ? anyRight : el.getBoundingClientRect().right);
-  const right = textRight - prect.left + previewScroll.scrollLeft;
-  /* 이미 다 보이면 굳이 스크롤하지 않는다 */
-  previewScroll.scrollLeft = Math.max(0, right - previewScroll.clientWidth + 12);
+  /* 어느 줄이 '현재 줄'인지 보이도록 위치 마커를 그 줄로 옮긴다 (화면상의 포커스) */
+  const midY = (b.top + b.bottom) / 2 - prect.top + previewScroll.scrollTop;
+  previewMarker.style.top = midY + 'px';
+  previewMarker.style.left = (previewScroll.scrollLeft + previewScroll.clientWidth - 22) + 'px';
+  previewMarker.classList.remove('show');
+  void previewMarker.offsetWidth;
+  previewMarker.classList.add('show');
 });
 /* 웹에디터 클릭 → 프리뷰에 위치 마커 표시
    (웹에디터와 프리뷰는 같은 렌더링 HTML이므로 최상위 블록 인덱스로 1:1 매핑) */

@@ -23,7 +23,7 @@ import webview
 from webview.dom import DOMEventHandler
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.22.2"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.22.3"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
