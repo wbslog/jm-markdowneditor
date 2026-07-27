@@ -2884,7 +2884,7 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.22.1** |
+| **최신 버전** | **v1.22.2** |
 | 최종 업데이트 | 2026-07-28 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -2896,6 +2896,17 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.2</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; 미리보기 End 키 — 화면 끝이 아니라 텍스트 끝으로</summary>
+
+### 🐛 미리보기 End 키 버그 수정
+
+- 미리보기에서 End를 누를 때 **그 줄의 텍스트 끝이 아니라 화면 전체 너비의 오른쪽 끝으로** 이동하던 문제를 고쳤습니다.
+- 원인: 문단·목록·표칸 같은 블록 요소는 글자가 짧아도 폭이 열 전체라, 요소 크기로 계산하면 항상 화면 오른쪽 끝이 나옵니다.
+- 수정: **실제 글자가 차지한 폭만** 재서(텍스트 단위 줄 사각형), 그중 위치 마커가 걸친 줄의 오른쪽 끝을 기준으로 스크롤합니다.
+- 그 줄이 이미 다 보이면 **아예 움직이지 않습니다.** 표·코드처럼 줄이 길면 끝이 보일 만큼만 이동합니다.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.1</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; End 키 — 그 줄의 텍스트 끝으로 정확히</summary>
 
 ### ⌨️ End 키 동작 보정
@@ -4259,7 +4270,7 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.22.1** |
+| **Latest version** | **v1.22.2** |
 | Last updated | 2026-07-28 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
@@ -4271,6 +4282,17 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.22.2</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; Preview End key — end of the text, not the edge of the pane</summary>
+
+### 🐛 Preview End key fix
+
+- Pressing End in the preview jumped to **the far right of the pane instead of the end of that line's text**.
+- Cause: block elements (paragraphs, list items, table cells) are as wide as the whole column even when the text is short, so measuring the element always yields the right edge of the view.
+- Fix: measure **only the width the glyphs actually occupy** (per-line rectangles of text nodes) and scroll to the right edge of the line the position marker sits on.
+- If that line is already fully visible, **nothing moves at all**; long lines (tables, code) scroll just far enough to reveal their end.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.1</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; End key — precisely to the end of that line's text</summary>
 
 ### ⌨️ End key refinements
@@ -6555,11 +6577,28 @@ previewScroll.addEventListener('keydown', (e) => {
     : previewScroll.scrollTop + previewScroll.clientHeight / 2;
   const el = previewBlockAtY(y);
   if (!el) { previewScroll.scrollLeft = previewScroll.scrollWidth; return; }
-  /* 표/코드처럼 블록 자체가 가로로 넘치면 그 안쪽 폭(scrollWidth)까지 포함해 끝을 계산 */
-  const rect = el.getBoundingClientRect();
   const prect = previewScroll.getBoundingClientRect();
-  const right = rect.left - prect.left + previewScroll.scrollLeft
-    + Math.max(el.scrollWidth, rect.width);
+  /* 블록 요소는 폭이 열 전체라 요소 너비로 계산하면 '화면 우측 끝'이 된다.
+     Range의 줄 단위 사각형(getClientRects)은 실제 글자가 차지한 폭만 주므로
+     그중 커서(마커) 높이에 걸치는 줄의 오른쪽 끝을 쓴다. */
+  const vy = y - previewScroll.scrollTop + prect.top;   // 마커의 화면 좌표
+  const range = document.createRange();
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+  let onLine = -Infinity, anyRight = -Infinity, tn;
+  /* 블록(li·td 등)의 사각형은 열 전체 폭이므로 반드시 '텍스트 노드' 단위로 잰다 */
+  while ((tn = walker.nextNode())) {
+    if (!tn.nodeValue.trim()) continue;
+    range.selectNodeContents(tn);
+    for (const rc of range.getClientRects()) {
+      if (!rc.width && !rc.height) continue;
+      anyRight = Math.max(anyRight, rc.right);
+      if (vy >= rc.top - 1 && vy <= rc.bottom + 1) onLine = Math.max(onLine, rc.right);
+    }
+  }
+  const textRight = onLine > -Infinity ? onLine
+    : (anyRight > -Infinity ? anyRight : el.getBoundingClientRect().right);
+  const right = textRight - prect.left + previewScroll.scrollLeft;
+  /* 이미 다 보이면 굳이 스크롤하지 않는다 */
   previewScroll.scrollLeft = Math.max(0, right - previewScroll.clientWidth + 12);
 });
 /* 웹에디터 클릭 → 프리뷰에 위치 마커 표시
