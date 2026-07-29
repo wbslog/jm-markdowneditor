@@ -2886,8 +2886,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.22.3** |
-| 최종 업데이트 | 2026-07-28 |
+| **최신 버전** | **v1.23.0** |
+| 최종 업데이트 | 2026-07-30 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2898,6 +2898,24 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.23.0</b> &nbsp;·&nbsp; 2026-07-30 &nbsp;·&nbsp; 파일 더블클릭은 열려 있는 창에서 · End 키는 OS 기본 동작</summary>
+
+### 🗂️ 파일을 더블클릭하면 새 창이 아니라 지금 창에서 열림
+
+- jm-mdv가 이미 켜져 있는데 탐색기에서 md 파일(또는 이 프로그램과 연결된 파일)을 더블클릭하면, **프로그램을 하나 더 띄우지 않고 열려 있는 창에 새 탭으로** 엽니다.
+- 그 창은 자동으로 앞으로 올라옵니다. 이미 열려 있는 파일이면 기존 탭으로 이동합니다.
+- 꿐져 있지 않은 상태에서 더블클릭하면 평소처럼 실행되면서, 지난 세션 복원이 끝난 뒤 **더블클릭한 파일이 활성 탭**으로 열립니다.
+- 통신은 내 PC 안(127.0.0.1)에서만 이뤄지며, 외부로 나가는 것은 없습니다.
+- 참고: 파일 확장자를 jm-mdv와 연결하는 설정(연결 프로그램 지정)은 Windows 에서 한 번 해두셔야 합니다.
+
+### ⌨️ End 키는 OS 기본 동작으로 되돌림
+
+- 에디터·웹에디터·미리보기의 **End 키 전용 처리를 모두 제거**했습니다. 이제 Windows/macOS가 제공하는 기본 동작을 그대로 씩니다.
+- **Shift+End 선택도 마찬가지**로 OS 기본 동작입니다.
+- Home 키는 기존대로 유지됩니다(에디터는 실제 줄의 첫 글자, 미리보기는 그 줄 글자의 시작).
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.3</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; 미리보기 Home/End 기준 수정 · 포카스 이동</summary>
 
 ### 📍 미리보기의 ‘현재 줄’ 기준을 커서로
@@ -4289,8 +4307,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.22.3** |
-| Last updated | 2026-07-28 |
+| **Latest version** | **v1.23.0** |
+| Last updated | 2026-07-30 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -4301,6 +4319,24 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.23.0</b> &nbsp;·&nbsp; 2026-07-30 &nbsp;·&nbsp; Double-clicked files open in the running window · End key back to OS default</summary>
+
+### 🗂️ Double-clicking a file no longer starts a second copy
+
+- If jm-mdv is already running, double-clicking a markdown file (or any file associated with it) **opens it as a new tab in the existing window** instead of launching another instance.
+- That window is brought to the front automatically; files already open just switch to their tab.
+- When nothing is running yet, the app starts as usual and the double-clicked file becomes the **active tab once the previous session has been restored**.
+- The handoff happens only on this machine (127.0.0.1); nothing leaves your computer.
+- Note: associating a file type with jm-mdv is still a one-time Windows setting you make yourself.
+
+### ⌨️ The End key is back to its OS default
+
+- All custom End handling in the editor, web editor and preview has been **removed**; Windows/macOS default behavior applies again.
+- **Shift+End selection is the OS default too.**
+- Home is unchanged (first character of the actual line in the editor, start of that line's text in the preview).
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.22.3</b> &nbsp;·&nbsp; 2026-07-28 &nbsp;·&nbsp; Preview Home/End anchored to the caret · focus follows</summary>
 
 ### 📍 The preview's current line now follows the caret
@@ -6542,17 +6578,16 @@ webEditorEl.addEventListener('input', () => {
 /* 웹에디터 스크롤 → 프리뷰도 같은 라인으로 동기 스크롤 */
 webEditorEl.addEventListener('scroll', () => syncScroll(webEditorEl, previewScroll));
 
-/* ================= Home / End 키: 현재 줄의 맨 왼쪽 · 맨 오른쪽으로 =================
-   소스에디터 / 웹에디터 / 프리뷰 모두 동일하게 동작.
-   (Ctrl/Cmd/Alt 조합은 기존 동작 유지 — 예: Ctrl+Home = 문서 맨 앞) */
+/* ================= Home 키: 현재 줄의 맨 왼쪽으로 =================
+   End 키는 손대지 않는다 — Windows/macOS 기본 동작(Shift+End 선택 포함)을 그대로 쓴다.
+   (Ctrl/Cmd/Alt 조합도 기존 동작 유지 — 예: Ctrl+Home = 문서 맨 앞) */
 function plainLineKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey) return null;
   if (e.key === 'Home') return 'home';
-  if (e.key === 'End') return 'end';
   return null;
 }
 
-/* 소스 에디터(textarea): 워드랩된 시각적 줄이 아니라 논리적 줄의 처음/끝으로 */
+/* 소스 에디터(textarea): 워드랩된 시각적 줄이 아니라 논리적 줄의 첫 글자로 */
 editor.addEventListener('keydown', (e) => {
   const kind = plainLineKey(e);
   if (!kind) return;
@@ -6560,13 +6595,7 @@ editor.addEventListener('keydown', (e) => {
   const back = editor.selectionDirection === 'backward';
   const caret = back ? editor.selectionStart : editor.selectionEnd;
   const anchor = back ? editor.selectionEnd : editor.selectionStart;
-  let target;
-  if (kind === 'home') {
-    target = editor.value.lastIndexOf('\n', caret - 1) + 1;
-  } else {
-    const nl = editor.value.indexOf('\n', caret);
-    target = nl === -1 ? editor.value.length : nl;
-  }
+  const target = editor.value.lastIndexOf('\n', caret - 1) + 1;
   editor.focus();   /* 커서가 이동하면 키보드 포커스도 그 화면으로 */
   if (e.shiftKey) {
     if (target <= anchor) editor.setSelectionRange(target, anchor, 'backward');
@@ -6574,14 +6603,12 @@ editor.addEventListener('keydown', (e) => {
   } else {
     editor.setSelectionRange(target, target);
   }
-  /* 에디터는 자동 줄바꿈이라 가로 스크롤이 없다. 커서가 화면 밖이면 세로로만 맞춘다.
-     (예전엔 End에서 scrollWidth로 밀어 가장 긴 다른 줄의 끝으로 튀었다) */
-  if (kind === 'home') editor.scrollLeft = 0;
+  editor.scrollLeft = 0;
   backdrop.scrollLeft = editor.scrollLeft;
   backdrop.scrollTop = editor.scrollTop;
 });
 
-/* 웹에디터(contenteditable): 커서가 있는 줄의 맨 앞/맨 끝으로 */
+/* 웹에디터(contenteditable): 커서가 있는 줄의 맨 앞으로 */
 webEditorEl.addEventListener('keydown', (e) => {
   const kind = plainLineKey(e);
   if (!kind) return;
@@ -6589,9 +6616,8 @@ webEditorEl.addEventListener('keydown', (e) => {
   if (!sel || !sel.modify) return;   /* 미지원 환경이면 브라우저 기본 동작 */
   e.preventDefault();
   webEditorEl.focus();   /* 커서가 이동하면 키보드 포커스도 그 화면으로 */
-  sel.modify(e.shiftKey ? 'extend' : 'move',
-             kind === 'home' ? 'backward' : 'forward', 'lineboundary');
-  if (kind === 'home') webEditorEl.scrollLeft = 0;
+  sel.modify(e.shiftKey ? 'extend' : 'move', 'backward', 'lineboundary');
+  webEditorEl.scrollLeft = 0;
   /* 이동한 커서가 화면 밖이면 보이도록 */
   const r = sel.rangeCount ? sel.getRangeAt(0).getBoundingClientRect() : null;
   if (r) {
@@ -6678,15 +6704,9 @@ previewScroll.addEventListener('keydown', (e) => {
   const prect = previewScroll.getBoundingClientRect();
   const vy = previewCaretViewportY();
   const b = previewLineTextBounds(vy);
-  if (!b) { previewScroll.scrollLeft = kind === 'home' ? 0 : previewScroll.scrollWidth; return; }
-  const sl = previewScroll.scrollLeft;
-  if (kind === 'home') {
-    const left = b.left - prect.left + sl;
-    previewScroll.scrollLeft = Math.max(0, left - 12);
-  } else {
-    const right = b.right - prect.left + sl;
-    previewScroll.scrollLeft = Math.max(0, right - previewScroll.clientWidth + 12);
-  }
+  if (!b) { previewScroll.scrollLeft = 0; return; }
+  const left = b.left - prect.left + previewScroll.scrollLeft;
+  previewScroll.scrollLeft = Math.max(0, left - 12);
   /* 어느 줄이 '현재 줄'인지 보이도록 위치 마커를 그 줄로 옮긴다 (화면상의 포커스) */
   const midY = (b.top + b.bottom) / 2 - prect.top + previewScroll.scrollTop;
   previewMarker.style.top = midY + 'px';
@@ -7619,6 +7639,12 @@ window.addEventListener('pywebviewready', async () => {
     activeTab = first;
   }
   showActiveTab();
+
+  // 탐색기에서 파일을 더블클릭해 실행한 경우: 세션 복원 뒤에 그 파일을 열고 활성화
+  try {
+    const startup = await api.startup_files();
+    for (const p of (startup || [])) await window.__openDroppedPath(p);
+  } catch (e) { /* 무시 */ }
 
   // 최초 실행이면 대표 기능 온보딩 (1회만) → 아니면 새 버전 첫 실행 안내
   const shownOnboard = await showOnboardingIfFirstRun();

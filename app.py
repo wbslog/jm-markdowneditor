@@ -6,6 +6,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import ssl
 import string
 import subprocess
@@ -23,7 +24,7 @@ import webview
 from webview.dom import DOMEventHandler
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.22.3"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.23.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -77,6 +78,8 @@ SESSION_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-session.json")
 UPDATE_STATE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-update.json")
 CONFLUENCE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-confluence.json")
 SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-settings.json")
+# 이미 실행 중인 창에 '이 파일 열어줘'를 전달하기 위한 로컬 포트 정보
+IPC_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-ipc.json")
 # 편집 왕복(round-trip)을 위해 페이지에 원본 마크다운을 저장하는 content property 키
 MD_PROP_KEY = "jmMdvMarkdown"
 
@@ -94,6 +97,7 @@ class Api:
         self._md = None      # 첫 렌더 때 생성 (창이 먼저 뜨도록 지연 초기화)
         self._lock = threading.Lock()
         self._cloud_ids = {}  # host -> cloudId 캐시
+        self.startup_paths = []  # 실행 인자로 받은 파일 (시작 후 프런트가 가져감)
 
     # ---------- 변환 ----------
     def render(self, text):
@@ -1224,6 +1228,39 @@ body {{ margin: 0; background: #f0f2f5; }}
             except Exception:
                 pass
 
+    # ---------- 중복 실행 방지 / 연결 프로그램으로 열기 ----------
+    def startup_files(self):
+        """실행 인자로 받은 파일 목록 (탐색기에서 더블클릭해 실행한 경우).
+        세션 복원이 끝난 뒤 프런트가 한 번 가져가 열고 비운다."""
+        paths, self.startup_paths = list(self.startup_paths or []), []
+        return paths
+
+
+    def open_paths_from_other_instance(self, paths):
+        """이미 떠 있는 창에서 파일을 열고 창을 앞으로 가져온다 (IPC 스레드에서 호출)."""
+        for path in paths or []:
+            if not path or not os.path.isfile(path):
+                continue
+            try:
+                self._window.evaluate_js("window.__openDroppedPath(" + json.dumps(path) + ")")
+            except Exception:  # noqa: BLE001  창이 아직 준비 전이면 건너뜀
+                pass
+        self.focus_window()
+
+    def focus_window(self):
+        """창을 복원하고 맨 앞으로 (플랫폼별로 지원 범위가 달라 각각 무시 가능)."""
+        w = self._window
+        for act in (lambda: w.restore(), lambda: w.show()):
+            try:
+                act()
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            w.on_top = True
+            w.on_top = False
+        except Exception:  # noqa: BLE001
+            pass
+
     def show_in_explorer(self):
         """현재 열린 파일을 탐색기(Finder)에서 선택된 상태로 보여줌"""
         if not (self.current_path and os.path.exists(self.current_path)):
@@ -1254,8 +1291,73 @@ def _setup_windowed_io():
         sys.stderr = f
 
 
+def _argv_paths():
+    """실행 인자로 넘어온 파일 경로 (탐색기에서 파일을 더블클릭/열기로 실행한 경우)"""
+    return [os.path.abspath(p) for p in sys.argv[1:]
+            if not p.startswith("-") and os.path.isfile(p)]
+
+
+def _send_to_running_instance(paths):
+    """이미 실행 중인 jm-mdv가 있으면 그 창에서 파일을 열게 하고 True 반환.
+    (없거나 죽어 있으면 False → 이 프로세스가 새로 창을 띄운다)"""
+    try:
+        with open(IPC_FILE, "r", encoding="utf-8") as f:
+            port = int(json.load(f).get("port") or 0)
+    except (OSError, ValueError, TypeError):
+        return False
+    if not port:
+        return False
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=1.5) as s:
+            s.sendall(json.dumps({"open": paths}).encode("utf-8") + b"\n")
+            s.settimeout(3.0)
+            return s.recv(8).startswith(b"OK")
+    except OSError:
+        return False  # 남아 있던 옛 포트 정보 → 무시하고 새로 뜬다
+
+
+def _start_ipc_server(api):
+    """다른 인스턴스가 보내온 '이 파일 열어줘' 요청을 받는 로컬 서버 (127.0.0.1 전용)"""
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        srv.bind(("127.0.0.1", 0))
+        srv.listen(8)
+    except OSError:
+        return  # 포트를 못 열어도 앱 자체는 정상 동작
+    try:
+        with open(IPC_FILE, "w", encoding="utf-8") as f:
+            json.dump({"port": srv.getsockname()[1], "pid": os.getpid()}, f)
+    except OSError:
+        pass
+
+    def loop():
+        while True:
+            try:
+                conn, _addr = srv.accept()
+            except OSError:
+                return
+            with conn:
+                try:
+                    conn.settimeout(3.0)
+                    raw = conn.recv(65536).decode("utf-8", "replace").strip()
+                    msg = json.loads(raw) if raw else {}
+                    conn.sendall(b"OK")
+                except (OSError, ValueError):
+                    continue
+            try:
+                api.open_paths_from_other_instance(msg.get("open") or [])
+            except Exception:  # noqa: BLE001
+                pass
+
+    threading.Thread(target=loop, daemon=True).start()
+
+
 def main():
     _setup_windowed_io()
+    paths = _argv_paths()
+    # 이미 실행 중이면 새 창을 띄우지 않고 그 창에서 연다
+    if _send_to_running_instance(paths):
+        return
     api = Api()
     window = webview.create_window(
         f"{APP_NAME} v{APP_VERSION}",
@@ -1283,8 +1385,19 @@ def main():
         except Exception:
             pass
 
+    # 탐색기에서 파일을 더블클릭해 시작한 경우: 세션 복원이 끝난 뒤
+    # 프런트가 startup_files()로 가져가 연다 (복원 결과에 덮이지 않도록)
+    api.startup_paths = paths
+
     window.events.loaded += _register_dnd
-    webview.start()
+    _start_ipc_server(api)
+    try:
+        webview.start()
+    finally:
+        try:
+            os.remove(IPC_FILE)   # 종료 시 포트 정보 정리
+        except OSError:
+            pass
 
 
 if __name__ == "__main__":
