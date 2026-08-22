@@ -8,6 +8,8 @@ rem app.py 의 APP_VERSION 을 읽어 파일명에 버전을 붙인다 (예: jm-
 for /f %%v in ('python -c "import re;print(re.search(r'APP_VERSION\s*=\s*\"([^\"]+)\"',open('app.py',encoding='utf-8').read()).group(1))"') do set VER=%%v
 if "%VER%"=="" set VER=0.0.0
 
+rem pywebview 는 Windows 에서 EdgeChromium(pythonnet) 백엔드를 쓴다.
+rem 시스템 파이썬에 Qt 가 깔려 있으면 훅이 통째로 끌어와 exe 가 18MB -> 50MB 로 불어난다.
 pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv-%VER% ^
   --add-data "ui;ui" ^
   --collect-submodules markdown ^
@@ -26,6 +28,11 @@ pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv-%VER% ^
   --exclude-module doctest ^
   --exclude-module lib2to3 ^
   --exclude-module xmlrpc ^
+  --exclude-module PyQt5 ^
+  --exclude-module PyQt6 ^
+  --exclude-module PySide2 ^
+  --exclude-module PySide6 ^
+  --exclude-module qtpy ^
   app.py
 
 echo.

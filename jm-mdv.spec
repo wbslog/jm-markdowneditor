@@ -16,7 +16,9 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy', 'pygame', 'PIL', 'matplotlib', 'pandas', 'scipy', 'tkinter', 'cryptography', 'unittest', 'pydoc', 'doctest', 'lib2to3', 'xmlrpc'],
+    excludes=['numpy', 'pygame', 'PIL', 'matplotlib', 'pandas', 'scipy', 'tkinter', 'cryptography', 'unittest', 'pydoc', 'doctest', 'lib2to3', 'xmlrpc',
+              # Qt 백엔드는 쓰지 않는다 (있으면 훅이 끌어와 용량이 3배가 된다)
+              'PyQt5', 'PyQt6', 'PySide2', 'PySide6', 'qtpy'],
     noarchive=False,
     optimize=0,
 )
