@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import traceback
 import urllib.error
 import urllib.parse
@@ -24,7 +25,7 @@ import webview
 from webview.dom import DOMEventHandler
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.23.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.23.1"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -80,6 +81,9 @@ CONFLUENCE_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-confluence.json
 SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-settings.json")
 # 이미 실행 중인 창에 '이 파일 열어줘'를 전달하기 위한 로컬 포트 정보
 IPC_FILE = os.path.join(os.path.expanduser("~"), ".jm-mdv-ipc.json")
+_IPC_SRV = None  # 실행 중인 IPC 서버 소켓 (업데이트 재실행 전에 내리기 위해 보관)
+# 업데이트가 띄운 새 프로세스는 단일 인스턴스 인계를 건너뛰도록 표시
+UPDATED_ENV = "JM_MDV_UPDATED"
 # 편집 왕복(round-trip)을 위해 페이지에 원본 마크다운을 저장하는 content property 키
 MD_PROP_KEY = "jmMdvMarkdown"
 
@@ -1101,8 +1105,20 @@ body {{ margin: 0; background: #f0f2f5; }}
                     done += len(chunk)
                     self._notify_progress(done, total)
             if os.path.exists(target):
-                os.remove(target)
+                try:
+                    os.remove(target)
+                except OSError:
+                    # 같은 이름 파일이 잠겨 있으면(실행 중 등) 다른 이름으로 받는다
+                    stem, ext = os.path.splitext(target)
+                    target = stem + "-new" + ext
+                    if os.path.exists(target):
+                        os.remove(target)
             os.rename(tmp, target)
+            if os.name != "nt":
+                try:
+                    os.chmod(target, 0o755)  # 맥/리눅스: 실행 권한 부여
+                except OSError:
+                    pass
             # 새 버전 첫 실행 때 보여줄 '추가/개선 내용'(릴리스 메시지) 보관
             try:
                 st = self._update_state()
@@ -1111,7 +1127,17 @@ body {{ margin: 0; background: #f0f2f5; }}
                     json.dump(st, f, ensure_ascii=False)
             except OSError:
                 pass
-            # 새로 받은 파일 실행
+            # ── 새로 받은 파일 실행 ────────────────────────────────────────
+            # (1) 먼저 IPC 서버를 내린다. 켜둔 채로 새 exe를 띄우면 새 프로세스가
+            #     "이미 실행 중인 인스턴스"를 발견하고 자기 창을 띄우는 대신
+            #     그쪽에 인계한 뒤 그대로 종료해 버린다 → 재실행 실패.
+            _shutdown_ipc()
+            # (2) PyInstaller 부트로더 환경변수를 지운 환경으로 띄운다.
+            #     그대로 물려받으면 새 exe가 압축을 풀지 않고, 곧 삭제될 부모의
+            #     임시폴더를 쓰다가 조용히 죽는다.
+            env = _clean_child_env()
+            env[UPDATED_ENV] = "1"
+            check_alive = True
             if sys.platform == "darwin" and asset_name.lower().endswith(".zip"):
                 subprocess.run(["ditto", "-x", "-k", target, app_dir], check=False)
                 bundle = None
@@ -1124,11 +1150,26 @@ body {{ margin: 0; background: #f0f2f5; }}
                         if nme.endswith(".app") and str(version).lstrip("vV") in nme:
                             bundle = os.path.join(app_dir, nme)
                             break
-                subprocess.Popen(["open", bundle or app_dir])
+                # open 은 앱을 띄우고 바로 끝나므로 생존 확인 대상이 아니다
+                check_alive = False
+                proc = subprocess.Popen(["open", bundle or app_dir], env=env, close_fds=True)
             elif os.name == "nt":
-                subprocess.Popen([target], cwd=app_dir, creationflags=0x00000008)  # DETACHED_PROCESS
+                # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP: 부모가 죽어도 살아남게
+                proc = subprocess.Popen([target], cwd=app_dir, env=env, close_fds=True,
+                                        creationflags=0x00000008 | 0x00000200)
             else:
-                subprocess.Popen([target], cwd=app_dir)
+                proc = subprocess.Popen([target], cwd=app_dir, env=env, close_fds=True,
+                                        start_new_session=True)
+            # (3) 새 프로세스가 곧바로 죽지 않는지 확인한다. 죽었다면 현재 앱을
+            #     끄지 않고 오류를 돌려줘 사용자가 창과 작업을 잃지 않게 한다.
+            if check_alive:
+                time.sleep(1.5)
+                code = proc.poll()
+                if code is not None:
+                    _start_ipc_server(self)  # 계속 살아 있으니 IPC 복구
+                    msg = ("새 버전이 시작하지 못했습니다 (종료 코드 %s). "
+                           "직접 실행해 주세요: %s") % (code, target)
+                    return {"error": msg}
             # 기존 프로그램 종료 (새 프로세스가 뜰 시간을 잠깐 준 뒤)
             threading.Timer(0.8, lambda: os._exit(0)).start()
             try:
@@ -1137,6 +1178,11 @@ body {{ margin: 0; background: #f0f2f5; }}
                 pass
             return {"ok": True}
         except Exception as e:  # noqa: BLE001
+            try:
+                if os.path.exists(tmp):
+                    os.remove(tmp)  # 실패하면 받다 만 .part 파일 정리
+            except (OSError, NameError):
+                pass
             return {"error": str(e)}
 
     @staticmethod
@@ -1316,14 +1362,58 @@ def _send_to_running_instance(paths):
         return False  # 남아 있던 옛 포트 정보 → 무시하고 새로 뜬다
 
 
+def _clean_child_env():
+    """PyInstaller 부트로더 환경변수를 제거한, 자식 프로세스용 환경.
+
+    onefile 실행 파일은 자기가 압축을 푼 임시폴더 위치를 _MEIPASS2(PyInstaller 5 이하)
+    / _PYI_*(6 이상) 환경변수로 자식에게 물려준다. 이를 그대로 물려받은 새 exe는
+    "나는 이미 풀린 2단계 프로세스"라고 착각해 압축을 풀지 않고 부모의 임시폴더를
+    쓰는데, 부모가 종료하며 그 폴더를 지워버리므로 새 프로그램이 조용히 죽는다.
+    → 업데이트로 새 exe를 띄울 때는 반드시 이 변수들을 지운 환경으로 실행해야 한다.
+    """
+    env = os.environ.copy()
+    for key in list(env):
+        if key == "_MEIPASS2" or key.startswith("_PYI_"):
+            env.pop(key, None)
+    return env
+
+
+def _shutdown_ipc():
+    """IPC 서버를 닫고 포트 파일을 지운다 (업데이트 재실행·정상 종료 공통).
+
+    포트 파일은 '내가 쓴 것'일 때만 지운다. 업데이트로 띄운 새 프로세스가 먼저
+    자기 정보를 써 놓았을 수 있는데, 그걸 옛 프로세스가 지워버리면 그다음부터
+    파일 더블클릭이 열려 있는 창으로 가지 못한다.
+    """
+    global _IPC_SRV
+    srv, _IPC_SRV = _IPC_SRV, None
+    if srv is not None:
+        try:
+            srv.close()
+        except OSError:
+            pass
+    try:
+        with open(IPC_FILE, "r", encoding="utf-8") as f:
+            mine = json.load(f).get("pid") == os.getpid()
+    except (OSError, ValueError, AttributeError):
+        mine = False
+    if mine:
+        try:
+            os.remove(IPC_FILE)
+        except OSError:
+            pass
+
+
 def _start_ipc_server(api):
     """다른 인스턴스가 보내온 '이 파일 열어줘' 요청을 받는 로컬 서버 (127.0.0.1 전용)"""
+    global _IPC_SRV
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
         srv.bind(("127.0.0.1", 0))
         srv.listen(8)
     except OSError:
         return  # 포트를 못 열어도 앱 자체는 정상 동작
+    _IPC_SRV = srv
     try:
         with open(IPC_FILE, "w", encoding="utf-8") as f:
             json.dump({"port": srv.getsockname()[1], "pid": os.getpid()}, f)
@@ -1355,8 +1445,11 @@ def _start_ipc_server(api):
 def main():
     _setup_windowed_io()
     paths = _argv_paths()
+    # 업데이트로 방금 교체돼 실행된 프로세스는 인계하지 않고 스스로 창을 띄운다
+    # (직전 버전이 아직 종료 중일 때 인계하면 아무 창도 남지 않는다)
+    just_updated = bool(os.environ.pop(UPDATED_ENV, None))
     # 이미 실행 중이면 새 창을 띄우지 않고 그 창에서 연다
-    if _send_to_running_instance(paths):
+    if not just_updated and _send_to_running_instance(paths):
         return
     api = Api()
     window = webview.create_window(
@@ -1394,10 +1487,7 @@ def main():
     try:
         webview.start()
     finally:
-        try:
-            os.remove(IPC_FILE)   # 종료 시 포트 정보 정리
-        except OSError:
-            pass
+        _shutdown_ipc()  # 종료 시 IPC 서버·포트 정보 정리
 
 
 if __name__ == "__main__":

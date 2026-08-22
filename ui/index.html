@@ -2886,8 +2886,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.23.0** |
-| 최종 업데이트 | 2026-07-30 |
+| **최신 버전** | **v1.23.1** |
+| 최종 업데이트 | 2026-08-23 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2898,6 +2898,39 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.23.1</b> &nbsp;·&nbsp; 2026-08-23 &nbsp;·&nbsp; 자동 업데이트 — 다운로드 후 새 버전이 실행되지 않던 문제 수정</summary>
+
+### 🚀 새 버전이 다운로드만 되고 재실행되지 않던 문제 해결
+
+**⬇️ 다운로드 및 재시작**을 눌렀을 때 파일은 정상적으로 받아지는데 새 버전 창이 뜨지 않고
+프로그램이 그냥 종료되던 문제를 고쳤습니다. 원인이 두 가지 겹쳐 있었습니다.
+
+- **① 새 프로그램이 압축을 풀지 못하고 즉시 종료** — 단일 exe(onefile)는 실행할 때 자기 자신을
+  임시 폴더에 풀고 그 위치를 환경 변수로 남깁니다. 기존 앱이 새 exe를 띄울 때 이 값이 **그대로
+  물려받아지면서**, 새 exe가 “나는 이미 풀린 상태”라고 착각해 압축을 풀지 않고 **곧 지워질 옛
+  버전의 임시 폴더**를 바라보다 조용히 죽었습니다. 이제 새 프로그램을 띄우기 전에 이 환경 변수를
+  **깨끗이 지운 상태로** 실행합니다.
+- **② 새 프로그램이 자기 창을 띄우는 대신 종료되던 문제** — v1.23.0에서 추가된 “이미 열려 있는
+  창에서 열기” 기능 때문에, 새 버전이 시작할 때 아직 종료되지 않은 **옛 버전을 발견하고 그쪽에
+  넘긴 뒤 스스로 종료**해 버렸습니다(결국 두 프로그램 모두 사라짐). 이제 업데이트로 실행된
+  프로그램은 이 인계를 **건너뛰고 항상 자기 창을 띄우며**, 옛 버전도 새 프로그램을 띄우기 전에
+  연결을 먼저 정리합니다.
+
+### 🛟 실패해도 작업을 잃지 않도록
+
+- 새 버전이 뜨지 못하면 **기존 창을 끄지 않고** 오류 메시지와 내려받은 파일 경로를 알려줍니다.
+  (예전에는 새 창도 없이 그냥 종료돼 편집 중이던 내용을 확인할 수 없었습니다)
+- 다운로드가 실패하면 받다 만 임시 파일(\`.part\`)을 정리합니다.
+- 같은 이름의 파일이 잠겨 있으면 \`-new\`를 붙인 이름으로 받아 실패하지 않습니다.
+- 종료할 때 남던 연결 정보 파일을 확실히 정리합니다.
+- 맥·리눅스에서는 내려받은 파일에 **실행 권한**을 자동으로 부여합니다.
+
+> 이 수정은 **v1.23.1로 올라온 뒤부터** 적용됩니다. v1.23.0 이하에서 자동 업데이트가 실패하면
+> [릴리스 페이지](https://github.com/wbslog/jm-markdowneditor/releases/latest)에서 exe를 직접
+> 받아 한 번만 수동으로 실행해 주세요.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.23.0</b> &nbsp;·&nbsp; 2026-07-30 &nbsp;·&nbsp; 파일 더블클릭은 열려 있는 창에서 · End 키는 OS 기본 동작</summary>
 
 ### 🗂️ 파일을 더블클릭하면 새 창이 아니라 지금 창에서 열림
@@ -4307,8 +4340,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.23.0** |
-| Last updated | 2026-07-30 |
+| **Latest version** | **v1.23.1** |
+| Last updated | 2026-08-23 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -4319,6 +4352,39 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.23.1</b> &nbsp;·&nbsp; 2026-08-23 &nbsp;·&nbsp; Auto-update — fixed the new version downloading but never launching</summary>
+
+### 🚀 Fixed: the update downloaded but the new version never started
+
+Pressing **⬇️ Download and restart** downloaded the file correctly, but the new version never
+appeared and the app simply exited. Two separate causes were at work.
+
+- **① The new program could not unpack itself and died instantly** — a single-file (onefile) exe
+  unpacks itself into a temp folder and records that location in environment variables. When the
+  old app launched the new exe those variables were **inherited as-is**, so the new exe assumed it
+  was “already unpacked” and pointed at the **old version's temp folder, which was about to be
+  deleted** — then died silently. The new program is now launched with those variables **cleared**.
+- **② The new program shut itself down instead of opening a window** — the “open in the running
+  window” feature added in v1.23.0 meant the new version found the **old version still shutting
+  down, handed the request over and exited** (leaving nothing running at all). A program started by
+  the updater now **skips that handoff and always opens its own window**, and the old version closes
+  its listener before launching the new one.
+
+### 🛟 A failed update no longer costs you your work
+
+- If the new version fails to start, the **existing window stays open** and you get an error message
+  with the path of the downloaded file. (Previously the app just exited.)
+- Partial \`.part\` files are cleaned up when a download fails.
+- If a file of the same name is locked, the download falls back to a \`-new\` suffix instead of failing.
+- The leftover connection-info file is now reliably removed on exit.
+- On macOS/Linux the downloaded file automatically gets the **executable permission** bit.
+
+> This fix takes effect **once you are on v1.23.1**. If auto-update fails on v1.23.0 or earlier,
+> download the exe once from the
+> [releases page](https://github.com/wbslog/jm-markdowneditor/releases/latest) and run it manually.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.23.0</b> &nbsp;·&nbsp; 2026-07-30 &nbsp;·&nbsp; Double-clicked files open in the running window · End key back to OS default</summary>
 
 ### 🗂️ Double-clicking a file no longer starts a second copy
