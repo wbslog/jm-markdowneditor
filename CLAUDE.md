@@ -27,6 +27,12 @@ build_exe.bat            REM Windows -> dist\jm-mdv-<ver>.exe   (has `pause`; ca
 ./build_mac.sh           # macOS -> dist/jm-mdv-<ver>.app  (must build on a Mac; no cross-compile)
 ```
 
+Sanity-check the artifact size: a correct Windows build is **~18MB**. If it comes out much
+larger, an unwanted GUI backend was pulled in — pywebview uses EdgeChromium (pythonnet) on
+Windows and Cocoa on macOS, but a Qt install in the build environment makes the hook bundle
+all of PyQt5 (+31MB). The build scripts and spec exclude PyQt5/6, PySide2/6 and qtpy for this
+reason; keep those excludes in sync across all three.
+
 There is no test suite and no linter. The only mechanical check that exists — and it is **mandatory
 before any build or release after touching `ui/index.html`** — is a JS syntax check of the inline
 `<script>` block:
