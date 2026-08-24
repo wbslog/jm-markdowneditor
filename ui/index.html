@@ -830,6 +830,16 @@
   #help-body details[open] summary::before { transform: rotate(90deg); }
   #help-body details > *:not(summary) { padding-left: 16px; padding-right: 16px; }
   #help-body details > *:last-child { padding-bottom: 10px; }
+  #help-body .repo-link {
+    display: flex; flex-direction: column; gap: 2px;
+    margin: 0 0 18px; padding: 12px 16px;
+    background: #f4f5ff; border: 1px solid #dcdcf5; border-left: 4px solid #6366f1;
+    border-radius: 8px;
+  }
+  #help-body .repo-link a { color: #4338ca; font-weight: 600; text-decoration: none; }
+  #help-body .repo-link a:hover { text-decoration: underline; }
+  #help-body .repo-link span { font-size: 0.86em; color: #6b7280; font-weight: 400; }
+  #help-body .repo-link span a { font-weight: 600; }
   #help-body mark.help-hl { background: #fde047; color: inherit; padding: 0 1px; border-radius: 2px; }
   #help-body mark.help-hl.current { background: #fb923c; animation: hl-pulse-soft 2.4s ease-in-out infinite; }
   /* 모달 안 '맨 위로' 버튼 (스크롤 내리면 표시) */
@@ -2881,13 +2891,16 @@ def hello(name: str) -> str:
 /* 버전 기록 (설명서 세 번째 탭, 한국어) */
 const VERSION_MD_KO = `# 🗒️ 버전 기록
 
+<p class="repo-link"><a href="https://github.com/wbslog/jm-markdowneditor">🐙 GitHub 저장소 &nbsp;·&nbsp; github.com/wbslog/jm-markdowneditor</a>
+<span>클릭하면 기본 웹 브라우저에서 열립니다 &nbsp;·&nbsp; <a href="https://github.com/wbslog/jm-markdowneditor/releases/latest">📥 최신 릴리스 내려받기</a></span></p>
+
 ## ℹ️ 앱 · 개발자 정보
 
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.23.1** |
-| 최종 업데이트 | 2026-08-23 |
+| **최신 버전** | **v1.24.0** |
+| 최종 업데이트 | 2026-08-24 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2898,6 +2911,24 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.24.0</b> &nbsp;·&nbsp; 2026-08-24 &nbsp;·&nbsp; 버전 기록에 GitHub 저장소 링크 · 링크는 웹 브라우저로 열기</summary>
+
+### 🐙 설명서 → 버전 기록 상단에 GitHub 저장소 링크
+
+- **❓ 설명서 → 버전 기록** 맨 위에 **GitHub 저장소 링크**가 표시됩니다. 클릭하면 앱이 아니라
+  **기본 웹 브라우저**에서 저장소가 열립니다.
+- 같은 줄에 **📥 최신 릴리스 내려받기** 링크도 함께 두어, 수동 설치가 필요할 때 바로 갈 수 있습니다.
+
+### 🌐 문서 안의 링크를 누르면 웹 브라우저에서 열림
+
+- 지금까지는 미리보기·설명서에 있는 http/https 링크를 클릭하면 **앱 화면 자체가 그 웹페이지로
+  바뀌어** 편집 화면으로 돌아올 방법이 없었습니다.
+- 이제 이런 링크는 **기본 웹 브라우저에서 열리고, 앱 화면은 그대로 유지**됩니다.
+  내가 쓴 마크다운 문서의 링크에도 똑같이 적용됩니다.
+- 문서 안 이동(\`#제목\` 앵커)이나 메일 링크는 **종전 동작 그대로** 둡니다.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.23.1</b> &nbsp;·&nbsp; 2026-08-23 &nbsp;·&nbsp; 자동 업데이트 — 다운로드 후 새 버전이 실행되지 않던 문제 수정</summary>
 
 ### 🚀 새 버전이 다운로드만 되고 재실행되지 않던 문제 해결
@@ -4335,13 +4366,16 @@ See the **Version History** tab above for detailed version information.
 
 const VERSION_MD_EN = `# 🗒️ Version History
 
+<p class="repo-link"><a href="https://github.com/wbslog/jm-markdowneditor">🐙 GitHub repository &nbsp;·&nbsp; github.com/wbslog/jm-markdowneditor</a>
+<span>Opens in your default web browser &nbsp;·&nbsp; <a href="https://github.com/wbslog/jm-markdowneditor/releases/latest">📥 Download the latest release</a></span></p>
+
 ## ℹ️ App · Developer Info
 
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.23.1** |
-| Last updated | 2026-08-23 |
+| **Latest version** | **v1.24.0** |
+| Last updated | 2026-08-24 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -4352,6 +4386,24 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.24.0</b> &nbsp;·&nbsp; 2026-08-24 &nbsp;·&nbsp; GitHub repository link in the version history · links open in your browser</summary>
+
+### 🐙 A GitHub repository link at the top of the version history
+
+- **❓ Help → Version History** now shows a **link to the GitHub repository** at the very top.
+  Clicking it opens the repository in your **default web browser**, not inside the app.
+- A **📥 Download the latest release** link sits next to it for when you need to install manually.
+
+### 🌐 Links inside documents now open in your web browser
+
+- Until now, clicking an http/https link in the preview or the help window **replaced the app screen
+  with that web page**, with no way back to your editor.
+- Such links now **open in your default browser and the app window stays put** — including links in
+  your own markdown documents.
+- In-document anchors (\`#heading\`) and mail links keep their previous behavior.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.23.1</b> &nbsp;·&nbsp; 2026-08-23 &nbsp;·&nbsp; Auto-update — fixed the new version downloading but never launching</summary>
 
 ### 🚀 Fixed: the update downloaded but the new version never started
@@ -5739,6 +5791,18 @@ helpBody.addEventListener('scroll', () =>
   helpTopBtn.classList.toggle('show', helpBody.scrollTop > 250));
 helpTopBtn.addEventListener('click', () =>
   helpBody.scrollTo({ top: 0, behavior: 'smooth' }));
+
+/* 렌더된 문서 안의 http/https 링크는 기본 웹 브라우저로 연다.
+   pywebview 창에서는 링크를 그냥 두면 앱 화면 자체가 그 페이지로 바뀌어
+   돌아올 방법이 없다. 문서 앵커(#...) 등 내부 이동은 원래대로 둔다. */
+document.addEventListener('click', (e) => {
+  const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+  if (!a) return;
+  const href = a.getAttribute('href') || '';
+  if (!/^https?:\/\//i.test(href)) return;
+  e.preventDefault();
+  try { window.pywebview.api.open_external(href); } catch (err) { /* API 준비 전 무시 */ }
+});
 
 document.getElementById('btn-help').addEventListener('click', openHelp);
 document.getElementById('help-x').addEventListener('click', closeHelp);
