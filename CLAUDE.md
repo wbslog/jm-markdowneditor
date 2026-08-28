@@ -95,3 +95,53 @@ is also inlined into exported HTML.
 - No `gh` CLI in this environment. Releases are published via the GitHub REST API using a token from
   `git credential fill` (tag `v<version>`, `.exe` asset attached; macOS gets the one-line
   `easy_mac_setup.sh` install instructions instead of a binary).
+
+## Where things stand (resume here after a break)
+
+Last verified 2026-08-28. `main` = `f91cf6d`, working tree clean, in sync with `origin/main`.
+Released through **v1.24.0** (tag `v1.24.0` → `f91cf6d`, asset `jm-mdv-1.24.0.exe`, 18,011,112 bytes).
+`APP_VERSION` in `app.py` matches the released version, so a fresh checkout needs no version bump
+before starting new work.
+
+Recent sessions, newest first:
+
+- **v1.24.0** — GitHub repo link banner at the top of Help → Version History, plus a delegated
+  `document` click handler that routes `http(s)` links to `Api.open_external` (default browser).
+  Before this the app had *no* link handling at all: clicking any link in the preview or help
+  replaced the whole app window with that page, with no way back. In-document `#anchors` and
+  `mailto:` deliberately keep native behavior. `closest('a[href]')` is load-bearing — the help
+  search wraps matches in `<mark>` *inside* anchors, so `e.target` is often not the `<a>`.
+- **v1.23.1** — fixed auto-update downloading but never relaunching. Two stacked causes: the child
+  inherited PyInstaller's `_MEIPASS2`/`_PYI_*` (so the new onefile exe skipped unpacking and pointed
+  at the parent's about-to-be-deleted temp dir), and the v1.23.0 single-instance IPC made the new
+  process hand off to the still-dying old one and exit. Fixes live in
+  `Api.update_download_and_restart`, `_clean_child_env()`, `_shutdown_ipc()` and the `UPDATED_ENV`
+  check in `main()`.
+
+### Open items
+
+- **The real v1.23.1 → v1.24.0 auto-update has never been exercised end to end.** Every fix was
+  verified by simulation (faked download, stubbed `Popen`) plus exe smoke tests — never against a
+  live GitHub release, because the fix only takes effect once the *running* build contains it.
+  The next release is the first honest test: install v1.24.0, publish the version after it, and
+  press **⬇️ 다운로드 및 재시작**. Confirm this before telling anyone auto-update is fixed.
+- Users still on v1.23.0 or earlier must install one build manually; their updater cannot relaunch.
+- Carried over from earlier sessions: whether to return the Home key to OS default (asked, no answer
+  yet); macOS `.app` has no `CFBundleDocumentTypes` so Finder double-click association does not work;
+  onefile startup is slow (~18MB unpacked per launch) and `--onedir` would fix it at the cost of
+  single-file distribution.
+
+### Traps this repo has already sprung
+
+- **Qt in the build environment.** PyQt5 installed into the system Python made the pywebview hook
+  bundle all of it — 18MB → 49.6MB. Excluded in all three build files now; still check the size.
+- **Chain release steps with `&&`.** A patch script failed with a syntax error, the next command ran
+  anyway against the *unpatched* script, and it deleted and recreated the v1.23.1 release with the
+  wrong body. The body was restored via `PATCH` (never delete/recreate to edit a release), but the
+  published date and download count were lost permanently. Tags survive release deletion.
+- **Heredocs here eat backslashes.** `\n` inside a `<<'PY'` heredoc reaches Python as a real
+  newline, which silently breaks string literals. For anything with backslashes, write the file with
+  `cat > file` first and run it, or build the characters with `chr(92)`.
+- **Never name a scratch script after a stdlib module.** A `inspect.py` in `%TEMP%` shadowed the real
+  one and broke `import webview` for every script run from that directory.
+- Scratch scripts in `%TEMP%` are wiped between sessions — expect to recreate the release script.
