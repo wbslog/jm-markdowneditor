@@ -98,10 +98,11 @@ is also inlined into exported HTML.
 
 ## Where things stand (resume here after a break)
 
-Last verified 2026-08-28. `main` = `f91cf6d`, working tree clean, in sync with `origin/main`.
-Released through **v1.24.0** (tag `v1.24.0` → `f91cf6d`, asset `jm-mdv-1.24.0.exe`, 18,011,112 bytes).
-`APP_VERSION` in `app.py` matches the released version, so a fresh checkout needs no version bump
-before starting new work.
+Last verified 2026-09-02. Released through **v1.24.0** (tag `v1.24.0` → `f91cf6d`, asset
+`jm-mdv-1.24.0.exe`, 18,011,112 bytes). `APP_VERSION` in `app.py` matches the released version, so a
+fresh checkout needs no version bump before starting new work.
+
+**Pick up here: there is a reproduced, unfixed crash. See "Next task" below.**
 
 Recent sessions, newest first:
 
@@ -118,6 +119,41 @@ Recent sessions, newest first:
   `Api.update_download_and_restart`, `_clean_child_env()`, `_shutdown_ipc()` and the `UPDATED_ENV`
   check in `main()`.
 
+### Next task — single-instance IPC hangs/crashes the running window (reproduced, NOT fixed)
+
+**Symptom.** With jm-mdv already running, opening a `.md` through Explorer's
+연결 프로그램/열기 (or any launch with a file argument) leaves the running window frozen or kills it,
+and the file never opens. Reported by the user 2026-09-02 and reproduced twice on the shipped exe:
+trial 1 `Responding=False` with the title unchanged, trial 2 the process vanished. Non-deterministic
+hang-or-crash is the signature of the thread bug below.
+
+**What still works** — cold start with a file argument (app not running) opens the file correctly,
+and drag-and-drop onto the window works. Those two paths are the contrast that locates the bug.
+
+**Cause.** `Api.open_paths_from_other_instance()` runs on the socket daemon thread created by
+`_start_ipc_server()` and touches the window from there — `evaluate_js()`, then `focus_window()`'s
+`restore()` / `show()` / `on_top`. On Windows the pywebview window lives on the WinForms/EdgeChromium
+GUI thread and is not safe to touch from another thread. Drag-and-drop survives because
+`on_files_dropped` is dispatched by pywebview itself and never calls `focus_window()`.
+
+**Planned fix** (not started; no code changed in that session). Have the IPC thread do nothing but
+append to a `pending_paths` list, and let the frontend pull them — reuse the already-proven
+`startup_files()` shape with a short poll, and request focus over the JS→Python path that every other
+API call (`open_path`, `list_dir`, ...) already uses safely. Then re-test **on the exe**, repeatedly.
+
+**Two traps this bug exposed, fix them alongside:**
+
+- Every call in that path is wrapped in `except Exception: pass`, so failures leave no trace.
+- `%TEMP%\JM-MDV.log` was never created during either crash. `_setup_windowed_io()` only redirects
+  when `sys.stdout is None`, which is no longer true for PyInstaller 6 windowed builds — so frozen
+  builds currently swallow tracebacks entirely. Verify and fix, otherwise field reports stay blind.
+
+**Reproduce it like this** (source runs do NOT reproduce — you must use the built exe): start
+`dist\jm-mdv-<ver>.exe`, wait for `~/.jm-mdv-ipc.json`, launch the same exe again with a `.md` path
+argument, wait for the second process to exit, then check the first one's `Responding` and window
+title via PowerShell `Get-Process`. Verifying only that the second instance exits is not enough —
+that is exactly the gap that let this ship.
+
 ### Open items
 
 - **The real v1.23.1 → v1.24.0 auto-update has never been exercised end to end.** Every fix was
@@ -126,6 +162,9 @@ Recent sessions, newest first:
   The next release is the first honest test: install v1.24.0, publish the version after it, and
   press **⬇️ 다운로드 및 재시작**. Confirm this before telling anyone auto-update is fixed.
 - Users still on v1.23.0 or earlier must install one build manually; their updater cannot relaunch.
+- Correction to an earlier claim in this file's history: the v1.23.0 single-instance handoff was
+  reported "verified" when the test had only confirmed the *second* instance exits. Whether the
+  running window actually opened the file was never checked, and it does not.
 - Carried over from earlier sessions: whether to return the Home key to OS default (asked, no answer
   yet); macOS `.app` has no `CFBundleDocumentTypes` so Finder double-click association does not work;
   onefile startup is slow (~18MB unpacked per launch) and `--onedir` would fix it at the cost of
