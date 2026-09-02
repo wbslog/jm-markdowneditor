@@ -98,14 +98,23 @@ is also inlined into exported HTML.
 
 ## Where things stand (resume here after a break)
 
-Last verified 2026-09-02. Released through **v1.24.0** (tag `v1.24.0` → `f91cf6d`, asset
-`jm-mdv-1.24.0.exe`, 18,011,112 bytes). `APP_VERSION` in `app.py` matches the released version, so a
-fresh checkout needs no version bump before starting new work.
-
-**Pick up here: there is a reproduced, unfixed crash. See "Next task" below.**
+Last verified 2026-09-02. Released through **v1.25.0** (tag `v1.25.0` → `5ba94b7`, asset
+`jm-mdv-1.25.0.exe`, 18,015,329 bytes). `APP_VERSION` in `app.py` matches the released version, so a
+fresh checkout needs no version bump before starting new work. Working tree clean at that commit.
 
 Recent sessions, newest first:
 
+- **v1.25.0** — fixed the two bugs the user hit after installing from a release.
+  (a) **Updates left the old version wired up.** The updater saved each release under its versioned
+  name, so Explorer's file association kept pointing at the previous exe — opening a `.md` launched
+  the old build and re-offered the same update forever. `update_download_and_restart` now replaces
+  the *running* file in place: a running exe cannot be deleted but can be renamed, so it is moved to
+  `.old`, the new bytes take the same name, and `_cleanup_old_exe()` deletes `.old` on next start.
+  If the rename fails it falls back to the old versioned-name behavior so the update still happens.
+  (b) **Opening a file while running froze or killed the window.** `open_paths_from_other_instance()`
+  now only appends to `pending_paths`; the frontend polls `take_pending_files()` every 800ms and does
+  the opening. `focus_window()` no longer touches the pywebview window on Windows — it finds its own
+  HWND via `EnumWindows` and calls user32 `ShowWindow`/`SetForegroundWindow`.
 - **v1.24.0** — GitHub repo link banner at the top of Help → Version History, plus a delegated
   `document` click handler that routes `http(s)` links to `Api.open_external` (default browser).
   Before this the app had *no* link handling at all: clicking any link in the preview or help
@@ -119,52 +128,18 @@ Recent sessions, newest first:
   `Api.update_download_and_restart`, `_clean_child_env()`, `_shutdown_ipc()` and the `UPDATED_ENV`
   check in `main()`.
 
-### Next task — single-instance IPC hangs/crashes the running window (reproduced, NOT fixed)
-
-**Symptom.** With jm-mdv already running, opening a `.md` through Explorer's
-연결 프로그램/열기 (or any launch with a file argument) leaves the running window frozen or kills it,
-and the file never opens. Reported by the user 2026-09-02 and reproduced twice on the shipped exe:
-trial 1 `Responding=False` with the title unchanged, trial 2 the process vanished. Non-deterministic
-hang-or-crash is the signature of the thread bug below.
-
-**What still works** — cold start with a file argument (app not running) opens the file correctly,
-and drag-and-drop onto the window works. Those two paths are the contrast that locates the bug.
-
-**Cause.** `Api.open_paths_from_other_instance()` runs on the socket daemon thread created by
-`_start_ipc_server()` and touches the window from there — `evaluate_js()`, then `focus_window()`'s
-`restore()` / `show()` / `on_top`. On Windows the pywebview window lives on the WinForms/EdgeChromium
-GUI thread and is not safe to touch from another thread. Drag-and-drop survives because
-`on_files_dropped` is dispatched by pywebview itself and never calls `focus_window()`.
-
-**Planned fix** (not started; no code changed in that session). Have the IPC thread do nothing but
-append to a `pending_paths` list, and let the frontend pull them — reuse the already-proven
-`startup_files()` shape with a short poll, and request focus over the JS→Python path that every other
-API call (`open_path`, `list_dir`, ...) already uses safely. Then re-test **on the exe**, repeatedly.
-
-**Two traps this bug exposed, fix them alongside:**
-
-- Every call in that path is wrapped in `except Exception: pass`, so failures leave no trace.
-- `%TEMP%\JM-MDV.log` was never created during either crash. `_setup_windowed_io()` only redirects
-  when `sys.stdout is None`, which is no longer true for PyInstaller 6 windowed builds — so frozen
-  builds currently swallow tracebacks entirely. Verify and fix, otherwise field reports stay blind.
-
-**Reproduce it like this** (source runs do NOT reproduce — you must use the built exe): start
-`dist\jm-mdv-<ver>.exe`, wait for `~/.jm-mdv-ipc.json`, launch the same exe again with a `.md` path
-argument, wait for the second process to exit, then check the first one's `Responding` and window
-title via PowerShell `Get-Process`. Verifying only that the second instance exits is not enough —
-that is exactly the gap that let this ship.
-
 ### Open items
 
-- **The real v1.23.1 → v1.24.0 auto-update has never been exercised end to end.** Every fix was
+- **A real end-to-end auto-update has still never been exercised.** Every updater fix so far was
   verified by simulation (faked download, stubbed `Popen`) plus exe smoke tests — never against a
-  live GitHub release, because the fix only takes effect once the *running* build contains it.
-  The next release is the first honest test: install v1.24.0, publish the version after it, and
-  press **⬇️ 다운로드 및 재시작**. Confirm this before telling anyone auto-update is fixed.
+  live GitHub release, because a fix only takes effect once the *running* build already contains it.
+  v1.25.0 does not settle it either: that release deliberately asks users to install manually, since
+  their file association still points at an older exe. The first honest test is to install v1.25.0,
+  publish the version after it, and press **⬇️ 다운로드 및 재시작**. Confirm that before
+  telling anyone auto-update works.
+- v1.25.0 needs a **one-time manual install**: rename the downloaded exe to `jm-mdv.exe`, re-point the
+  file association at it, and delete the leftover versioned exes. After that the name never changes.
 - Users still on v1.23.0 or earlier must install one build manually; their updater cannot relaunch.
-- Correction to an earlier claim in this file's history: the v1.23.0 single-instance handoff was
-  reported "verified" when the test had only confirmed the *second* instance exits. Whether the
-  running window actually opened the file was never checked, and it does not.
 - Carried over from earlier sessions: whether to return the Home key to OS default (asked, no answer
   yet); macOS `.app` has no `CFBundleDocumentTypes` so Finder double-click association does not work;
   onefile startup is slow (~18MB unpacked per launch) and `--onedir` would fix it at the cost of
@@ -184,3 +159,10 @@ that is exactly the gap that let this ship.
 - **Never name a scratch script after a stdlib module.** A `inspect.py` in `%TEMP%` shadowed the real
   one and broke `import webview` for every script run from that directory.
 - Scratch scripts in `%TEMP%` are wiped between sessions — expect to recreate the release script.
+- **pywebview window objects are GUI-thread-only, and the frozen build is stricter than source.**
+  Touching `evaluate_js` / `restore()` / `show()` / `on_top` from any thread you created hangs or
+  kills the process. Even the JS→Python API thread is not safe for them in a PyInstaller build,
+  though it looks fine when run from source. Queue work for the frontend instead, and reach the
+  window through the OS (user32 on the HWND) when you must. `python app.py` will not reproduce any
+  of this — **every fix in this area has to be verified on the built exe, repeatedly**, since the
+  failure is nondeterministic (it alternated between freeze and crash across runs).
