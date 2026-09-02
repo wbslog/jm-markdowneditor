@@ -25,7 +25,7 @@ import webview
 from webview.dom import DOMEventHandler
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.24.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.25.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -102,6 +102,8 @@ class Api:
         self._lock = threading.Lock()
         self._cloud_ids = {}  # host -> cloudId 캐시
         self.startup_paths = []  # 실행 인자로 받은 파일 (시작 후 프런트가 가져감)
+        self.pending_paths = []  # 다른 인스턴스가 넘긴 파일 (프런트가 폴링해 가져감)
+        self._pending_lock = threading.Lock()
 
     # ---------- 변환 ----------
     def render(self, text):
@@ -1088,10 +1090,17 @@ body {{ margin: 0; background: #f0f2f5; }}
     def update_download_and_restart(self, asset_url, asset_name, version, notes=""):
         """릴리스 파일을 기존 프로그램 위치에 내려받고, 새 파일을 실행한 뒤 현재 앱 종료."""
         try:
-            app_dir = (os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+            frozen = bool(getattr(sys, "frozen", False))
+            app_dir = (os.path.dirname(sys.executable) if frozen
                        else os.path.dirname(os.path.abspath(__file__)))
-            target = os.path.join(app_dir, asset_name)
-            tmp = target + ".part"
+            mac_zip = sys.platform == "darwin" and asset_name.lower().endswith(".zip")
+            # 실행 중인 파일을 '같은 이름 그대로' 교체한다.
+            # 버전이 붙은 새 이름(jm-mdv-1.25.0.exe)으로 받으면 탐색기의 연결 프로그램은
+            # 여전히 옛 파일(jm-mdv-1.24.0.exe)을 가리켜서, md 를 열 때마다 옛 버전이 뜨고
+            # 업데이트 안내가 끝없이 반복된다.
+            running = os.path.abspath(sys.executable) if frozen else None
+            target = running if (running and not mac_zip) else os.path.join(app_dir, asset_name)
+            tmp = os.path.join(app_dir, asset_name + ".part")
             req = urllib.request.Request(asset_url, headers={"User-Agent": "jm-mdv-updater"})
             self._last_pct = None
             with urllib.request.urlopen(req, timeout=300, context=_CONF_SSL_CTX) as r, open(tmp, "wb") as f:
@@ -1104,7 +1113,29 @@ body {{ margin: 0; background: #f0f2f5; }}
                     f.write(chunk)
                     done += len(chunk)
                     self._notify_progress(done, total)
-            if os.path.exists(target):
+            if running and os.path.normcase(target) == os.path.normcase(running):
+                # 실행 중인 파일은 지울 수 없지만 '이름 바꾸기'는 된다(Windows).
+                # 옆으로 밀어두고 같은 이름에 새 파일을 놓는다. .old 는 다음 실행 때 지운다.
+                backup = target + ".old"
+                try:
+                    if os.path.exists(backup):
+                        os.remove(backup)
+                except OSError:
+                    backup = "%s.old%d" % (target, os.getpid())
+                try:
+                    os.rename(target, backup)
+                except OSError:
+                    # 밀어내기 실패 → 옛 방식(버전 붙은 이름)으로 후퇴. 업데이트 자체는 되게 한다.
+                    target = os.path.join(app_dir, asset_name)
+                    if os.path.exists(target):
+                        try:
+                            os.remove(target)
+                        except OSError:
+                            stem, ext = os.path.splitext(target)
+                            target = stem + "-new" + ext
+                            if os.path.exists(target):
+                                os.remove(target)
+            elif os.path.exists(target):
                 try:
                     os.remove(target)
                 except OSError:
@@ -1113,7 +1144,7 @@ body {{ margin: 0; background: #f0f2f5; }}
                     target = stem + "-new" + ext
                     if os.path.exists(target):
                         os.remove(target)
-            os.rename(tmp, target)
+            os.replace(tmp, target)
             if os.name != "nt":
                 try:
                     os.chmod(target, 0o755)  # 맥/리눅스: 실행 권한 부여
@@ -1283,18 +1314,37 @@ body {{ margin: 0; background: #f0f2f5; }}
 
 
     def open_paths_from_other_instance(self, paths):
-        """이미 떠 있는 창에서 파일을 열고 창을 앞으로 가져온다 (IPC 스레드에서 호출)."""
-        for path in paths or []:
-            if not path or not os.path.isfile(path):
-                continue
-            try:
-                self._window.evaluate_js("window.__openDroppedPath(" + json.dumps(path) + ")")
-            except Exception:  # noqa: BLE001  창이 아직 준비 전이면 건너뜀
-                pass
-        self.focus_window()
+        """다른 인스턴스가 넘긴 파일 경로를 대기열에 넣기만 한다 (IPC 스레드에서 호출).
+
+        여기서 창을 직접 건드리면 안 된다. 이 메서드는 _start_ipc_server() 가 만든
+        소켓 데몬 스레드에서 실행되는데, pywebview 창은 GUI 스레드 소유라
+        evaluate_js()/restore()/show()/on_top 을 다른 스레드에서 부르면 창이 멈추거나
+        프로세스가 죽는다(재현됨: 켜져 있는 상태에서 md 를 '연결 프로그램'으로 열기).
+        실제 열기와 포커스는 프런트가 take_pending_files() 로 가져가 처리한다.
+        """
+        fresh = [p for p in (paths or []) if p and os.path.isfile(p)]
+        if not fresh:
+            return
+        with self._pending_lock:
+            self.pending_paths.extend(fresh)
+
+    def take_pending_files(self):
+        """대기열의 파일 경로를 가져가고 비운다 (프런트가 주기적으로 호출)."""
+        with self._pending_lock:
+            paths, self.pending_paths = list(self.pending_paths), []
+        return paths
 
     def focus_window(self):
-        """창을 복원하고 맨 앞으로 (플랫폼별로 지원 범위가 달라 각각 무시 가능)."""
+        """창을 복원하고 맨 앞으로.
+
+        Windows 에서는 pywebview 창 객체(restore/show/on_top)를 건드리지 않는다.
+        그 객체들은 GUI 스레드 소유라 다른 스레드에서 부르면 창이 통째로 멈춘다
+        (JS->Python 호출 스레드에서도 frozen 빌드에서는 멈추는 것을 확인했다).
+        대신 창 핸들을 찾아 user32 로 직접 요청한다 - 어느 스레드에서 불러도 안전하다.
+        """
+        if os.name == "nt":
+            self._focus_win32()
+            return
         w = self._window
         for act in (lambda: w.restore(), lambda: w.show()):
             try:
@@ -1305,6 +1355,32 @@ body {{ margin: 0; background: #f0f2f5; }}
             w.on_top = True
             w.on_top = False
         except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
+    def _focus_win32():
+        """이 프로세스가 가진 보이는 최상위 창을 복원하고 앞으로 (Windows 전용)."""
+        try:
+            import ctypes
+            from ctypes import wintypes
+            user32 = ctypes.windll.user32
+            mypid = os.getpid()
+            targets = []
+
+            @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+            def _each(hwnd, _lparam):
+                pid = wintypes.DWORD()
+                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+                if pid.value == mypid and user32.IsWindowVisible(hwnd):
+                    targets.append(hwnd)
+                return True
+
+            user32.EnumWindows(_each, 0)
+            for hwnd in targets:
+                if user32.IsIconic(hwnd):
+                    user32.ShowWindow(hwnd, 9)   # SW_RESTORE
+                user32.SetForegroundWindow(hwnd)
+        except Exception:  # noqa: BLE001  포커스는 실패해도 기능에 지장 없음
             pass
 
     def show_in_explorer(self):
@@ -1360,6 +1436,29 @@ def _send_to_running_instance(paths):
             return s.recv(8).startswith(b"OK")
     except OSError:
         return False  # 남아 있던 옛 포트 정보 → 무시하고 새로 뜬다
+
+
+def _cleanup_old_exe():
+    """업데이트 때 옆으로 밀어둔 이전 실행 파일(.old)을 지운다.
+
+    새 버전이 뜬 시점에는 옛 파일이 더 이상 실행 중이 아니므로 삭제된다.
+    아직 잠겨 있으면 조용히 넘어가고 다음 실행 때 다시 시도한다.
+    """
+    if not getattr(sys, "frozen", False):
+        return
+    exe = os.path.abspath(sys.executable)
+    folder, base = os.path.dirname(exe), os.path.basename(exe).lower()
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return
+    for name in names:
+        low = name.lower()
+        if low.startswith(base + ".old"):
+            try:
+                os.remove(os.path.join(folder, name))
+            except OSError:
+                pass
 
 
 def _clean_child_env():
@@ -1444,6 +1543,7 @@ def _start_ipc_server(api):
 
 def main():
     _setup_windowed_io()
+    _cleanup_old_exe()
     paths = _argv_paths()
     # 업데이트로 방금 교체돼 실행된 프로세스는 인계하지 않고 스스로 창을 띄운다
     # (직전 버전이 아직 종료 중일 때 인계하면 아무 창도 남지 않는다)
