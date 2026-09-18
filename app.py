@@ -25,7 +25,7 @@ import webview
 from webview.dom import DOMEventHandler
 
 APP_NAME = "jm-mdv(Markdown Viewer)"
-APP_VERSION = "1.25.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
+APP_VERSION = "1.26.0"  # 버전 변경 시 여기와 ui/index.html의 VERSION_MD를 함께 갱신
 
 
 def resource_path(rel):
@@ -1327,6 +1327,10 @@ body {{ margin: 0; background: #f0f2f5; }}
             return
         with self._pending_lock:
             self.pending_paths.extend(fresh)
+        # 스스로 창을 앞으로 올린다. 넘긴 쪽이 포그라운드 권한을 양도해 두었으므로
+        # 이 호출은 대체로 받아들여진다. 창이 포커스를 받으면 프런트의 focus 처리가
+        # 대기열을 가져가 연다. user32 만 부르므로 IPC 스레드에서 호출해도 안전하다.
+        _focus_pid_win32(os.getpid())
 
     def take_pending_files(self):
         """대기열의 파일 경로를 가져가고 비운다 (프런트가 주기적으로 호출)."""
@@ -1359,29 +1363,8 @@ body {{ margin: 0; background: #f0f2f5; }}
 
     @staticmethod
     def _focus_win32():
-        """이 프로세스가 가진 보이는 최상위 창을 복원하고 앞으로 (Windows 전용)."""
-        try:
-            import ctypes
-            from ctypes import wintypes
-            user32 = ctypes.windll.user32
-            mypid = os.getpid()
-            targets = []
-
-            @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
-            def _each(hwnd, _lparam):
-                pid = wintypes.DWORD()
-                user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
-                if pid.value == mypid and user32.IsWindowVisible(hwnd):
-                    targets.append(hwnd)
-                return True
-
-            user32.EnumWindows(_each, 0)
-            for hwnd in targets:
-                if user32.IsIconic(hwnd):
-                    user32.ShowWindow(hwnd, 9)   # SW_RESTORE
-                user32.SetForegroundWindow(hwnd)
-        except Exception:  # noqa: BLE001  포커스는 실패해도 기능에 지장 없음
-            pass
+        """이 프로세스의 창을 복원하고 앞으로 (Windows 전용)."""
+        _focus_pid_win32(os.getpid())
 
     def show_in_explorer(self):
         """현재 열린 파일을 탐색기(Finder)에서 선택된 상태로 보여줌"""
@@ -1424,7 +1407,8 @@ def _send_to_running_instance(paths):
     (없거나 죽어 있으면 False → 이 프로세스가 새로 창을 띄운다)"""
     try:
         with open(IPC_FILE, "r", encoding="utf-8") as f:
-            port = int(json.load(f).get("port") or 0)
+            info = json.load(f)
+        port, other_pid = int(info.get("port") or 0), int(info.get("pid") or 0)
     except (OSError, ValueError, TypeError):
         return False
     if not port:
@@ -1433,9 +1417,64 @@ def _send_to_running_instance(paths):
         with socket.create_connection(("127.0.0.1", port), timeout=1.5) as s:
             s.sendall(json.dumps({"open": paths}).encode("utf-8") + b"\n")
             s.settimeout(3.0)
-            return s.recv(8).startswith(b"OK")
+            if not s.recv(8).startswith(b"OK"):
+                return False
     except OSError:
         return False  # 남아 있던 옛 포트 정보 → 무시하고 새로 뜬다
+    # 떠 있는 창이 앞으로 나오게 한다. 그래야 저쪽이 포커스를 받는 순간 대기열을
+    # 확인해 파일을 연다 - 저쪽이 상시 폴링할 필요가 없어진다.
+    #
+    # 단, 다른 프로세스의 창을 SetForegroundWindow 로 끌어올리는 것은 Windows 가
+    # 대체로 거부한다(포그라운드 잠금). 그래서 두 가지를 같이 한다:
+    #   - 여기서 AllowSetForegroundWindow 로 저쪽에 포그라운드 권한을 넘기고
+    #     (막 실행된 이 프로세스는 그 권한을 갖고 있다)
+    #   - 저쪽이 IPC 를 받은 자리에서 스스로 SetForegroundWindow 를 부른다
+    if other_pid:
+        _allow_foreground(other_pid)
+        _focus_pid_win32(other_pid)
+    return True
+
+
+def _allow_foreground(pid):
+    """해당 프로세스가 자기 창을 앞으로 올릴 수 있도록 포그라운드 권한을 넘긴다."""
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        ctypes.windll.user32.AllowSetForegroundWindow(int(pid))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _focus_pid_win32(pid):
+    """해당 프로세스의 보이는 최상위 창을 복원하고 앞으로 (Windows 전용).
+
+    pywebview 창 객체를 쓰지 않고 user32 만 부른다 - 어느 스레드에서 불러도,
+    심지어 다른 프로세스에서 불러도 안전하다.
+    """
+    if os.name != "nt":
+        return
+    try:
+        import ctypes
+        from ctypes import wintypes
+        user32 = ctypes.windll.user32
+        targets = []
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        def _each(hwnd, _lparam):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd):
+                targets.append(hwnd)
+            return True
+
+        user32.EnumWindows(_each, 0)
+        for hwnd in targets:
+            if user32.IsIconic(hwnd):
+                user32.ShowWindow(hwnd, 9)   # SW_RESTORE
+            user32.SetForegroundWindow(hwnd)
+    except Exception:  # noqa: BLE001  포커스 실패는 기능에 지장 없음
+        pass
 
 
 def _cleanup_old_exe():

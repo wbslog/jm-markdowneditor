@@ -1,6 +1,8 @@
 @echo off
 rem jm-mdv(Markdown Viewer) - 무설치 단일 exe 빌드 스크립트
-rem 결과물: dist\jm-mdv-<버전>.exe (이 파일 하나만 다른 PC에 복사해서 바로 실행)
+rem 결과물: dist\jm-mdv.exe (이 파일 하나만 다른 PC에 복사해서 바로 실행)
+rem ※ 파일명에 버전을 넣지 않는다. 버전이 들어가면 업데이트 때 파일명이 바뀌어
+rem    탐색기의 "연결 프로그램"이 옛 파일을 계속 가리키게 된다.
 rem  - onefile 방식: 실행 시 임시폴더에 풀리므로 첫 시작이 몇 초 걸림
 cd /d "%~dp0"
 
@@ -10,7 +12,7 @@ if "%VER%"=="" set VER=0.0.0
 
 rem pywebview 는 Windows 에서 EdgeChromium(pythonnet) 백엔드를 쓴다.
 rem 시스템 파이썬에 Qt 가 깔려 있으면 훅이 통째로 끌어와 exe 가 18MB -> 50MB 로 불어난다.
-pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv-%VER% ^
+pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv ^
   --add-data "ui;ui" ^
   --collect-submodules markdown ^
   --collect-submodules pymdownx ^
@@ -36,5 +38,5 @@ pyinstaller --noconfirm --clean --onefile --windowed --name jm-mdv-%VER% ^
   app.py
 
 echo.
-echo ===== 빌드 완료: dist\jm-mdv-%VER%.exe =====
+echo ===== 빌드 완료: dist\jm-mdv.exe  (버전 %VER%) =====
 pause
