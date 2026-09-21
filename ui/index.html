@@ -547,6 +547,28 @@
   }
   .scroll-top:hover { opacity: 1; background: #7477f5; transform: translateY(-2px); }
 
+  /* 원문(md) 기준 커서 위치 — 프리뷰 우측 최하단. 흰 배경 위에서도 잘 보이도록 진하게 */
+  #preview-pos {
+    position: absolute;
+    right: 72px;
+    bottom: 16px;
+    z-index: 6;
+    padding: 7px 13px;
+    border-radius: 8px;
+    background: #1f2544;
+    border: 1px solid rgba(129, 140, 248, 0.9);
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    pointer-events: none;   /* 글자 선택/클릭을 막지 않도록 */
+    user-select: none;
+  }
+  #preview-pos.hit { border-color: #fbbf24; }   /* 원문에서 정확히 찾은 경우 */
+
   /* 탭 드래그 정렬 표시 */
   .tab.drag-over { box-shadow: inset 3px 0 0 #6366f1; }
   .tab.dragging { opacity: 0.4; }
@@ -1362,6 +1384,8 @@
       <div id="preview-marker"><span class="pm-arrow">◀</span></div>
     </div>
     <button id="preview-top" class="scroll-top" title="맨 위로">▲</button>
+    <!-- 원문(md) 기준 커서 위치: 프리뷰 우측 최하단 -->
+    <div id="preview-pos" title="현재 커서의 원문(md) 기준 줄 / 칸">줄 1, 칸 1</div>
   </div>
 </div>
 
@@ -1585,6 +1609,7 @@ const I18N = {
   ko: {
     btnNew: '📄 새 파일', btnNew_t: '새 문서 (Ctrl+N)',
     btnOpenFolder: '📂 폴더 열기', btnOpenFolder_t: '파일이 있는 폴더 열기',
+    posFmt: '줄 {l}, 칸 {c}', previewPos_t: '현재 커서의 원문(md) 기준 줄 / 칸',
     btnDir: '🗂️ 디렉토리', btnDir_t: '폴더 탐색 패널 열기/닫기',
     btnFile: '📁 파일', btnFile_t: '파일 메뉴 (열기/저장 등)',
     btnOpen: '📂 열기', btnOpen_t: '파일 열기 (Ctrl+O)',
@@ -1732,6 +1757,7 @@ const I18N = {
   en: {
     btnNew: '📄 New', btnNew_t: 'New document (Ctrl+N)',
     btnOpenFolder: '📂 Open folder', btnOpenFolder_t: 'Open the folder containing this file',
+    posFmt: 'Ln {l}, Col {c}', previewPos_t: 'Cursor position in the original markdown',
     btnDir: '🗂️ Directory', btnDir_t: 'Toggle folder explorer panel',
     btnFile: '📁 File', btnFile_t: 'File menu (open/save, etc.)',
     btnOpen: '📂 Open', btnOpen_t: 'Open file (Ctrl+O)',
@@ -1920,6 +1946,8 @@ function applyLang() {
   setTxt('btn-help', d.btnHelp); setTitle('btn-help', d.btnHelp_t);
   setTitle('tab-left', d.tabLeft_t); setTitle('tab-right', d.tabRight_t);
   setTxt('btn-open-folder', d.btnOpenFolder); setTitle('btn-open-folder', d.btnOpenFolder_t);
+  setTitle('preview-pos', d.previewPos_t);
+  if (typeof updateStats === 'function') updateStats();   /* 표시 문구를 새 언어로 */
   setTitle('sb-up', d.sbUp_t); setTitle('sb-close', d.sbClose_t); setTitle('sb-refresh', d.sbRefresh_t);
   setTxt('sb-up', d.sbUp); setTxt('sb-refresh', d.sbRefresh);
   setTitle('btn-full-editor', d.fullEditor_t); setTitle('btn-full-preview', d.fullPreview_t);
@@ -2121,6 +2149,8 @@ function updateStats() {
     lineStart = i + 1;
   }
   statPos.textContent = line + ':' + (pos - lineStart + 1);
+  /* 에디터에서 커서를 옮겨도 같은 표시를 갱신한다 (이미 원문 기준이므로 그대로) */
+  if (typeof showPos === 'function') showPos(line, pos - lineStart + 1, true);
   statLen.textContent = v.length.toLocaleString() + L().charSuffix;
 }
 
@@ -2177,6 +2207,111 @@ function syncScroll(src, dst) {
 editor.addEventListener('scroll', () => syncScroll(editor, previewScroll));
 previewScroll.addEventListener('scroll', () => syncScroll(previewScroll,
   (typeof webEditorOn !== 'undefined' && webEditorOn) ? webEditorEl : editor));
+
+/* ================= 원문(md) 기준 커서 위치 표시 =================
+   프리뷰는 렌더된 HTML이라 원문의 줄 번호를 갖고 있지 않다. 그래서 클릭한 지점의
+   글자를 원문에서 되찾아 줄/칸을 계산한다.
+     1) 원문에서 글자·숫자·한글만 남긴 '정규화 문자열'과, 그 각 글자가 원문 몇 번째
+        글자였는지 되돌리는 표를 만들어 둔다 (내용이 바뀔 때만 다시 만든다).
+     2) 프리뷰에서 클릭한 지점부터 앞으로 몇 글자를 같은 방식으로 뽑는다.
+     3) 그 조각을 정규화 원문에서 찾는다. 같은 문구가 여러 번 나오면 스크롤 위치로
+        추정한 지점에 가장 가까운 것을 고른다.
+   이렇게 하면 굵게 표시나 코드 표시처럼 원문에만 있는 기호가 있어도 맞게 찾아간다. */
+const previewPosEl = document.getElementById('preview-pos');
+let srcIdxText = null, srcIdxNorm = '', srcIdxMap = null;
+
+function isWordCh(c) {
+  return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+      || (c >= '\uAC00' && c <= '\uD7A3') || (c >= '\u3131' && c <= '\u318E')
+      || (c >= '\u4E00' && c <= '\u9FFF');
+}
+
+function buildSrcIndex() {
+  const text = editor.value;
+  if (srcIdxText === text) return;
+  const norm = [], map = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (isWordCh(c)) { norm.push(c); map.push(i); }
+  }
+  srcIdxText = text; srcIdxNorm = norm.join(''); srcIdxMap = map;
+}
+
+function offsetToLineCol(off) {
+  const text = editor.value;
+  if (off < 0) off = 0;
+  if (off > text.length) off = text.length;
+  let line = 1, start = 0;
+  for (let i = text.indexOf('\n'); i !== -1 && i < off; i = text.indexOf('\n', i + 1)) {
+    line++; start = i + 1;
+  }
+  return { line: line, col: off - start + 1 };
+}
+
+function showPos(line, col, exact) {
+  if (!previewPosEl) return;
+  previewPosEl.textContent = L().posFmt.replace('{l}', line).replace('{c}', col);
+  previewPosEl.classList.toggle('hit', !!exact);
+}
+
+/* 프리뷰의 한 지점(뷰포트 좌표) → 원문 오프셋. 못 찾으면 null */
+function srcOffsetFromPreviewPoint(x, y) {
+  if (!document.caretRangeFromPoint) return null;
+  const range = document.caretRangeFromPoint(x, y);
+  if (!range || !preview.contains(range.startContainer)) return null;
+  buildSrcIndex();
+  if (!srcIdxNorm.length) return null;
+
+  const walker = document.createTreeWalker(preview, NodeFilter.SHOW_TEXT, null);
+  let node = null, started = false, needle = '';
+  while ((node = walker.nextNode())) {
+    if (!started) {
+      if (node !== range.startContainer) continue;
+      started = true;
+      const tail = node.nodeValue.slice(range.startOffset);
+      for (const c of tail) if (isWordCh(c)) needle += c;
+    } else {
+      for (const c of node.nodeValue) if (isWordCh(c)) needle += c;
+    }
+    if (needle.length >= 28) break;
+  }
+  if (needle.length < 3) return null;
+  needle = needle.slice(0, 28);
+
+  /* 같은 문구가 여러 번 나올 때를 대비해 스크롤 위치로 대략 지점을 추정 */
+  const prect = previewScroll.getBoundingClientRect();
+  const docY = previewScroll.scrollTop + (y - prect.top);
+  const ratio = Math.min(1, Math.max(0, docY / Math.max(1, previewScroll.scrollHeight)));
+  const hint = Math.floor(ratio * srcIdxNorm.length);
+
+  for (let len = needle.length; len >= 4; len = Math.floor(len / 2)) {
+    const key = needle.slice(0, len);
+    let best = -1, bestDist = Infinity, at = srcIdxNorm.indexOf(key);
+    while (at !== -1) {
+      const d = Math.abs(at - hint);
+      if (d < bestDist) { bestDist = d; best = at; }
+      at = srcIdxNorm.indexOf(key, at + 1);
+    }
+    if (best !== -1) return srcIdxMap[best];
+  }
+  return null;
+}
+
+function updatePosFromPreview(x, y) {
+  const off = srcOffsetFromPreviewPoint(x, y);
+  if (off == null) {
+    /* 못 찾으면 스크롤 비율로 줄만 추정하고 정확 표시는 끈다 */
+    const total = editor.value.split('\n').length;
+    const ratio = previewScroll.scrollTop / Math.max(1, contentScrollMax(previewScroll));
+    showPos(Math.min(total, Math.max(1, Math.round(ratio * total) + 1)), 1, false);
+    return;
+  }
+  const lc = offsetToLineCol(off);
+  showPos(lc.line, lc.col, true);
+}
+
+previewScroll.addEventListener('click', (e) => updatePosFromPreview(e.clientX, e.clientY));
+previewScroll.addEventListener('mouseup', (e) => updatePosFromPreview(e.clientX, e.clientY));
 
 /* ---------- 편집기 클릭 위치 → 프리뷰에 위치 마커 표시 ---------- */
 const previewMarker = document.getElementById('preview-marker');
@@ -2947,8 +3082,8 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 | 항목 | 내용 |
 |------|------|
 | 프로그램 | jm-mdv (Markdown Viewer) |
-| **최신 버전** | **v1.26.0** |
-| 최종 업데이트 | 2026-09-18 |
+| **최신 버전** | **v1.27.0** |
+| 최종 업데이트 | 2026-09-21 |
 | 개발자 | **Shin.DoYeon** |
 | 이메일 | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -2959,6 +3094,25 @@ const VERSION_MD_KO = `# 🗒️ 버전 기록
 <p style="color:#6b7280">각 버전을 <b>클릭</b>하면 상세 변경 내용이 펼쳐집니다.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.27.0</b> &nbsp;·&nbsp; 2026-09-21 &nbsp;·&nbsp; 미리보기 우측 아래에 원문 기준 커서 위치 표시</summary>
+
+### 📍 미리보기에서 클릭한 자리가 원문 몇 번째 줄·칸인지 표시
+
+- **미리보기 오른쪽 아래**에 **줄 N, 칸 M** 이 표시됩니다. 흰 배경 위에서도 잘 보이도록
+  진한 배경에 굵은 글씨로 뒀습니다.
+- 기준은 항상 **원문 md 파일**입니다. 화면에 보이는 렌더 결과가 아니라, **실제 파일에서 그 글자가
+  몇 번째 줄 몇 번째 칸인지**를 알려줍니다.
+- 그래서 굵게 표시나 코드 표시처럼 **원문에만 있는 기호까지 세어** 칸을 맞춥니다. 예를 들어
+  별표 두 개로 감싼 굵은 글씨의 첫 글자는 별표까지 포함한 위치로 나옵니다.
+- 표 안의 칸, 목록 항목, 제목에서도 동작합니다.
+- 소스 편집기에서 커서를 옮겼을 때도 같은 표시가 함께 갱신됩니다.
+
+> 작동 방식: 미리보기에는 원문의 줄 번호가 남아 있지 않습니다. 그래서 클릭한 지점의 글자들을
+> 원문에서 되찾아 위치를 계산합니다. 같은 문구가 여러 번 나오면 스크롤 위치로 가장 가까운 쪽을
+> 고릅니다. 되찾지 못한 드문 경우에는 대략적인 줄만 표시하고 테두리 강조를 끕니다.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.26.0</b> &nbsp;·&nbsp; 2026-09-18 &nbsp;·&nbsp; 파일 경로를 크게 한 줄로 · 디렉토리 패널 개선 · 프리뷰 멈춤 대응</summary>
 
 ### 📁 현재 파일의 전체 경로를 탭 아래 한 줄로 크게
@@ -4493,8 +4647,8 @@ const VERSION_MD_EN = `# 🗒️ Version History
 | Item | Value |
 |------|-------|
 | Program | jm-mdv (Markdown Viewer) |
-| **Latest version** | **v1.26.0** |
-| Last updated | 2026-09-18 |
+| **Latest version** | **v1.27.0** |
+| Last updated | 2026-09-21 |
 | Developer | **Shin.DoYeon** |
 | Email | [jinroh77@gmail.com](mailto:jinroh77@gmail.com) |
 
@@ -4505,6 +4659,26 @@ const VERSION_MD_EN = `# 🗒️ Version History
 <p style="color:#6b7280"><b>Click</b> a version to expand its detailed changes.</p>
 
 <details markdown="1" open>
+<summary>💠 <b>v1.27.0</b> &nbsp;·&nbsp; 2026-09-21 &nbsp;·&nbsp; Cursor position, in source terms, at the bottom right of the preview</summary>
+
+### 📍 Where you click in the preview, shown as a line and column of the source
+
+- The **bottom right of the preview** now shows **Ln N, Col M**, in bold on a dark chip so it stays
+  readable over the light preview background.
+- The numbers always refer to the **original markdown file**, not the rendered view — they tell you
+  where that character actually sits in the file.
+- That means **markup characters that exist only in the source are counted too**. The first letter of
+  a bold run, for instance, reports the column including its asterisks.
+- It works inside table cells, list items and headings.
+- Moving the caret in the source editor updates the same readout.
+
+> How it works: the preview carries no source line numbers, so the characters at the clicked point are
+> located back in the original text. When the same phrase occurs more than once, the occurrence nearest
+> the current scroll position wins. In the rare case nothing matches, an approximate line is shown and
+> the highlight border turns off.
+
+</details>
+<details markdown="1">
 <summary>💠 <b>v1.26.0</b> &nbsp;·&nbsp; 2026-09-18 &nbsp;·&nbsp; Full path on its own large line · directory panel polish · preview freeze mitigation</summary>
 
 ### 📁 The full file path now gets its own line under the tabs
