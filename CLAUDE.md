@@ -102,6 +102,10 @@ Last verified 2026-09-30. Released through **v1.27.0** (tag `v1.27.0` → `10c92
 **`jm-mdv.exe`**, 18,024,426 bytes). `APP_VERSION` in `app.py` matches the released version, so a
 fresh checkout needs no version bump before starting new work. Working tree clean at that commit.
 
+**Resuming from the desktop:** double-clicking `C:\Users\Administrator\Desktop\ClaudeCode_TermList\jm-mdv.bat` opens PowerShell in this project,
+starts Claude Code in auto-approve mode and runs `/remote-control`, so the Claude Desktop app can
+attach immediately. That folder holds one such launcher per service.
+
 Release assets no longer carry a version in the filename — always `jm-mdv.exe` / `jm-mdv.app`, which
 gives a permanent download URL:
 `https://github.com/wbslog/jm-markdowneditor/releases/latest/download/jm-mdv.exe`
