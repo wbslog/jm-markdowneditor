@@ -98,12 +98,31 @@ is also inlined into exported HTML.
 
 ## Where things stand (resume here after a break)
 
-Last verified 2026-09-02. Released through **v1.25.0** (tag `v1.25.0` → `5ba94b7`, asset
-`jm-mdv-1.25.0.exe`, 18,015,329 bytes). `APP_VERSION` in `app.py` matches the released version, so a
+Last verified 2026-09-30. Released through **v1.27.0** (tag `v1.27.0` → `10c9237`, asset
+**`jm-mdv.exe`**, 18,024,426 bytes). `APP_VERSION` in `app.py` matches the released version, so a
 fresh checkout needs no version bump before starting new work. Working tree clean at that commit.
+
+Release assets no longer carry a version in the filename — always `jm-mdv.exe` / `jm-mdv.app`, which
+gives a permanent download URL:
+`https://github.com/wbslog/jm-markdowneditor/releases/latest/download/jm-mdv.exe`
 
 Recent sessions, newest first:
 
+- **v1.27.0** — the preview shows **the cursor's line and column in the *source* markdown**, on a
+  dark chip at its bottom right. The preview holds no source line numbers, so the characters at the
+  clicked point are located back in the original text: a normalized copy of the source (letters,
+  digits, Hangul, CJK only) plus an index back to real offsets; up to 28 normalized characters are
+  taken from the click point and matched, with the occurrence nearest the current scroll position
+  winning. Because punctuation is dropped, markup that exists only in the source (`**bold**`,
+  backtick code) is counted in the column. Verified 9/9 exact against hand-checked positions.
+- **v1.26.0** — release filenames lost their version (see above), the full path moved out of the
+  toolbar onto its own wide line under the tabs with an Open-folder button to its left (clicking the
+  path text no longer opens the folder), the directory panel got text buttons (이전 / 새로고침), an
+  absolute path on the line below them and a loading spinner. The v1.25.0 800ms poll was removed —
+  the handing-over process now grants foreground rights (`AllowSetForegroundWindow`) and the receiver
+  raises itself with user32, the frontend checks on focus, and a 1.5s fallback check **skips while a
+  mouse button is held** (that constant bridge traffic was the prime suspect for the preview freezing
+  mid drag-selection — removed, not proven).
 - **v1.25.0** — fixed the two bugs the user hit after installing from a release.
   (a) **Updates left the old version wired up.** The updater saved each release under its versioned
   name, so Explorer's file association kept pointing at the previous exe — opening a `.md` launched
@@ -137,8 +156,16 @@ Recent sessions, newest first:
   their file association still points at an older exe. The first honest test is to install v1.25.0,
   publish the version after it, and press **⬇️ 다운로드 및 재시작**. Confirm that before
   telling anyone auto-update works.
-- v1.25.0 needs a **one-time manual install**: rename the downloaded exe to `jm-mdv.exe`, re-point the
-  file association at it, and delete the leftover versioned exes. After that the name never changes.
+- Anyone still on a versioned exe needs **one manual install** of `jm-mdv.exe` and one re-pointing of
+  the file association. From v1.26.0 on the filename never changes, so this is the last time.
+- **The preview freeze during drag-selection was never root-caused.** v1.26.0 removed the most likely
+  contributor. If it recurs, that is the next clue — do not assume it is fixed.
+- **Performance, measured 2026-09-18** (numbers, not guesses): onefile startup is **~7.8s** (18MB
+  unpacked every launch) — the main "heavy" feeling; Python render is **~100ms for a 45KB document**
+  and the debounce is only 100ms, so large files re-parse constantly. The frontend is not the problem
+  (innerHTML 4ms, layout 21ms) and **backdrop-filter blur costs nothing measurable** (6.9ms frames
+  either way) — that was a wrong guess, checked and discarded. Cheapest win: scale the render debounce
+  with document size. Biggest win: `--onedir`, at the cost of single-file distribution. Neither done.
 - Users still on v1.23.0 or earlier must install one build manually; their updater cannot relaunch.
 - Carried over from earlier sessions: whether to return the Home key to OS default (asked, no answer
   yet); macOS `.app` has no `CFBundleDocumentTypes` so Finder double-click association does not work;
@@ -166,3 +193,10 @@ Recent sessions, newest first:
   window through the OS (user32 on the HWND) when you must. `python app.py` will not reproduce any
   of this — **every fix in this area has to be verified on the built exe, repeatedly**, since the
   failure is nondeterministic (it alternated between freeze and crash across runs).
+- **Heredocs eat backslashes — write JS to a file instead.** Patching `ui/index.html` through a
+  `<<'PY'` heredoc mangled `\n` into a real newline and broke the script twice in one session. For
+  anything containing backslashes, `cat > file.js` the code verbatim, `node --check` it, then have a
+  small Python script splice that file in. Same for probe scripts used in testing.
+- **Editing a published release: `PATCH`, never delete-and-recreate.** A wrong release title was
+  fixed in place with `PATCH`, keeping the asset and publish date. An earlier delete-and-recreate
+  permanently lost the publish date and download count.
